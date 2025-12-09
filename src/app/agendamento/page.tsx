@@ -233,11 +233,11 @@ export default function AgendamentoPage() {
             TÍTULO / INTRODUÇÃO
         ========================================================== */}
         <section className="mb-10">
-          <h1 className="mb-4 text-2xl font-semibold md:text-3xl">
+          <h1 className="mb-4 text-center text-2xl font-semibold md:text-3xl">
             Crie sua própria música na{" "}
             <span className="text-red-500">THouse Rec</span>
           </h1>
-          <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+          <p className="text-sm text-center leading-relaxed text-zinc-300 md:text-base">
             Aqui você monta sua sessão de estúdio do seu jeito: escolhendo
             serviços avulsos, pacotes de beats, data e horário no calendário. A
             ideia é deixar o agendamento o mais claro e direto possível, para
@@ -253,7 +253,7 @@ export default function AgendamentoPage() {
             <h2 className="text-center text-xl font-semibold text-red-400">
               Serviços de Estúdio e Avulsos
             </h2>
-            <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+            <p className="text-sm text-center leading-relaxed text-zinc-300 md:text-base">
               Selecione os serviços que você deseja para essa sessão. Você pode
               combinar captação, mix, master, sonoplastia e outras opções para
               montar um fluxo de trabalho completo ou apenas o que precisa no
@@ -329,7 +329,7 @@ export default function AgendamentoPage() {
             <h2 className="text-center text-xl font-semibold text-red-400">
               Beats e Pacotes Especiais
             </h2>
-            <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+            <p className="text-sm text-center leading-relaxed text-zinc-300 md:text-base">
               Se você já tem uma ideia de sonoridade ou quer um beat exclusivo,
               pode selecionar aqui os pacotes de beats e produções completas.
               Esses valores podem ser combinados com os serviços de estúdio para
@@ -380,10 +380,10 @@ export default function AgendamentoPage() {
         ========================================================== */}
         <section className="mb-10">
           <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-            <h2 className="text-lg font-semibold text-red-400">
+            <h2 className="text-lg text-center font-semibold text-red-400">
               Comentários adicionais sobre o seu projeto
             </h2>
-            <p className="text-sm text-zinc-300 md:text-base">
+            <p className="text-sm text-center text-zinc-300 md:text-base">
               Use este espaço para descrever o que você quer fazer: estilo de
               som, referência de artista, clima da música, se já tem letra ou se
               ainda está montando a ideia. Quanto mais contexto, mais fácil
@@ -408,7 +408,7 @@ export default function AgendamentoPage() {
               Agendamento virtual
             </h2>
 
-            <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+            <p className="text-sm text-center leading-relaxed text-zinc-300 md:text-base">
               Agora escolha o dia e o horário da sua sessão. Os horários
               disponíveis aparecem em destaque, e conforme o sistema for sendo
               integrado com a agenda real do estúdio, horários ocupados também
@@ -528,7 +528,7 @@ export default function AgendamentoPage() {
             TRABALHOS EXTERNOS
         ========================================================== */}
         <section className="mb-10">
-          <p className="text-xs leading-relaxed text-zinc-300 md:text-sm">
+          <p className="text-xs text-center leading-relaxed text-zinc-300 md:text-sm">
             Qualquer trabalho à parte, como <strong>técnico de som</strong>,{" "}
             <strong>técnico de mixagem</strong>,{" "}
             <strong>mestre de cerimônia</strong> e outras funções relacionadas
@@ -744,14 +744,14 @@ export default function AgendamentoPage() {
         ========================================================== */}
         <section className="mb-12">
           <div className="space-y-3 rounded-2xl border border-red-700/40 bg-zinc-950 p-6 text-sm">
-            <p className="text-sm text-zinc-300 md:text-base">
+            <p className="text-sm text-center text-zinc-300 md:text-base">
               Ao prosseguir, você confirma que está ciente de que o agendamento
               só será efetivado após a confirmação do pagamento e de que os
               detalhes finais (como tempo exato de sessão, ajustes e revisões)
               podem ser alinhados diretamente com o estúdio.
             </p>
 
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-center text-zinc-400">
               A confirmação do agendamento implica concordância com os{" "}
               <strong>termos de uso</strong> e com o{" "}
               <strong>contrato de prestação de serviço</strong> da THouse Rec.

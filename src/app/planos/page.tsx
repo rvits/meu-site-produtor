@@ -152,14 +152,14 @@ export default function PlanosPage() {
             TÍTULO / INTRO
         ========================================================== */}
         <div className="mb-10">
-          <h1 className="text-left text-3xl font-bold">
+          <h1 className="text-center text-3xl font-bold">
             Planos da{" "}
             <span className="text-red-500">
               THouse Rec
             </span>
           </h1>
 
-          <p className="mt-2 text-left text-zinc-300 max-w-3xl">
+          <p className="mt-2 text-center text-zinc-300 text-base leading-relaxed">
             Aqui você escolhe o plano que melhor encaixa na sua rotina de
             lançamentos. Basta selecionar entre{" "}
             <strong>mensal</strong> ou <strong>anual</strong>, conferir os
