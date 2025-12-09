@@ -442,9 +442,9 @@ export default function AgendamentoPage() {
                 </div>
 
                 <div className="grid grid-cols-7 gap-1 text-[10px] text-zinc-300">
-                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d) => (
+                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, idx) => (
                     <div
-                      key={d}
+                      key={`${idx}-${d}`} // <<< chave única agora
                       className="py-1 text-center text-[10px] text-zinc-400"
                     >
                       {d}

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Header from "../components/Header";
+import { useAuth } from "../context/AuthContext";
+import { useRouter } from "next/navigation";
 
 type Plano = {
   id: string;
@@ -13,6 +15,25 @@ type Plano = {
 };
 
 const PLANOS: Plano[] = [
+  {
+    id: "teste",
+    nome: "Plano Teste",
+    mensal: 1,
+    anual: 1,
+    descricao:
+      "Plano simbólico de R$ 1,00 apenas para testar o fluxo de pagamento.",
+    beneficios: [
+      { label: "Sem benefícios reais", included: false },
+      {
+        label: "Usado só para conferir se o pagamento cai certinho",
+        included: true,
+      },
+      {
+        label: "Não é um plano oficial da THouse Rec",
+        included: false,
+      },
+    ],
+  },
   {
     id: "bronze",
     nome: "Plano Bronze",
@@ -62,14 +83,83 @@ const PLANOS: Plano[] = [
 
 export default function PlanosPage() {
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
+  const [loadingPlanoId, setLoadingPlanoId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
 
-  const handleAssinar = (plano: Plano) => {
-    // Aqui depois você integra com a tela real de pagamentos / checkout
-    alert(
-      `Você escolheu o ${plano.nome} no modo ${
-        modoPlano === "mensal" ? "mensal" : "anual"
-      }.\nNa próxima etapa você será direcionado para a sessão de pagamentos, onde confirma o plano e aceita os termos de uso e contrato.`
-    );
+  const handleAssinar = async (plano: Plano) => {
+    try {
+      if (!user) {
+        alert("Você precisa estar logado para assinar um plano.");
+        router.push("/login");
+        return;
+      }
+
+      setLoadingPlanoId(plano.id);
+
+      // ⚠️ IMPORTANTE: rota plural, porque a pasta é /api/pagamentos
+      const resp = await fetch("/api/pagamentos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planoId: plano.id,
+          modo: modoPlano,
+          userId: user.id,
+          nome: user.nome,
+          email: user.email,
+        }),
+      });
+
+      // ---------- ERRO HTTP (4xx / 5xx) ----------
+      if (!resp.ok) {
+        const status = resp.status;
+        const rawText = await resp.text().catch(() => "");
+
+        console.error("Falha ao criar pagamento (HTTP):", {
+          status,
+          rawText,
+        });
+
+        alert(
+          `Falha ao criar pagamento.\n\n` +
+            `Status HTTP: ${status}\n` +
+            `Resposta do servidor:\n` +
+            (rawText || "(vazia)")
+        );
+        return;
+      }
+
+      // ---------- SUCESSO (200) ----------
+      let data: any = null;
+      try {
+        data = await resp.json();
+      } catch (e) {
+        console.error("Não consegui fazer parse do JSON de sucesso:", e);
+        alert(
+          "Pagamento parece ter sido criado, mas a resposta veio em um formato inesperado.\nVeja o console para mais detalhes."
+        );
+        return;
+      }
+
+      console.log("Resposta de sucesso /api/pagamentos:", data);
+
+      if (!data?.init_point) {
+        alert(
+          "Resposta do servidor não trouxe o link de pagamento (init_point)."
+        );
+        return;
+      }
+
+      // Redireciona para o checkout do Mercado Pago
+      window.location.href = data.init_point;
+    } catch (e) {
+      console.error("Erro inesperado ao iniciar o pagamento:", e);
+      alert("Erro inesperado ao iniciar o pagamento.");
+    } finally {
+      setLoadingPlanoId(null);
+    }
   };
 
   return (
@@ -95,7 +185,9 @@ export default function PlanosPage() {
             benefícios e, ao clicar em <strong>“Assinar plano”</strong>, você
             será direcionado para a sessão de pagamentos. Lá será feita a
             confirmação do plano escolhido e o{" "}
-            <strong>aceite dos termos de uso e do contrato de prestação de serviço</strong>
+            <strong>
+              aceite dos termos de uso e do contrato de prestação de serviço
+            </strong>
             .
           </p>
         </section>
@@ -145,6 +237,8 @@ export default function PlanosPage() {
                 modoPlano === "mensal"
                   ? `R$ ${valorBase.toFixed(2).replace(".", ",")} / mês`
                   : `R$ ${valorBase.toFixed(2).replace(".", ",")} / ano`;
+
+              const isLoading = loadingPlanoId === plano.id;
 
               return (
                 <div
@@ -201,9 +295,14 @@ export default function PlanosPage() {
                   <button
                     type="button"
                     onClick={() => handleAssinar(plano)}
-                    className="mt-3 inline-block w-full rounded-full border border-red-600 px-4 py-2 text-center text-sm font-semibold text-red-300 hover:bg-red-600/20"
+                    disabled={isLoading}
+                    className={`mt-3 inline-block w-full rounded-full border border-red-600 px-4 py-2 text-center text-sm font-semibold ${
+                      isLoading
+                        ? "bg-red-900/40 text-red-200 cursor-wait"
+                        : "text-red-300 hover:bg-red-600/20"
+                    }`}
                   >
-                    Assinar este plano
+                    {isLoading ? "Redirecionando..." : "Assinar este plano"}
                   </button>
                 </div>
               );
