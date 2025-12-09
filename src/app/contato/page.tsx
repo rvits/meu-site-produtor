@@ -13,21 +13,15 @@ export default function ContatoPage() {
 
         <div className="space-y-3 text-sm text-zinc-300">
           <p>
-            ✉️ E-mail: <strong>contato@seuprodutor.com</strong>
+            ✉️ E-mail: <strong>vicperra@gmail.com</strong>
           </p>
           <p>
-            📱 WhatsApp: <strong>(00) 00000-0000</strong>
+            📱 WhatsApp: <strong>+55 (21) 99129-2544</strong>
           </p>
           <p>
-            📍 Cidade/Região: <strong>Definir aqui</strong>
+            📍 Cidade/Região: <strong>Rio de Janeiro, RJ</strong>
           </p>
         </div>
-
-        {/* Futuro: formulário de contato */}
-        <p className="mt-8 text-xs text-zinc-500">
-          Mais pra frente, podemos colocar aqui um formulário de contato com
-          nome, e-mail, assunto e mensagem, conectado ao e-mail do produtor.
-        </p>
       </main>
     </>
   );
