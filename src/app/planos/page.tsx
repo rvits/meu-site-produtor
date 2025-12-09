@@ -16,25 +16,6 @@ type Plano = {
 
 const PLANOS: Plano[] = [
   {
-    id: "teste",
-    nome: "Plano Teste",
-    mensal: 1,
-    anual: 1,
-    descricao:
-      "Plano simbólico de R$ 1,00 apenas para testar o fluxo de pagamento.",
-    beneficios: [
-      { label: "Sem benefícios reais", included: false },
-      {
-        label: "Usado só para conferir se o pagamento cai certinho",
-        included: true,
-      },
-      {
-        label: "Não é um plano oficial da THouse Rec",
-        included: false,
-      },
-    ],
-  },
-  {
     id: "bronze",
     nome: "Plano Bronze",
     mensal: 149.99,
@@ -170,15 +151,15 @@ export default function PlanosPage() {
         {/* =========================================================
             TÍTULO / INTRO
         ========================================================== */}
-        <section className="mb-10 space-y-4">
-          <h1 className="text-2xl font-semibold md:text-3xl text-center">
+        <div className="mb-10">
+          <h1 className="text-left text-3xl font-bold">
             Planos da{" "}
             <span className="text-red-500">
               THouse Rec
             </span>
           </h1>
 
-          <p className="text-sm leading-relaxed text-zinc-300 md:text-base text-center max-w-3xl mx-auto">
+          <p className="mt-2 text-left text-zinc-300 max-w-3xl">
             Aqui você escolhe o plano que melhor encaixa na sua rotina de
             lançamentos. Basta selecionar entre{" "}
             <strong>mensal</strong> ou <strong>anual</strong>, conferir os
@@ -190,7 +171,7 @@ export default function PlanosPage() {
             </strong>
             .
           </p>
-        </section>
+        </div>
 
         {/* =========================================================
             TOGGLE MENSAL / ANUAL

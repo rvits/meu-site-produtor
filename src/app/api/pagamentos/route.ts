@@ -23,12 +23,6 @@ const PLANOS = [
     mensal: 549.99,
     anual: 5499.99,
   },
-  {
-    id: "teste",
-    nome: "Plano Teste",
-    mensal: 1.0,
-    anual: 1.0,
-  },
 ];
 
 const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
