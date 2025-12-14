@@ -2,190 +2,175 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-interface User {
-  id: number;
-  nome: string;
+/* =========================================================
+   TIPOS
+========================================================= */
+
+export interface User {
+  id: string;
+
+  // Nome real (usado em pagamentos, contratos, etc)
+  nome?: string;
+
+  // Nome artístico (exibição pública)
+  nomeArtistico: string;
+
   email: string;
-  foto?: string;
+  role: "USER" | "ADMIN";
+}
+
+
+export interface RegistroPayload {
+  nomeArtistico: string;
+  email: string;
+  senha: string;
+  telefone: string;
+  pais: string;
+  estado: string;
+  cidade: string;
+  bairro: string;
+  dataNascimento: string;
+  estilosMusicais?: string | null;
+  nacionalidade?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, senha: string) => Promise<boolean>;
-  registro: (nome: string, email: string, senha: string) => Promise<boolean>;
-  logout: () => void;
-  updateUser: (data: Partial<User>) => void;
+  registro: (payload: RegistroPayload) => Promise<boolean>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
+
+/* =========================================================
+   CONTEXT
+========================================================= */
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// --------------------------------------
-// Helper para validar se algo "parece" um User
-// --------------------------------------
-function isValidUser(u: any): u is User {
-  if (!u || typeof u !== "object") return false;
-  if (typeof u.id !== "number") return false;
-  if (typeof u.nome !== "string") return false;
-  if (typeof u.email !== "string") return false;
-  return true;
-}
+/* =========================================================
+   PROVIDER
+========================================================= */
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --------------------------------------
-  // Carregar usuário salvo com try/catch
-  // --------------------------------------
-  useEffect(() => {
+  /* --------------------------------------
+     🔁 REFRESH REAL (COOKIE → BACKEND)
+  -------------------------------------- */
+  async function refresh() {
     try {
-      const saved = localStorage.getItem("thouse_user");
-      if (!saved) {
-        setLoading(false);
-        return;
-      }
+      const r = await fetch("/api/me", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      const parsed = JSON.parse(saved);
-      if (isValidUser(parsed)) {
-        setUser(parsed);
+      const data = await r.json();
+
+      if (data?.user) {
+        setUser(data.user);
       } else {
-        console.warn(
-          "[Auth] Dados inválidos em localStorage.thouse_user, limpando..."
-        );
-        localStorage.removeItem("thouse_user");
+        setUser(null);
       }
-    } catch (e) {
-      console.error("[Auth] Erro ao ler localStorage.thouse_user:", e);
-      localStorage.removeItem("thouse_user");
+    } catch (err) {
+      console.error("[Auth] Falha ao validar sessão:", err);
+      setUser(null);
     } finally {
       setLoading(false);
     }
+  }
+
+  /* --------------------------------------
+     🧠 HIDRATAÇÃO INICIAL
+  -------------------------------------- */
+  useEffect(() => {
+    refresh();
   }, []);
 
-  // --------------------------------------
-  // LOGIN
-  // --------------------------------------
+  /* --------------------------------------
+     🔐 LOGIN
+  -------------------------------------- */
   async function login(email: string, senha: string): Promise<boolean> {
     try {
       const r = await fetch("/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, senha }),
       });
 
-      if (!r.ok) {
-        console.error("Login falhou. Status:", r.status);
-        alert("Falha no login. Verifique e-mail/senha.");
-        return false;
-      }
+      if (!r.ok) return false;
 
-      const data: any = await r.json();
-      console.log("[Auth] Resposta crua do login:", data);
-
-      // A API pode devolver { user: {...} } OU diretamente {id, nome, email}
-      const candidate = data?.user ?? data;
-
-      if (!isValidUser(candidate)) {
-        console.error(
-          "Resposta de login sem dados válidos de usuário:",
-          data
-        );
-        alert("Login respondeu sem os dados do usuário.");
-        return false;
-      }
-
-      setUser(candidate);
-      localStorage.setItem("thouse_user", JSON.stringify(candidate));
+      await refresh();
       return true;
-    } catch (e) {
-      console.error("Erro inesperado no login:", e);
-      alert("Erro inesperado ao fazer login.");
+    } catch (err) {
+      console.error("Erro no login:", err);
       return false;
     }
   }
 
-  // --------------------------------------
-  // REGISTRO
-  // --------------------------------------
-  async function registro(
-    nome: string,
-    email: string,
-    senha: string
-  ): Promise<boolean> {
+  /* --------------------------------------
+     📝 REGISTRO
+  -------------------------------------- */
+  async function registro(payload: RegistroPayload): Promise<boolean> {
     try {
       const r = await fetch("/api/registro", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nome, email, senha }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
       });
 
-      if (!r.ok) {
-        console.error("Registro falhou. Status:", r.status);
-        alert("Registro falhou. Verifique os dados (e-mail pode já existir).");
-        return false;
-      }
+      if (!r.ok) return false;
 
-      const data: any = await r.json();
-      console.log("[Auth] Resposta crua do registro:", data);
-
-      const candidate = data?.user ?? data;
-
-      if (!isValidUser(candidate)) {
-        console.error(
-          "Resposta de registro sem dados válidos de usuário:",
-          data
-        );
-        alert("Registro respondeu sem os dados do usuário.");
-        return false;
-      }
-
-      setUser(candidate);
-      localStorage.setItem("thouse_user", JSON.stringify(candidate));
+      await refresh();
       return true;
-    } catch (e) {
-      console.error("Erro inesperado no registro:", e);
-      alert("Erro inesperado ao fazer registro.");
+    } catch (err) {
+      console.error("Erro no registro:", err);
       return false;
     }
   }
 
-  // --------------------------------------
-  // LOGOUT
-  // --------------------------------------
-  function logout() {
-    setUser(null);
-    localStorage.removeItem("thouse_user");
-  }
-
-  // --------------------------------------
-  // UPDATE PROFILE
-  // --------------------------------------
-  function updateUser(data: Partial<User>) {
-    setUser((prev) => {
-      const updated = prev ? { ...prev, ...data } : null;
-      if (updated) {
-        localStorage.setItem("thouse_user", JSON.stringify(updated));
-      }
-      return updated;
-    });
+  /* --------------------------------------
+     🚪 LOGOUT
+  -------------------------------------- */
+  async function logout() {
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      setUser(null);
+    }
   }
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, registro, logout, updateUser }}
+      value={{
+        user,
+        loading,
+        login,
+        registro,
+        logout,
+        refresh,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
 
+/* =========================================================
+   HOOK
+========================================================= */
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth deve ser usado dentro de AuthProvider");
+  if (!ctx) {
+    throw new Error("useAuth deve ser usado dentro de AuthProvider");
+  }
   return ctx;
 }

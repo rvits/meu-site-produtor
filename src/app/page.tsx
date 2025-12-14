@@ -1,16 +1,49 @@
 "use client";
 
-import React, { useState } from "react";
-import Header from "./components/Header";
+import { useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/app/context/AuthContext";
 
-// ---------------------------------------------------------
-// PLANOS (valores base mensais e anuais, em reais)
-// ---------------------------------------------------------
+/* =========================
+   SERVICO CARD
+========================= */
+type ServicoCardProps = {
+  titulo: string;
+  preco: string;
+  subtitulo?: string;
+  destaque?: boolean;
+};
+
+function ServicoCard({
+  titulo,
+  preco,
+  subtitulo,
+  destaque = false,
+}: ServicoCardProps) {
+  return (
+    <div
+      className={
+        "flex min-h-[120px] flex-col items-center justify-center rounded-xl border p-4 text-center " +
+        (destaque
+          ? "border-red-500 bg-zinc-900"
+          : "border-red-700/40 bg-zinc-900")
+      }
+    >
+      <p className="text-sm font-medium text-zinc-100">{titulo}</p>
+      {subtitulo && <p className="text-xs text-zinc-400">{subtitulo}</p>}
+      <p className="mt-1 text-xl font-bold text-red-400">{preco}</p>
+    </div>
+  );
+}
+
+/* =========================
+   PLANOS
+========================= */
 type Plano = {
   id: string;
   nome: string;
-  mensal: number; // em R$
-  anual: number; // em R$
+  mensal: number;
+  anual: number;
   descricao: string;
   beneficios: { label: string; included: boolean }[];
 };
@@ -27,8 +60,6 @@ const PLANOS: Plano[] = [
       { label: "1 mix por mês", included: true },
       { label: "1 master por mês", included: true },
       { label: "Prioridade na agenda", included: false },
-      { label: "Sessão de direção de produção", included: false },
-      { label: "Desconto em beats exclusivos", included: false },
     ],
   },
   {
@@ -41,9 +72,7 @@ const PLANOS: Plano[] = [
       { label: "2h de captação por mês", included: true },
       { label: "2 mix & master por mês", included: true },
       { label: "1 beat por mês", included: true },
-      { label: "Prioridade intermediária na agenda", included: true },
-      { label: "Sessão de direção de produção", included: false },
-      { label: "Desconto em beats exclusivos", included: false },
+      { label: "Prioridade intermediária", included: true },
     ],
   },
   {
@@ -51,59 +80,54 @@ const PLANOS: Plano[] = [
     nome: "Plano Ouro",
     mensal: 549.99,
     anual: 5499.99,
-    descricao: "Para quem quer acompanhamento contínuo com o Tremv.",
+    descricao: "Acompanhamento contínuo com o Tremv.",
     beneficios: [
       { label: "4h de captação por mês", included: true },
-      { label: "2 produções completas por mês", included: true },
-      { label: "2 beats por mês", included: true },
-      { label: "Prioridade máxima na agenda", included: true },
-      { label: "Sessão de direção de produção", included: true },
-      { label: "Desconto em beats exclusivos", included: true },
+      { label: "Produções completas", included: true },
+      { label: "Prioridade máxima", included: true },
     ],
   },
 ];
 
 export default function Home() {
+  const { user } = useAuth();
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
 
   return (
-    <>
-      <Header />
+    <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
 
-      <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
         {/* =========================================================
             INTRODUÇÃO / HERO
         ========================================================== */}
         <section
           id="inicio"
-          className="mb-12 grid items-start gap-6 md:grid-cols-[1.4fr,1fr]"
+          className="flex min-h-[70vh] items-center justify-center text-center"
         >
-          <div>
-            <p className="mb-4 text-xs uppercase tracking-[0.2em] text-red-500">
+          <div className="w-full max-w-7xl space-y-5 px-6">
+
+            {/* TÍTULO */}
+            <h1 className="text-6xl font-extrabold tracking-tight md:text-8xl lg:text-9xl">
+              <span className="text-red-500">T</span>House Rec
+            </h1>
+
+            {/* SERVIÇOS */}
+            <p className="text-xs uppercase tracking-[0.35em] text-red-500 md:text-sm">
               Estúdio • Produção • Mix &amp; Master • Sonoplastia • Beatmaking
             </p>
 
-            {/* TÍTULO THouse Rec */}
-            <h1 className="mb-6 space-y-2">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-4xl font-semibold leading-none text-red-500 md:text-5xl">
-                  T
-                </span>
-                <span className="text-3xl font-semibold md:text-4xl">
-                  House Rec
-                </span>
-              </div>
+            {/* DESCRIÇÃO */}
+            <p className=" mt-20 mx-auto max-w-4xl text-base leading-relaxed text-zinc-300 md:text-lg">
+              Crie sua música com identidade e qualidade profissional, em um estúdio
+              pensado para artistas independentes.
+            </p>
+          </div>
+        </section>
 
-              <p className="text-base font-medium text-zinc-100 md:text-lg">
-                Crie sua música com identidade e qualidade profissional, em um
-                estúdio pensado para artistas independentes.
-              </p>
-            </h1>
-
-            {/* INTRODUÇÃO EM CAIXA */}
-            <div className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-5">
-              <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
-                A THouse Rec é o estúdio independente criado por Victor Pereira
+        {/* INTRODUÇÃO EM CAIXA */}
+        <section className="mt-16">
+          <div className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-5">
+            <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+              A THouse Rec é o estúdio independente criado por Victor Pereira
                 Ramos — o <strong>Tremv</strong> — produtor musical, artista e
                 engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. A
                 trajetória começou nas batalhas de rima, rodas de freestyle e na
@@ -136,13 +160,12 @@ export default function Home() {
                 sentimento e qualidade de lançamento.
               </p>
             </div>
-          </div>
 
           {/* =========================================================
               VÍDEO - CLIPE DO ARTISTA
           ========================================================== */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-red-400">
+            <h2 className="mt-10 text-sm font-semibold uppercase tracking-[0.15em] text-red-400">
               Reprogramação — Dizzy (Prod. Tremv)
             </h2>
 
@@ -161,8 +184,8 @@ export default function Home() {
         {/* =========================================================
             TEXTO EXPLICATIVO ANTES DOS SERVIÇOS
         ========================================================== */}
-        <section className="mb-10">
-          <p className="text-sm leading-relaxed text-zinc-300 md:text-base">
+        <section className="mt-10 mb-10">
+          <p className="text-sm text-center leading-relaxed text-zinc-300 md:text-base">
             Você pode contratar serviços avulsos ou combinar diferentes etapas
             da produção para montar a sessão ideal: captação, mix, master,
             sonoplastia e beats. Cada item pode ser usado separadamente ou em
@@ -174,62 +197,27 @@ export default function Home() {
         {/* =========================================================
             CAIXA: SERVIÇOS DE ESTÚDIO
         ========================================================== */}
+        {/* SERVIÇOS DE ESTÚDIO */}
         <section className="mb-16">
           <div className="space-y-8 rounded-2xl border border-red-700/40 bg-zinc-950 p-6">
             <h2 className="text-center text-xl font-semibold text-red-400">
               Serviços de Estúdio
             </h2>
 
-            {/* LINHA 1 — 3 CAIXAS */}
-            <div className="grid grid-cols-3 gap-6">
-              {/* Captação */}
-              <div className="rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-center">
-                <p className="text-sm font-medium text-zinc-100">Captação</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 50/h</p>
-              </div>
-
-              {/* Mix */}
-              <div className="rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-center">
-                <p className="text-sm font-medium text-zinc-100">Mixagem</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 110</p>
-              </div>
-
-              {/* Master */}
-              <div className="rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-center">
-                <p className="text-sm font-medium text-zinc-100">
-                  Masterização
-                </p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 60</p>
-              </div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <ServicoCard titulo="Sessão" preco="R$ 40 / h" />
+              <ServicoCard titulo="Captação" preco="R$ 50 / h" />
+              <ServicoCard titulo="Mixagem" preco="R$ 110" />
             </div>
 
-            {/* LINHA 2 — 2 CAIXAS */}
-            <div className="mx-auto grid max-w-xl grid-cols-2 gap-6">
-              {/* Mix + Master */}
-              <div className="flex flex-col items-center justify-center rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-center">
-                <p className="text-sm font-medium text-zinc-100">
-                  Mix + Master
-                </p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 160</p>
-              </div>
-
-              {/* Sonoplastia */}
-              <div className="rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-center">
-                <p className="text-sm font-medium text-zinc-100">Sonoplastia</p>
-                <p className="text-xs text-zinc-400">(a partir de)</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 320</p>
-              </div>
-            </div>
-
-            {/* DIREITO À SESSÃO */}
-            <div className="rounded-xl border border-yellow-600/60 bg-yellow-950/40 p-4">
-              <p className="text-sm leading-relaxed text-yellow-100 md:text-base">
-                <strong>Direito à sessão:</strong> quando o tempo de estúdio é
-                usado para revisar arranjos, tirar dúvidas, orientar direção
-                criativa ou ajustar mix/master sem captação, é cobrado um
-                adicional de <strong>R$ 40/hora</strong>, exceto quando já houver
-                captação paga.
-              </p>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <ServicoCard titulo="Masterização" preco="R$ 60" />
+              <ServicoCard titulo="Mix + Master" preco="R$ 160" />
+              <ServicoCard
+                titulo="Sonoplastia"
+                subtitulo="(a partir de)"
+                preco="R$ 320"
+              />
             </div>
           </div>
         </section>
@@ -366,11 +354,7 @@ export default function Home() {
                 return (
                   <div
                     key={plano.id}
-                    className="
-                      flex h-full flex-col justify-between
-                      space-y-6 rounded-2xl border border-red-700/40 bg-zinc-900
-                      p-6
-                    "
+                    className="flex h-full flex-col justify-between space-y-6 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
                   >
                     <h3 className="text-center text-lg font-semibold text-red-300">
                       {plano.nome}
@@ -502,7 +486,7 @@ export default function Home() {
             Ficou com alguma dúvida?
           </h2>
 
-          <p className="mb-4 mx-auto max-w-3xl text-center text-sm text-zinc-300 md:text-base">
+          <p className="mb-4 text-center text-sm text-zinc-300 md:text-base">
             Se ainda restar alguma dúvida sobre sessões, prazos, valores ou
             questões técnicas, você pode consultar o FAQ ou falar diretamente
             com o suporte pelo chat. Estamos aqui para te ajudar a tirar o
@@ -535,6 +519,5 @@ export default function Home() {
           </div>
         </section>
       </main>
-    </>
-  );
+    );
 }

@@ -7,7 +7,41 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const { nome, email, senha } = await req.json();
+    const body = await req.json();
+
+    console.log("📥 REGISTRO PAYLOAD:", body);
+
+    const {
+      nomeArtistico,
+      email,
+      senha,
+      telefone,
+      pais,
+      estado,
+      cidade,
+      bairro,
+      dataNascimento,
+      estilosMusicais,
+      nacionalidade,
+    } = body;
+
+    // validação mínima
+    if (
+      !nomeArtistico ||
+      !email ||
+      !senha ||
+      !telefone ||
+      !pais ||
+      !estado ||
+      !cidade ||
+      !bairro ||
+      !dataNascimento
+    ) {
+      return NextResponse.json(
+        { error: "Campos obrigatórios ausentes." },
+        { status: 400 }
+      );
+    }
 
     const existe = await prisma.user.findUnique({
       where: { email },
@@ -23,15 +57,43 @@ export async function POST(req: Request) {
     const hash = await bcrypt.hash(senha, 10);
 
     const user = await prisma.user.create({
-      data: { nome, email, senha: hash },
+      data: {
+        nomeArtistico,
+        email,
+        senha: hash,
+        telefone,
+        pais,
+        estado,
+        cidade,
+        bairro,
+        dataNascimento: new Date(dataNascimento),
+        estilosMusicais: estilosMusicais || null,
+        nacionalidade: nacionalidade || null,
+        role: "USER",
+      },
     });
 
-    return NextResponse.json({ user });
+    // 🔥 PADRÃO ÚNICO
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        nomeArtistico: user.nomeArtistico,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
-    console.error(err);
+    console.error("❌ ERRO REGISTRO:", err);
     return NextResponse.json(
-      { error: "Erro ao registrar." },
+      { error: "Erro interno no servidor." },
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: "Método não permitido" },
+    { status: 405 }
+  );
 }
