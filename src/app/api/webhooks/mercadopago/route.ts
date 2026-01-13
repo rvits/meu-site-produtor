@@ -1,20 +1,41 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/app/lib/prisma";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    console.log("WEBHOOK RECEBIDO:", body);
+    // Validação básica
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    console.log("WEBHOOK RECEBIDO:", body.type || body.action);
 
     // Quando pagamento é aprovado
-    if (body.type === "payment") {
-      // Aqui você busca o pagamento no Mercado Pago...
-      // ...e salva no Prisma como assinatura ativa.
+    if (body.type === "payment" || body.action === "payment.updated") {
+      const paymentId = body.data?.id || body.data_id;
+      
+      if (paymentId) {
+        // TODO: Buscar pagamento no Mercado Pago e salvar no Prisma
+        // Por enquanto apenas loga
+        console.log("Pagamento processado:", paymentId);
+        
+        // Exemplo futuro:
+        // const payment = await mercadoPagoClient.payment.get(paymentId);
+        // await prisma.payment.create({ ... });
+        // if (payment.status === "approved") {
+        //   await prisma.userPlan.create({ ... });
+        // }
+      }
     }
 
     return NextResponse.json({ received: true });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erro no webhook:", err);
-    return NextResponse.json({ error: true }, { status: 500 });
+    // Sempre retornar 200 para o Mercado Pago não reenviar
+    return NextResponse.json({ received: true, error: "Internal error" });
   }
 }

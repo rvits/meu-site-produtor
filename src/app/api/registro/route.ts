@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
+import { registroSchema } from "@/app/lib/validations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,14 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    console.log("📥 REGISTRO PAYLOAD:", body);
+    // ✅ Validar entrada
+    const validation = registroSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors[0]?.message || "Dados inválidos" },
+        { status: 400 }
+      );
+    }
 
     const {
       nomeArtistico,
@@ -24,24 +32,6 @@ export async function POST(req: Request) {
       estilosMusicais,
       nacionalidade,
     } = body;
-
-    // validação mínima
-    if (
-      !nomeArtistico ||
-      !email ||
-      !senha ||
-      !telefone ||
-      !pais ||
-      !estado ||
-      !cidade ||
-      !bairro ||
-      !dataNascimento
-    ) {
-      return NextResponse.json(
-        { error: "Campos obrigatórios ausentes." },
-        { status: 400 }
-      );
-    }
 
     const existe = await prisma.user.findUnique({
       where: { email },

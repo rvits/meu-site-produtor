@@ -26,9 +26,11 @@ export async function sendHumanSupportEmail(userMessage: string) {
     },
   });
 
+  const destEmail = process.env.SUPPORT_DEST_EMAIL || "tremv03021@gmail.com";
+
   await transporter.sendMail({
     from: `"THouse Rec — Suporte" <${user}>`,
-    to: "tremv03021@gmail.com",
+    to: destEmail,
     subject: "👤 Atendimento humano solicitado no chat",
     html: `
       <h2>Atendimento humano solicitado</h2>

@@ -9,7 +9,7 @@ const navLinks = [
   { href: "/planos", label: "Planos" },
   { href: "/faq", label: "FAQ" },
   { href: "/chat", label: "Chat" },
-  { href: "/termos-contratos", label: "Termos & Contratos" },
+  { href: "/termos-contratos", label: "Termos de Contrato" },
   { href: "/shopping", label: "Shopping" },
   { href: "/contato", label: "Contato" },
 ];
@@ -19,25 +19,23 @@ export default function Header() {
 
   if (loading) {
     return (
-      <header className="sticky top-0 z-20 border-b border-red-700/40 bg-black/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-red-700/40 bg-zinc-950/80 backdrop-blur">
         <div className="mx-auto h-[72px] max-w-6xl px-6" />
       </header>
     );
   }
 
-  const isAdmin =
-    user?.role === "ADMIN" ||
-    user?.email === "vicperra@gmail.com";
+  const isAdmin = user?.role === "ADMIN";
 
   return (
-    <header className="sticky top-0 z-20 border-b border-red-700/40 bg-black/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-red-700/40 bg-zinc-950/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-baseline gap-1 font-semibold">
-          <span className="text-3xl text-red-500">T</span>
+          <span className="text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
           <span className="text-xl text-zinc-100">House Rec</span>
         </Link>
 
-        <nav className="hidden md:flex gap-6 text-sm">
+        <nav className="hidden md:flex gap-6 text-sm items-center">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -51,12 +49,22 @@ export default function Header() {
           {isAdmin && (
             <Link
               href="/admin"
-              className="rounded-full border border-red-600 px-3 py-1 text-xs font-semibold text-red-300 hover:bg-red-600 hover:text-white"
+              className="ml-2 rounded-full border-2 border-red-600 bg-red-600/10 px-4 py-2 text-xs font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all"
             >
-              Admin
+              🔐 Admin
             </Link>
           )}
         </nav>
+
+        {/* Botão Admin Mobile */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="md:hidden rounded-full border-2 border-red-600 bg-red-600/10 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all"
+          >
+            Admin
+          </Link>
+        )}
 
         <div className="flex items-center gap-3 text-xs">
           {user ? (

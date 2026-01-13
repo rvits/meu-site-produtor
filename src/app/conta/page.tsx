@@ -50,17 +50,21 @@ export default function ContaPage() {
   async function carregarConta(userId: string) {
     try {
       const r = await fetch("/api/conta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        method: "GET",
+        credentials: "include",
       });
 
-      if (!r.ok) throw new Error("Erro ao buscar conta");
+      if (!r.ok) {
+        const errorData = await r.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erro ao buscar conta");
+      }
 
       const data: ContaData = await r.json();
       setForm(data);
     } catch (err) {
       console.error("Erro ao carregar conta:", err);
+      // Mostrar erro ao usuário
+      alert("Erro ao carregar dados da conta. Tente fazer login novamente.");
     } finally {
       setLoadingConta(false);
     }
@@ -107,7 +111,7 @@ export default function ContaPage() {
   /* ===================== UI ===================== */
 
   return (
-    <div className="relative min-h-screen bg-black text-zinc-200 px-6 py-10">
+    <div className="relative min-h-screen bg-zinc-900 text-zinc-200 px-6 py-10">
       {/* VOLTAR */}
       <button
         onClick={() => router.push("/")}
@@ -184,7 +188,7 @@ export default function ContaPage() {
 
         <button
           onClick={logout}
-          className="w-full rounded bg-zinc-700 py-3 font-semibold hover:bg-zinc-600 transition"
+          className="w-full rounded bg-zinc-900 py-3 font-semibold hover:bg-zinc-900 transition"
         >
           Sair da conta
         </button>
@@ -203,7 +207,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-red-700/40 bg-black/40 p-6">
+    <section className="rounded-lg border border-red-700/40 bg-zinc-900 p-6">
       <h2 className="mb-4 text-lg font-semibold text-red-400">{title}</h2>
       <div className="grid grid-cols-1 gap-4">{children}</div>
     </section>

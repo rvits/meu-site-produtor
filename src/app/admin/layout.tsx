@@ -43,9 +43,9 @@ export default function AdminLayout({
   if (!user || user.role !== "ADMIN") return null;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-zinc-800 text-zinc-100">
       {/* HEADER ADMIN */}
-      <header className="border-b border-zinc-800 bg-zinc-900">
+      <header className="border-b border-zinc-800 bg-zinc-800">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <span className="text-lg font-bold text-red-500">

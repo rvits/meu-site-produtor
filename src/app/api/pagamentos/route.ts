@@ -1,6 +1,8 @@
 // src/app/api/pagamentos/route.ts
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import { requireAuth } from "@/app/lib/auth";
+import { checkoutSchema } from "@/app/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -62,15 +64,28 @@ function getPreferenceClient() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { planoId, modo, userId, nome, email } = body;
+    // 🔒 Verificar autenticação
+    const user = await requireAuth();
 
-    if (!planoId || !modo || !userId || !nome || !email) {
+    const body = await req.json();
+    
+    // ✅ Validar entrada
+    const validation = checkoutSchema.safeParse({
+      planId: body.planoId,
+      modo: body.modo,
+    });
+    
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Dados incompletos para criar o pagamento." },
+        { error: validation.error.errors[0]?.message || "Dados inválidos" },
         { status: 400 }
       );
     }
+
+    const { planId: planoId, modo } = validation.data;
+    const nome = user.nomeArtistico;
+    const email = user.email;
+    const userId = user.id;
 
     const plano = PLANOS.find((p) => p.id === planoId);
     if (!plano) {
@@ -137,6 +152,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ init_point: initPoint });
   } catch (err: any) {
+    if (err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
     // 👇 AQUI a gente loga MUITO mais coisa no console do servidor
     console.error("[MP] Erro ao criar pagamento (detalhado):");
     console.error("tipo:", typeof err);

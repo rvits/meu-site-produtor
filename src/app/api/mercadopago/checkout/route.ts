@@ -1,6 +1,8 @@
 // src/app/api/mercadopago/checkout/route.ts
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import { requireAuth } from "@/app/lib/auth";
+import { checkoutSchema } from "@/app/lib/validations";
 
 // ⚠️ ATENÇÃO: use exatamente esses nomes de variáveis no .env
 // MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
@@ -37,6 +39,9 @@ type ModoPlano = "mensal" | "anual";
 
 export async function POST(req: Request) {
   try {
+    // 🔒 Verificar autenticação
+    const user = await requireAuth();
+
     if (!ACCESS_TOKEN) {
       console.error("MERCADOPAGO_ACCESS_TOKEN não configurado.");
       return NextResponse.json(
@@ -46,20 +51,19 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { planoId, modo, userName, userEmail } = body as {
-      planoId?: string;
-      modo?: ModoPlano;
-      userName?: string;
-      userEmail?: string;
-    };
-
-    // validações simples
-    if (!planoId || !modo || !userName || !userEmail) {
+    
+    // ✅ Validar entrada
+    const validation = checkoutSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Dados incompletos para criar o pagamento." },
+        { error: validation.error.errors[0]?.message || "Dados inválidos" },
         { status: 400 }
       );
     }
+
+    const { planId: planoId, modo } = validation.data;
+    const userName = user.nomeArtistico;
+    const userEmail = user.email;
 
     const plano = PLANOS.find((p) => p.id === planoId);
     if (!plano) {

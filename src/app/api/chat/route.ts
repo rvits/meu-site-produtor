@@ -1,42 +1,69 @@
 import { NextResponse } from "next/server";
 import { sendHumanSupportEmail } from "@/app/lib/sendEmail";
 import { askAI } from "@/app/lib/ai";
+import { requireAuth } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
+import { chatSchema } from "@/app/lib/validations";
+import { getRAGContext, formatContextForPrompt } from "@/app/lib/rag";
+import { getQuickAnswer } from "@/app/lib/quickAnswers";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    // 🔒 Verificar autenticação
+    const user = await requireAuth();
 
-    // ===============================
-    // FAQ SIMPLES (SEM BANCO)
-    // ===============================
-    const faq = [
-      {
-        keywords: ["agendamento", "agenda", "marcar"],
-        resposta:
-          "O agendamento funciona pela página de agendamento. Você escolhe os serviços, a data e o horário disponíveis.",
-      },
-      {
-        keywords: ["preço", "preços", "valor", "valores"],
-        resposta:
-          "Os valores variam conforme o serviço. Você pode ver todos os preços na página de agendamento.",
-      },
-      {
-        keywords: ["planos", "plano", "mensal", "anual"],
-        resposta:
-          "A THouse Rec oferece planos mensais e anuais. Confira todos os detalhes na página de planos.",
-      },
-      {
-        keywords: ["serviços", "oferecem", "trabalham"],
-        resposta:
-          "Oferecemos sessão de estúdio, captação, mixagem, masterização, mix + master e sonoplastia e produção de beats.",
-      },
-    ];
+    const body = await req.json();
+    
+    // ✅ Validar entrada
+    const validation = chatSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors[0]?.message || "Dados inválidos" },
+        { status: 400 }
+      );
+    }
+
+    const { message, sessionId, messages: bodyMessages } = validation.data;
+    const messages = bodyMessages || body.messages || [];
 
     // ===============================
     // ÚLTIMA MENSAGEM
     // ===============================
     const ultimaMensagem =
-      messages[messages.length - 1]?.content?.toLowerCase() || "";
+      messages[messages.length - 1]?.content?.toLowerCase() || message?.toLowerCase() || "";
+
+    // Buscar ou criar sessão de chat
+    let chatSession;
+    try {
+      if (sessionId) {
+        chatSession = await prisma.chatSession.findUnique({
+          where: { id: sessionId },
+        });
+      }
+      
+      if (!chatSession) {
+        chatSession = await prisma.chatSession.create({
+          data: {
+            userId: user.id,
+            status: "open",
+          },
+        });
+      }
+
+      // Salvar mensagem do usuário
+      await prisma.chatMessage.create({
+        data: {
+          chatSessionId: chatSession.id,
+          senderType: "user",
+          content: message || messages[messages.length - 1]?.content || "",
+        },
+      });
+    } catch (e) {
+      console.error("Erro ao criar sessão de chat:", e);
+    }
 
     // ===============================
     // ESCALADA PARA HUMANO
@@ -45,47 +72,125 @@ export async function POST(req: Request) {
       ultimaMensagem.includes("humano") ||
       ultimaMensagem.includes("atendente")
     ) {
+      // Atualizar sessão para solicitar humano
+      try {
+        if (chatSession) {
+          await prisma.chatSession.update({
+            where: { id: chatSession.id },
+            data: {
+              humanRequested: true,
+              status: "pending_human",
+            },
+          });
+        }
+      } catch (e) {}
+
       // ⚠️ Email só envia se credenciais existirem
       if (
         process.env.SUPPORT_EMAIL &&
         process.env.SUPPORT_EMAIL_PASSWORD
       ) {
         await sendHumanSupportEmail(
-          messages[messages.length - 1]?.content || ""
+          messages[messages.length - 1]?.content || message || ""
         );
       }
 
+      const reply = "Vou chamar um atendente humano para te ajudar melhor com isso.";
+
+      // Salvar resposta da AI
+      try {
+        if (chatSession) {
+          await prisma.chatMessage.create({
+            data: {
+              chatSessionId: chatSession.id,
+              senderType: "ai",
+              content: reply,
+            },
+          });
+        }
+      } catch (e) {}
+
       return NextResponse.json({
-        reply: "Vou chamar um atendente humano para te ajudar melhor com isso.",
+        reply,
+        sessionId: chatSession?.id,
       });
     }
 
     // ===============================
-    // MATCH COM FAQ
+    // RESPOSTAS PRÉ-DEFINIDAS (PERGUNTAS CLÁSSICAS)
     // ===============================
-    for (const item of faq) {
-      if (item.keywords.some((k) => ultimaMensagem.includes(k))) {
-        return NextResponse.json({ reply: item.resposta });
-      }
+    const quickAnswer = getQuickAnswer(ultimaMensagem);
+    if (quickAnswer) {
+      // Salvar resposta da AI
+      try {
+        if (chatSession) {
+          await prisma.chatMessage.create({
+            data: {
+              chatSessionId: chatSession.id,
+              senderType: "ai",
+              content: quickAnswer,
+            },
+          });
+        }
+      } catch (e) {}
+
+      return NextResponse.json({
+        reply: quickAnswer,
+        sessionId: chatSession?.id,
+      });
     }
 
     // ===============================
-    // IA REAL (OPENAI) — FALLBACK FINAL
+    // SISTEMA RAG - BUSCAR CONTEXTO RELEVANTE
     // ===============================
+    let ragContext;
+    let contextPrompt = "";
+    try {
+      ragContext = await getRAGContext(ultimaMensagem);
+      contextPrompt = formatContextForPrompt(ragContext);
+      console.log("[Chat] Contexto RAG obtido:", contextPrompt.substring(0, 200));
+    } catch (e) {
+      console.error("Erro ao obter contexto RAG:", e);
+    }
+
+    // ===============================
+    // IA INTELIGENTE COM CONTEXTO DO SITE
+    // ===============================
+    console.log("[Chat] Chamando IA...");
     const aiReply = await askAI(
       messages.map((m: any) => ({
         role: m.role === "ai" ? "assistant" : "user",
         content: m.content,
-      }))
+      })),
+      { context: contextPrompt }
     );
+    console.log("[Chat] Resposta da IA:", aiReply ? aiReply.substring(0, 100) : "null");
+
+    const finalReply = aiReply ||
+      "Não consegui entender completamente. Posso chamar um atendente humano para te ajudar melhor?";
+
+    // Salvar resposta da AI
+    try {
+      if (chatSession) {
+        await prisma.chatMessage.create({
+          data: {
+            chatSessionId: chatSession.id,
+            senderType: "ai",
+            content: finalReply,
+          },
+        });
+      }
+    } catch (e) {}
 
     return NextResponse.json({
-      reply:
-        aiReply ||
-        "Não consegui entender completamente. Posso chamar um atendente humano?",
+      reply: finalReply,
+      sessionId: chatSession?.id,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erro no chat:", err);
+    if (err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Erro ao processar mensagem" },
       { status: 500 }

@@ -73,78 +73,478 @@ const DOCS: { key: DocKey; title: string; short: string }[] = [
 export default function TermosContratosPage() {
   const [activeDoc, setActiveDoc] = useState<DocKey>("termos");
 
+  const handleDocClick = (docKey: DocKey) => {
+    setActiveDoc(docKey);
+    // Scroll automático mais lento e gradual para o texto do documento
+    setTimeout(() => {
+      const element = document.getElementById(`doc-${docKey}`);
+      if (element) {
+        const startPosition = window.pageYOffset;
+        const elementPosition = element.getBoundingClientRect().top;
+        const targetPosition = startPosition + elementPosition - 20; // 20px de offset do topo
+        const distance = targetPosition - startPosition;
+        const duration = 1200; // Duração mais longa para scroll mais lento (1.2 segundos)
+        let start: number | null = null;
+
+        const easeInOutCubic = (t: number): number => {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        };
+
+        const animateScroll = (currentTime: number) => {
+          if (start === null) start = currentTime;
+          const timeElapsed = currentTime - start;
+          const progress = Math.min(timeElapsed / duration, 1);
+          const easedProgress = easeInOutCubic(progress);
+
+          window.scrollTo(0, startPosition + distance * easedProgress);
+
+          if (progress < 1) {
+            requestAnimationFrame(animateScroll);
+          }
+        };
+
+        requestAnimationFrame(animateScroll);
+      }
+    }, 200);
+  };
+
+  const handleGeneratePDF = () => {
+    if (typeof window === "undefined") return;
+
+    const docElement = document.getElementById(`doc-${activeDoc}`);
+    if (!docElement) return;
+
+    // Extrair apenas o conteúdo do texto (sem botões e rodapé)
+    const contentDiv = docElement.querySelector('.chat-scroll');
+    if (!contentDiv) return;
+
+    const docTitle = DOCS.find((d) => d.key === activeDoc)?.title || "Documento";
+    
+    // Clonar o conteúdo profundamente
+    const clonedContent = contentDiv.cloneNode(true) as HTMLElement;
+    
+    // Função recursiva para limpar e formatar o HTML
+    const cleanElement = (element: HTMLElement): void => {
+      // Remover atributos desnecessários
+      Array.from(element.attributes).forEach(attr => {
+        if (attr.name !== 'id' && attr.name !== 'href') {
+          element.removeAttribute(attr.name);
+        }
+      });
+      
+      // Processar filhos recursivamente
+      Array.from(element.children).forEach(child => {
+        cleanElement(child as HTMLElement);
+      });
+    };
+
+    cleanElement(clonedContent);
+    
+    // Converter para HTML limpo
+    let docContent = clonedContent.innerHTML;
+    
+    // Limpar espaços extras mas manter estrutura
+    docContent = docContent
+      .replace(/\s+</g, '<')
+      .replace(/>\s+/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    // Criar HTML formatado para impressão
+    const printHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${docTitle} - THouse Rec</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 2cm 1.5cm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Arial', 'Helvetica', sans-serif;
+              font-size: 11pt;
+              line-height: 1.7;
+              color: #1a1a1a;
+              background: #fff;
+              padding: 0;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 35px;
+              padding-bottom: 15px;
+              border-bottom: 3px solid #dc2626;
+            }
+            .header h1 {
+              font-size: 22pt;
+              font-weight: bold;
+              color: #dc2626;
+              margin-bottom: 8px;
+              letter-spacing: 0.5px;
+            }
+            .header .subtitle {
+              font-size: 10pt;
+              color: #666;
+              font-style: italic;
+            }
+            .content {
+              margin-top: 25px;
+            }
+            .content h2 {
+              font-size: 18pt;
+              font-weight: bold;
+              margin-top: 0;
+              margin-bottom: 20px;
+              color: #000;
+              text-align: center;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #ddd;
+            }
+            .content h3 {
+              font-size: 13pt;
+              font-weight: bold;
+              margin-top: 22px;
+              margin-bottom: 12px;
+              color: #1a1a1a;
+              page-break-after: avoid;
+            }
+            .content p {
+              margin-bottom: 14px;
+              text-align: justify;
+              color: #1a1a1a;
+              text-indent: 0;
+            }
+            .content ul, .content ol {
+              margin-left: 25px;
+              margin-bottom: 14px;
+              padding-left: 5px;
+            }
+            .content li {
+              margin-bottom: 10px;
+              line-height: 1.6;
+            }
+            .content .update-date {
+              text-align: center;
+              font-size: 9pt;
+              color: #666;
+              margin-bottom: 25px;
+              font-style: italic;
+              padding-bottom: 15px;
+              border-bottom: 1px solid #eee;
+            }
+            .footer {
+              margin-top: 50px;
+              padding-top: 20px;
+              border-top: 2px solid #ddd;
+              text-align: center;
+              font-size: 9pt;
+              color: #666;
+              page-break-inside: avoid;
+            }
+            .footer p {
+              margin-bottom: 5px;
+              text-align: center;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
+              @page {
+                margin: 2cm 1.5cm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>THouse Rec</h1>
+            <div class="subtitle">Estúdio Musical Profissional</div>
+          </div>
+          <div class="content">
+            <h2>${docTitle}</h2>
+            ${docContent}
+          </div>
+          <div class="footer">
+            <p><strong>Documento gerado em:</strong> ${new Date().toLocaleDateString('pt-BR', { 
+              day: '2-digit', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
+            <p><strong>THouse Rec</strong> - Rio de Janeiro, RJ</p>
+            <p>www.thouserec.com.br</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+
+    // Aguardar o conteúdo carregar antes de imprimir
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
+
   const handlePrint = () => {
-    if (typeof window !== "undefined") {
-      window.print();
-    }
+    if (typeof window === "undefined") return;
+
+    const docElement = document.getElementById(`doc-${activeDoc}`);
+    if (!docElement) return;
+
+    // Extrair apenas o conteúdo do texto (sem botões e rodapé)
+    const contentDiv = docElement.querySelector('.chat-scroll');
+    if (!contentDiv) return;
+
+    const docTitle = DOCS.find((d) => d.key === activeDoc)?.title || "Documento";
+    
+    // Clonar o conteúdo profundamente
+    const clonedContent = contentDiv.cloneNode(true) as HTMLElement;
+    
+    // Função recursiva para limpar e formatar o HTML
+    const cleanElement = (element: HTMLElement): void => {
+      // Remover atributos desnecessários
+      Array.from(element.attributes).forEach(attr => {
+        if (attr.name !== 'id' && attr.name !== 'href') {
+          element.removeAttribute(attr.name);
+        }
+      });
+      
+      // Processar filhos recursivamente
+      Array.from(element.children).forEach(child => {
+        cleanElement(child as HTMLElement);
+      });
+    };
+
+    cleanElement(clonedContent);
+    
+    // Converter para HTML limpo
+    let docContent = clonedContent.innerHTML;
+    
+    // Limpar espaços extras mas manter estrutura
+    docContent = docContent
+      .replace(/\s+</g, '<')
+      .replace(/>\s+/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    // Criar HTML formatado para impressão
+    const printHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${docTitle} - THouse Rec</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 2cm 1.5cm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Arial', 'Helvetica', sans-serif;
+              font-size: 11pt;
+              line-height: 1.7;
+              color: #1a1a1a;
+              background: #fff;
+              padding: 0;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 35px;
+              padding-bottom: 15px;
+              border-bottom: 3px solid #dc2626;
+            }
+            .header h1 {
+              font-size: 22pt;
+              font-weight: bold;
+              color: #dc2626;
+              margin-bottom: 8px;
+              letter-spacing: 0.5px;
+            }
+            .header .subtitle {
+              font-size: 10pt;
+              color: #666;
+              font-style: italic;
+            }
+            .content {
+              margin-top: 25px;
+            }
+            .content h2 {
+              font-size: 18pt;
+              font-weight: bold;
+              margin-top: 0;
+              margin-bottom: 20px;
+              color: #000;
+              text-align: center;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #ddd;
+            }
+            .content h3 {
+              font-size: 13pt;
+              font-weight: bold;
+              margin-top: 22px;
+              margin-bottom: 12px;
+              color: #1a1a1a;
+              page-break-after: avoid;
+            }
+            .content p {
+              margin-bottom: 14px;
+              text-align: justify;
+              color: #1a1a1a;
+              text-indent: 0;
+            }
+            .content ul, .content ol {
+              margin-left: 25px;
+              margin-bottom: 14px;
+              padding-left: 5px;
+            }
+            .content li {
+              margin-bottom: 10px;
+              line-height: 1.6;
+            }
+            .content .update-date {
+              text-align: center;
+              font-size: 9pt;
+              color: #666;
+              margin-bottom: 25px;
+              font-style: italic;
+              padding-bottom: 15px;
+              border-bottom: 1px solid #eee;
+            }
+            .footer {
+              margin-top: 50px;
+              padding-top: 20px;
+              border-top: 2px solid #ddd;
+              text-align: center;
+              font-size: 9pt;
+              color: #666;
+              page-break-inside: avoid;
+            }
+            .footer p {
+              margin-bottom: 5px;
+              text-align: center;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
+              @page {
+                margin: 2cm 1.5cm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>THouse Rec</h1>
+            <div class="subtitle">Estúdio Musical Profissional</div>
+          </div>
+          <div class="content">
+            <h2>${docTitle}</h2>
+            ${docContent}
+          </div>
+          <div class="footer">
+            <p><strong>Documento gerado em:</strong> ${new Date().toLocaleDateString('pt-BR', { 
+              day: '2-digit', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
+            <p><strong>THouse Rec</strong> - Rio de Janeiro, RJ</p>
+            <p>www.thouserec.com.br</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+
+    // Aguardar o conteúdo carregar antes de imprimir
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
+    <main className="mx-auto max-w-5xl px-4 py-6 text-zinc-100">
       {/* TÍTULO GERAL */}
-      <section className="mb-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold">
-          Termos &amp; Contratos
+      <section className="mb-6 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold">
+          Termos de Contrato
         </h1>
-        <p className="mt-4 text-sm md:text-base text-zinc-300">
+        <p className="mt-3 text-xs md:text-sm text-zinc-300">
           Nesta página você encontra todos os documentos legais que regem o
           uso da plataforma THouse Rec, as sessões de estúdio, os planos
           mensais, pagamentos, direitos autorais, uso de imagem, conduta no
-          estúdio e armazenamento de arquivos. A leitura destes termos ajuda a
-          garantir uma relação transparente, segura e profissional entre o
-          estúdio e os artistas.
+          estúdio e armazenamento de arquivos.
         </p>
       </section>
 
-      {/* GRID: MENU (ESQ) + CONTEÚDO (DIR) */}
-      <section className="grid gap-6 md:grid-cols-[0.9fr,1.6fr]">
-        {/* COLUNA ESQUERDA: LISTA DE DOCUMENTOS */}
-        <div className="space-y-4">
+      {/* BOTÕES DE DOCUMENTOS */}
+      <section className="mb-6">
+        <div className="flex flex-wrap gap-2 justify-center">
           {DOCS.map((doc) => {
             const isActive = activeDoc === doc.key;
             return (
-              <div key={doc.key} className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveDoc(doc.key)}
-                  className={`w-full rounded-xl border px-4 py-3 text-sm transition text-center ${
-                    isActive
-                      ? "border-red-500 bg-red-600/10 text-red-200"
-                      : "border-zinc-700 bg-zinc-900/60 hover:border-red-500/60"
-                  }`}
-                >
-                  <div className="font-semibold">{doc.title}</div>
-                  <div className="mt-1 text-xs text-zinc-400">
-                    {doc.short}
-                  </div>
-                </button>
-
-                {isActive && (
-                  <div className="mt-2 text-center text-[11px] text-zinc-400">
-                    <a
-                      href={`#doc-${doc.key}`}
-                      className="block underline underline-offset-2 hover:text-red-300"
-                    >
-                      Ir para o texto completo deste termo
-                    </a>
-                  </div>
-                )}
-              </div>
+              <button
+                key={doc.key}
+                type="button"
+                onClick={() => handleDocClick(doc.key)}
+                className={`rounded-lg border px-3 py-1.5 text-xs transition whitespace-nowrap ${
+                  isActive
+                    ? "border-red-500 bg-red-600 text-white"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-red-500/60 hover:bg-zinc-800"
+                }`}
+              >
+                <div className="font-semibold">{doc.title}</div>
+              </button>
             );
           })}
         </div>
+      </section>
 
-        {/* COLUNA DIREITA: TEXTO DO DOCUMENTO SELECIONADO */}
+      {/* TEXTO DO DOCUMENTO SELECIONADO */}
+      <section>
         <div
           id={`doc-${activeDoc}`}
-          className="rounded-2xl border border-zinc-700 bg-zinc-950/70 p-5"
+          className="rounded-2xl border border-red-500 bg-zinc-950 p-4 md:p-6"
+          style={{ borderWidth: "1px" }}
         >
-          <h2 className="mb-3 text-lg font-semibold text-center">
+          <h2 className="mb-4 text-base md:text-lg font-semibold text-center text-zinc-100">
             {DOCS.find((d) => d.key === activeDoc)?.title ||
               "Documento selecionado"}
           </h2>
 
-          <div className="max-h-[480px] space-y-3 overflow-y-auto pr-2 text-sm leading-relaxed text-zinc-200">
+          <div className="chat-scroll max-h-[60vh] space-y-3 overflow-y-auto pr-2 text-xs md:text-sm leading-relaxed text-zinc-200">
             {/* 👉 TERMOS DE USO */}
             {activeDoc === "termos" && (
               <>
@@ -1188,8 +1588,8 @@ export default function TermosContratosPage() {
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={handlePrint}
-                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-800"
+                onClick={handleGeneratePDF}
+                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-900"
               >
                 Gerar PDF deste termo
               </button>
@@ -1197,7 +1597,7 @@ export default function TermosContratosPage() {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-800"
+                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-900"
               >
                 Imprimir
               </button>

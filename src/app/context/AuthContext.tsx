@@ -142,8 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         credentials: "include",
       });
+    } catch (err) {
+      console.error("Erro no logout:", err);
     } finally {
       setUser(null);
+      // Forçar refresh da página para limpar qualquer estado
+      window.location.href = "/";
     }
   }
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 import QuickActions from "./components/QuickActions";
 
 type ChatMessage = {
@@ -12,6 +14,9 @@ type ChatMessage = {
 type ChatMode = "ai" | "waiting_human" | "human";
 
 export default function ChatPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -24,6 +29,13 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [chatMode, setChatMode] = useState<ChatMode>("ai");
   const [loading, setLoading] = useState(false);
+
+  // 🔒 Verificar autenticação
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
 
   // ===============================
   // ENVIO ÚNICO (INPUT + BOTÕES)
@@ -57,10 +69,29 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Incluir cookies para autenticação
         body: JSON.stringify({ messages: updatedMessages }),
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Erro na API do chat:", res.status, errorData);
+        
+        // Se não estiver autenticado, redirecionar para login
+        if (res.status === 401) {
+          router.push("/login");
+          return;
+        }
+        
+        throw new Error(errorData.error || `Erro ${res.status}`);
+      }
+
       const data = await res.json();
+
+      if (!data.reply) {
+        console.error("Resposta vazia da API:", data);
+        throw new Error("Resposta vazia");
+      }
 
       const respostaIA: ChatMessage = {
         id: crypto.randomUUID(),
@@ -76,7 +107,8 @@ export default function ChatPage() {
       ) {
         setChatMode("waiting_human");
       }
-    } catch {
+    } catch (error: any) {
+      console.error("Erro ao responder IA:", error);
       setMessages((prev) => [
         ...prev,
         {
@@ -90,6 +122,22 @@ export default function ChatPage() {
     }
   }
 
+  // ⏳ Mostrar loading enquanto verifica autenticação
+  if (authLoading) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-10 text-zinc-100">
+        <div className="flex h-64 items-center justify-center text-zinc-400">
+          Carregando...
+        </div>
+      </main>
+    );
+  }
+
+  // 🔒 Se não estiver autenticado, não mostrar nada (redirecionará)
+  if (!user) {
+    return null;
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 text-zinc-100">
       <h1 className="mb-4 text-center text-2xl font-semibold">
@@ -97,13 +145,14 @@ export default function ChatPage() {
       </h1>
 
       {/* CONTAINER PRINCIPAL */}
-      <div className="flex h-[70vh] flex-col rounded-xl border border-zinc-800 bg-zinc-950">
-        {/* HISTÓRICO */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-4">
+      <div className="relative w-full rounded-2xl border border-red-500 bg-zinc-950" style={{ borderWidth: "1px" }}>
+        <div className="flex h-[70vh] flex-col">
+          {/* HISTÓRICO */}
+          <div className="chat-scroll flex-1 overflow-y-auto space-y-3 p-4">
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`max-w-[80%] rounded-lg px-4 py-2 text-sm ${
+              className={`max-w-[80%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
                 msg.role === "user"
                   ? "ml-auto bg-red-600 text-white"
                   : msg.role === "ai"
@@ -122,28 +171,36 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* BOTÕES RÁPIDOS */}
-        {chatMode === "ai" && (
-          <div className="border-t border-zinc-800 px-4 py-3">
-            <QuickActions onSend={enviarMensagem} />
+          {/* BOTÕES RÁPIDOS */}
+          {chatMode === "ai" && (
+            <div className="px-4 pt-3">
+              <QuickActions onSend={enviarMensagem} />
+            </div>
+          )}
+
+          {/* INPUT */}
+          <div className="flex gap-2 p-3">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  enviarMensagem();
+                }
+              }}
+              placeholder="Digite sua mensagem..."
+              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-red-500 focus:bg-zinc-800 transition-all"
+            />
+
+            <button
+              onClick={() => enviarMensagem()}
+              className="rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-all"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+            >
+              Enviar
+            </button>
           </div>
-        )}
-
-        {/* INPUT */}
-        <div className="flex gap-2 border-t border-zinc-800 p-3">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua mensagem..."
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-red-500"
-          />
-
-          <button
-            onClick={() => enviarMensagem()}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500"
-          >
-            Enviar
-          </button>
         </div>
       </div>
 

@@ -62,7 +62,7 @@ export default function PagamentosPage() {
       </section>
 
       {/* RESUMO EXEMPLO – depois vamos ligar isso com o agendamento / planos */}
-      <section className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-6 space-y-3 text-sm">
+      <section className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-3 text-sm">
         <h2 className="text-lg font-semibold text-red-400">
           Resumo do pagamento
         </h2>

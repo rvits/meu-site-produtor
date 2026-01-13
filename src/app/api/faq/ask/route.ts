@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
+import { z } from "zod";
+
+const askFaqSchema = z.object({
+  question: z.string().min(10, "Descreva sua dúvida com pelo menos 10 caracteres"),
+  userName: z.string().min(1, "O nome é obrigatório"),
+  userEmail: z.string().email("Email inválido").min(1, "O e-mail é obrigatório"),
+});
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { question, userName, userEmail } = body;
-
-    if (!question || typeof question !== "string" || question.trim().length < 10) {
+    
+    // ✅ Validar entrada
+    const validation = askFaqSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Descreva sua dúvida com pelo menos 10 caracteres." },
+        { error: validation.error.errors[0]?.message || "Dados inválidos" },
         { status: 400 }
       );
     }
 
+    const { question, userName, userEmail } = validation.data;
+
     const novaPergunta = await prisma.userQuestion.create({
       data: {
         question: question.trim(),
-        userName: userName?.trim() || null,
-        userEmail: userEmail?.trim() || null,
+        userName: userName.trim(),
+        userEmail: userEmail.trim(),
       },
     });
 

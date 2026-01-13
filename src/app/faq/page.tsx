@@ -6,6 +6,8 @@ interface FAQ {
   id: string;
   question: string;
   answer: string;
+  views?: number;
+  createdAt?: string;
 }
 
 const QUICK_TOPICS = [
@@ -17,10 +19,24 @@ const QUICK_TOPICS = [
   "erro",
 ];
 
+// Função para capitalizar primeira letra de cada palavra
+const capitalizeWords = (str: string) => {
+  return str
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export default function FAQPage() {
   const [query, setQuery] = useState("");
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
+  const [frequentFaqs, setFrequentFaqs] = useState<FAQ[]>([]);
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+  const [showAllFaqs, setShowAllFaqs] = useState(false);
+  const [allFaqs, setAllFaqs] = useState<FAQ[]>([]);
+  const [totalFaqs, setTotalFaqs] = useState(0);
+  const [loadingAll, setLoadingAll] = useState(false);
 
   const [userQuestion, setUserQuestion] = useState("");
   const [userName, setUserName] = useState("");
@@ -36,27 +52,98 @@ export default function FAQPage() {
         ? `/api/faq/search?q=${encodeURIComponent(term)}`
         : "/api/faq/search";
 
+      console.log("Buscando FAQs com termo:", term, "URL:", url);
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error("Erro ao buscar FAQs");
       }
       const data = await res.json();
-      const allFaqs: FAQ[] = data.faqs || [];
+      let allFaqs: FAQ[] = data.faqs || [];
+      console.log("FAQs encontradas:", allFaqs.length);
 
-      // SEM busca -> mostra só 8 principais
+      // SEM busca -> exclui FAQs frequentes e mostra 8 principais diferentes
+      if (!term) {
+        const frequentIds = frequentFaqs.map(f => f.id);
+        allFaqs = allFaqs.filter(faq => !frequentIds.includes(faq.id));
+        console.log("FAQs após excluir frequentes:", allFaqs.length);
+      }
+
+      // SEM busca -> mostra só 8 principais (já filtradas)
       // COM busca -> mostra tudo
       const filtered = term ? allFaqs : allFaqs.slice(0, 8);
       setFaqs(filtered);
+      console.log("FAQs filtradas para exibição:", filtered.length);
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao buscar FAQs:", e);
     } finally {
       setLoading(false);
     }
   }
 
+  // Buscar FAQs mais frequentes (já ordenadas por views pela API)
+  async function fetchFrequentFaqs() {
+    try {
+      console.log("Buscando FAQs frequentes...");
+      const res = await fetch("/api/faq/search?limit=5");
+      console.log("Resposta da API de FAQs frequentes:", res.status, res.ok);
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Dados recebidos:", data);
+        const frequent = (data.faqs || []).slice(0, 5);
+        console.log("FAQs frequentes processadas:", frequent.length, frequent);
+        setFrequentFaqs(frequent);
+      } else {
+        const errorText = await res.text();
+        console.error("Erro ao buscar FAQs frequentes:", res.status, errorText);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar FAQs frequentes:", e);
+    }
+  }
+
+  // Buscar todas as FAQs
+  async function fetchAllFaqs() {
+    try {
+      setLoadingAll(true);
+      console.log("Buscando todas as FAQs...");
+      const res = await fetch("/api/faq/search?limit=50");
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.faqs || [];
+        console.log("Todas as FAQs recebidas:", all.length);
+        setAllFaqs(all);
+        setTotalFaqs(all.length);
+        setShowAllFaqs(true);
+      } else {
+        console.error("Erro ao buscar todas as FAQs:", res.status);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar todas as FAQs:", e);
+    } finally {
+      setLoadingAll(false);
+    }
+  }
+
+  // Buscar apenas o total de FAQs (sem carregar todas)
+  async function fetchTotalFaqs() {
+    try {
+      const res = await fetch("/api/faq/search?limit=50");
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.faqs || [];
+        setTotalFaqs(all.length);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar total de FAQs:", e);
+    }
+  }
+
   // Carregar FAQs iniciais
   useEffect(() => {
-    fetchFaqs("");
+    console.log("🔄 Carregando FAQs iniciais...");
+    fetchFrequentFaqs();
+    fetchTotalFaqs();
+    // FAQs serão carregadas quando as frequentes mudarem (via useEffect)
   }, []);
 
   // Atualizar FAQs quando a query mudar
@@ -68,9 +155,48 @@ export default function FAQPage() {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  // Recarregar perguntas frequentes quando a query for limpa
+  useEffect(() => {
+    if (!query.trim()) {
+      fetchFrequentFaqs();
+    }
+  }, [query]);
+
+  // Recarregar FAQs quando as frequentes mudarem (para excluir as frequentes)
+  useEffect(() => {
+    if (!query.trim() && frequentFaqs.length > 0) {
+      fetchFaqs("");
+    }
+  }, [frequentFaqs]);
+
   async function handleAsk(e: React.FormEvent) {
     e.preventDefault();
     setAskMessage(null);
+
+    // Validar nome
+    if (!userName.trim()) {
+      setAskMessage("O nome é obrigatório.");
+      return;
+    }
+
+    // Validar email
+    if (!userEmail.trim()) {
+      setAskMessage("O e-mail é obrigatório.");
+      return;
+    }
+
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail.trim())) {
+      setAskMessage("Por favor, insira um e-mail válido.");
+      return;
+    }
+
+    // Validar pergunta
+    if (!userQuestion.trim()) {
+      setAskMessage("A pergunta é obrigatória.");
+      return;
+    }
 
     if (userQuestion.trim().length < 10) {
       setAskMessage("Descreva sua dúvida com pelo menos 10 caracteres.");
@@ -98,6 +224,8 @@ export default function FAQPage() {
         "Dúvida enviada com sucesso! Ela será analisada e poderá aparecer aqui em breve."
       );
       setUserQuestion("");
+      setUserName("");
+      setUserEmail("");
     } catch (e: any) {
       console.error(e);
       setAskMessage(
@@ -144,17 +272,91 @@ export default function FAQPage() {
               key={topic}
               type="button"
               onClick={() => setQuery(topic)}
-              className="rounded-full border border-zinc-600 px-3 py-1 text-zinc-300 hover:border-red-500 hover:text-red-300"
+              className="rounded-full border border-zinc-600 bg-black/80 px-3 py-1 text-zinc-300 hover:border-red-500 hover:text-red-300 transition-all"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
             >
-              {topic}
+              {capitalizeWords(topic)}
             </button>
           ))}
         </div>
       </section>
 
+      {/* PERGUNTAS FREQUENTES - Mostrar apenas quando não há busca ativa */}
+      {!query.trim() && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-zinc-200">
+              {frequentFaqs.length > 0 ? "Perguntas Frequentes" : ""}
+            </h2>
+            {frequentFaqs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  console.log("🔄 Recarregando FAQs frequentes...");
+                  fetchFrequentFaqs();
+                }}
+                className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+              >
+                Recarregar
+              </button>
+            )}
+          </div>
+          {frequentFaqs.length > 0 ? (
+            <>
+              <div className="space-y-3">
+                {frequentFaqs.map((faq) => (
+                  <div key={faq.id} className="max-w-6xl">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                      className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
+                      style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="flex-1 pr-2 text-left">{faq.question}</span>
+                        <span className="text-xs text-zinc-400">
+                          {expandedFaq === faq.id ? "▼" : "▶"}
+                        </span>
+                      </div>
+                    </button>
+                    {expandedFaq === faq.id && (
+                      <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-center text-sm text-zinc-400 mb-4">
+                Nenhuma pergunta frequente encontrada. Clique no botão abaixo para ver todas as perguntas disponíveis.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log("🔄 Recarregando FAQs frequentes...");
+                    fetchFrequentFaqs();
+                  }}
+                  className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+                >
+                  Recarregar
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
       {/* LISTA DE FAQS */}
       <section className="mb-10">
-        <h2 className="mb-3 text-lg font-semibold">Respostas rápidas</h2>
+        <h2 className="mb-3 text-lg font-semibold">
+          {query.trim() ? `Resultados para "${query}"` : "Respostas rápidas"}
+        </h2>
 
         {loading && (
           <p className="text-xs text-zinc-400 mb-4">
@@ -162,33 +364,119 @@ export default function FAQPage() {
           </p>
         )}
 
-        {!loading && faqs.length === 0 && (
+        {!loading && query.trim() && faqs.length === 0 && (
           <p className="text-sm text-zinc-400">
-            Não encontramos nenhuma resposta com esse termo.
+            Não encontramos nenhuma resposta com o termo "{query}". Tente usar outras palavras-chave ou verifique a ortografia.
+          </p>
+        )}
+
+        {!loading && !query.trim() && faqs.length === 0 && (
+          <p className="text-sm text-zinc-400">
+            Nenhuma pergunta encontrada no banco de dados. Execute o seed para popular o banco: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
           </p>
         )}
 
         <div className="space-y-3">
           {faqs.map((faq) => (
-            <details
-              key={faq.id}
-              className="group rounded-lg border border-zinc-800 bg-zinc-950/70 p-4 text-sm"
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between text-red-400">
-                <span>{faq.question}</span>
-                <span className="ml-3 text-xs text-zinc-500 group-open:hidden">
-                  ver resposta
-                </span>
-                <span className="ml-3 text-xs text-zinc-500 hidden group-open:inline">
-                  ocultar
-                </span>
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-200">
-                {faq.answer}
-              </p>
-            </details>
+            <div key={faq.id} className="max-w-6xl">
+              <button
+                type="button"
+                onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex-1 pr-2 text-left">{faq.question}</span>
+                  <span className="text-xs text-zinc-400">
+                    {expandedFaq === faq.id ? "▼" : "▶"}
+                  </span>
+                </div>
+              </button>
+              {expandedFaq === faq.id && (
+                <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
+                  {faq.answer}
+                </div>
+              )}
+            </div>
           ))}
         </div>
+      </section>
+
+      {/* Seção de todas as perguntas - Sempre visível, conteúdo toggle */}
+      <section className="mb-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-200">
+            Todas as Perguntas ({totalFaqs || allFaqs.length || 0})
+          </h2>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                console.log("🔄 Recarregando FAQs frequentes...");
+                fetchFrequentFaqs();
+              }}
+              className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+            >
+              Recarregar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (showAllFaqs) {
+                  setShowAllFaqs(false);
+                } else {
+                  if (allFaqs.length === 0) {
+                    fetchAllFaqs();
+                  } else {
+                    setShowAllFaqs(true);
+                  }
+                }
+              }}
+              disabled={loadingAll}
+              className="rounded-full border border-red-600 bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingAll ? "Carregando..." : showAllFaqs ? "Ocultar todas as perguntas" : "Mostrar todas as perguntas"}
+            </button>
+          </div>
+        </div>
+        
+        {showAllFaqs && (
+          <>
+            {loadingAll ? (
+              <p className="text-sm text-zinc-400">Carregando todas as perguntas...</p>
+            ) : allFaqs.length === 0 ? (
+              <p className="text-sm text-zinc-400">
+                Nenhuma pergunta encontrada no banco de dados. Execute o seed: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {allFaqs.map((faq) => (
+                  <div key={faq.id} className="max-w-6xl">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                      className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
+                      style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="flex-1 pr-2 text-left">{faq.question}</span>
+                        <span className="text-xs text-zinc-400">
+                          {expandedFaq === faq.id ? "▼" : "▶"}
+                        </span>
+                      </div>
+                    </button>
+                    {expandedFaq === faq.id && (
+                      <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* OUVIDORIA */}
@@ -201,16 +489,18 @@ export default function FAQPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <input
               type="text"
-              placeholder="Seu nome (opcional)"
+              placeholder="Seu nome"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
+              required
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
             />
             <input
               type="email"
-              placeholder="Seu e-mail (opcional)"
+              placeholder="Seu e-mail"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
+              required
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
             />
           </div>
@@ -220,11 +510,16 @@ export default function FAQPage() {
             value={userQuestion}
             onChange={(e) => setUserQuestion(e.target.value)}
             placeholder="Explique sua dúvida com detalhes..."
+            required
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
           />
 
           {askMessage && (
-            <p className="text-xs text-center text-zinc-300">
+            <p className={`text-xs text-center ${
+              askMessage.includes("sucesso") 
+                ? "text-green-400" 
+                : "text-red-400"
+            }`}>
               {askMessage}
             </p>
           )}
@@ -232,9 +527,9 @@ export default function FAQPage() {
           <button
             type="submit"
             disabled={askLoading}
-            className={`w-full rounded-full px-6 py-3 font-semibold ${
+            className={`w-full rounded-full px-6 py-3 font-semibold transition-all ${
               askLoading
-                ? "bg-zinc-800 text-zinc-500"
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-500"
             }`}
           >

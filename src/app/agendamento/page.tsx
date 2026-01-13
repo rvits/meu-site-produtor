@@ -112,6 +112,7 @@ export default function AgendamentoPage() {
 
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
+  const [aceiteTermos, setAceiteTermos] = useState(false);
 
   const horariosOcupadosPorDia: Record<string, Set<string>> = {};
 
@@ -168,10 +169,31 @@ export default function AgendamentoPage() {
   }, [dataSelecionada]);
 
   const handleConfirmar = () => {
-    if (!dataSelecionada || !horaSelecionada || totalGeral <= 0) {
-      alert("Escolha serviço, data e horário.");
+    // Verificar se há algum serviço ou pacote selecionado
+    if (totalGeral <= 0) {
+      alert("Nenhum serviço selecionado");
       return;
     }
+    
+    // Verificar se a data foi selecionada
+    if (!dataSelecionada) {
+      alert("O dia não foi selecionado");
+      return;
+    }
+    
+    // Verificar se a hora foi selecionada
+    if (!horaSelecionada) {
+      alert("A hora não foi selecionada");
+      return;
+    }
+    
+    // Verificar se os termos foram aceitos
+    if (!aceiteTermos) {
+      alert("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
+      return;
+    }
+    
+    // Se tudo estiver ok, prosseguir para pagamento
     alert("Agendamento preparado! Pagamento em breve.");
   };
 
@@ -192,29 +214,71 @@ export default function AgendamentoPage() {
       {/* =========================================================
           TÍTULO / INTRODUÇÃO
       ========================================================== */}
-      <section className="mt-35 mb-20">
-        <h1 className="mb-5 text-center text-3xl font-semibold md:text-5xl">
+      <section className="mt-12 mb-24 flex flex-col items-center justify-center w-full">
+        <h1 className="mb-20 mt-35 text-center text-base font-semibold md:text-4xl lg:text-5xl" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
           Crie sua própria música na{" "}
           <span className="text-red-500">THouse Rec</span>
         </h1>
-        <p className="mt-30 mb-32 text-center text-sm leading-relaxed text-zinc-300 md:text-base">
-          Aqui você monta sua sessão de estúdio do seu jeito: escolhendo
-          serviços avulsos, pacotes de beats, data e horário no calendário. A
-          ideia é deixar o agendamento o mais claro e direto possível, para
-          que você foque na parte mais importante: a música.
-        </p>
+        
+        {/* TEXTO DESCRITIVO COM ESTILO PROFISSIONAL */}
+        <div className="flex justify-center items-center px-4 w-full max-w-5xl mb-30 mx-auto">
+          <div className="relative w-full">
+            {/* LINHA SUPERIOR COM FADE */}
+            <div 
+              className="h-[1px]"
+              style={{
+                background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+                boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
+              }}
+            />
+            
+            {/* CONTEÚDO COM FUNDO PRETO */}
+            <div 
+              className="relative p-6 md:p-8"
+              style={{
+                background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+              }}
+            >
+              <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                Aqui você monta sua sessão de estúdio do seu jeito: escolhendo
+                serviços avulsos, pacotes de beats, data e horário no calendário. A
+                ideia é deixar o agendamento o mais claro e direto possível, para
+                que você foque na parte mais importante: a música.
+              </p>
+            </div>
+            
+            {/* LINHA INFERIOR COM FADE */}
+            <div 
+              className="h-[1px]"
+              style={{
+                background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+                boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
+              }}
+            />
+          </div>
+        </div>
       </section>
 
       {/* =========================================================
           SERVIÇOS DE ESTÚDIO
       ========================================================== */}
-      <section className="mb-20">
-        <div className="space-y-3 rounded-2xl border border-red-700/40 bg-zinc-950 p-6">
-          <h2 className="text-center text-3xl font-semibold text-red-400">
-            Serviços de Estúdio e Avulsos
-          </h2>
+      <section className="mb-16 flex justify-center px-4 mt-40">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-3 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-3xl font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Serviços de Estúdio e Avulsos
+            </h2>
 
-          <p className="mt-5 mb-10 text-center text-sm leading-relaxed text-zinc-300 md:text-base">
+            <p className="mt-5 mb-10 text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
             Selecione os serviços que você deseja para essa sessão. Você pode
             combinar captação, mix, master, sonoplastia e outras opções para
             montar um fluxo de trabalho completo ou apenas o que precisa no
@@ -280,21 +344,39 @@ export default function AgendamentoPage() {
 
             </div>
           </div>
-        </section>
+          
+          {/* LINHA INFERIOR COM FADE */}
+          <div 
+            className="h-[1px]"
+            style={{
+              background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+              boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
+            }}
+          />
+        </div>
+      </section>
 
       {/* =========================================================
           BEATS E PACOTES
       ========================================================== */}
-      <section className="mb-10">
-        <div className="space-y-3 rounded-2xl border border-red-700/40 bg-zinc-950 p-6">
-          <h2 className="text-center text-3xl font-semibold text-red-400">
-            Beats e Pacotes Especiais
-          </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-3 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-3xl font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Beats e Pacotes Especiais
+            </h2>
 
-          <p className="mb-5 text-center text-sm leading-relaxed text-zinc-300 md:text-base">
-            Se você já tem uma ideia de sonoridade ou quer um beat exclusivo,
-            pode selecionar aqui os pacotes de beats e produções completas.
-          </p>
+            <p className="mb-5 text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Se você já tem uma ideia de sonoridade ou quer um beat exclusivo,
+              pode selecionar aqui os pacotes de beats e produções completas.
+            </p>
 
           <div className="grid gap-4 md:grid-cols-2">
           {BEATS_PACOTES.map((s) => {
@@ -342,51 +424,78 @@ export default function AgendamentoPage() {
               );
             })}
           </div>
+          </div>
+          
+          {/* LINHA INFERIOR COM FADE */}
+          <div 
+            className="h-[1px]"
+            style={{
+              background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+              boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
+            }}
+          />
         </div>
       </section>
 
       {/* =========================================================
           COMENTÁRIOS ADICIONAIS
       ========================================================== */}
-      <section className="mb-10">
-        <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-center text-lg font-semibold text-red-400">
-            Comentários adicionais sobre o seu projeto
-          </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-3 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-lg font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Comentários adicionais sobre o seu projeto
+            </h2>
 
-          <p className="text-center text-sm text-zinc-300 md:text-base">
-            Use este espaço para descrever o que você quer fazer: estilo,
-            referências, clima da música e objetivos da sessão.
-          </p>
+            <p className="text-center text-sm text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Use este espaço para descrever o que você quer fazer: estilo,
+              referências, clima da música e objetivos da sessão.
+            </p>
 
-          <textarea
-            value={comentarios}
-            onChange={(e) => setComentarios(e.target.value)}
-            rows={4}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-sm text-zinc-100 outline-none focus:border-red-500"
-            placeholder="Descreva o projeto, referências, mood, tipo de beat..."
-           />
+            <textarea
+              value={comentarios}
+              onChange={(e) => setComentarios(e.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-sm text-zinc-100 outline-none focus:border-red-500"
+              placeholder="Descreva o projeto, referências, mood, tipo de beat..."
+            />
+          </div>
         </div>
       </section>
 
       {/* =========================================================
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
       ========================================================== */}
-      <section className="mb-10">
-        <div className="space-y-6 rounded-2xl border border-red-700/40 bg-zinc-950 p-6">
-          <h2 className="text-center text-3xl font-semibold text-red-400">
-            Agendamento virtual
-          </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-6 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-3xl font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Agendamento virtual
+            </h2>
 
-          <p className="text-center text-sm leading-relaxed text-zinc-300 md:text-base">
-            Escolha o dia e o horário da sua sessão.  
-            <br />
-            <span className="text-green-400 font-semibold">Verde</span>: todos os horários livres ·{" "}
-            <span className="text-yellow-400 font-semibold">Amarelo</span>: alguns horários ocupados ·{" "}
-            <span className="text-red-400 font-semibold">Vermelho</span>: agenda cheia
-          </p>
+            <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Escolha o dia e o horário da sua sessão.  
+              <br />
+              <span className="text-green-400 font-semibold">Verde</span>: todos os horários livres ·{" "}
+              <span className="text-yellow-400 font-semibold">Amarelo</span>: alguns horários ocupados ·{" "}
+              <span className="text-red-400 font-semibold">Vermelho</span>: agenda cheia
+            </p>
 
-          <div className="grid gap-6 md:grid-cols-[1.2fr,1fr]">
+            <div className="grid gap-6 md:grid-cols-[1.2fr,1fr]">
             {/* ===================== CALENDÁRIO ===================== */}
             <div>
               <div className="mb-3 flex items-center justify-between text-base font-semibold text-zinc-200">
@@ -510,44 +619,73 @@ export default function AgendamentoPage() {
               </div>
             </div>
           </div>
+          </div>
+          
+          {/* LINHA INFERIOR COM FADE */}
+          <div 
+            className="h-[1px]"
+            style={{
+              background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+              boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
+            }}
+          />
         </div>
       </section>
 
       {/* =========================================================
           TRABALHOS EXTERNOS
       ========================================================== */}
-      <section className="mb-10">
-        <p className="text-xs text-center leading-relaxed text-zinc-300 md:text-sm">
-          Qualquer trabalho à parte, como <strong>técnico de som</strong>,{" "}
-          <strong>técnico de mixagem</strong>,{" "}
-          <strong>mestre de cerimônia</strong> e outras funções relacionadas
-          pode ser solicitado diretamente com o estúdio. Para combinar esse
-          tipo de serviço, envie uma mensagem pela página de{" "}
-          <a
-            href="/contato"
-            className="font-semibold text-red-400 underline underline-offset-4 hover:text-red-300"
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
           >
-            contato
-          </a>
-          .
-        </p>
+            <p className="text-xs text-center leading-relaxed text-white md:text-sm" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Qualquer trabalho à parte, como <strong className="text-yellow-300">técnico de som</strong>,{" "}
+              <strong className="text-yellow-300">técnico de mixagem</strong>,{" "}
+              <strong className="text-yellow-300">mestre de cerimônia</strong> e outras funções relacionadas
+              podem ser solicitados diretamente com o estúdio. Para combinar esse
+              tipo de serviço, envie uma mensagem pela página de{" "}
+              <a
+                href="/contato"
+                className="font-semibold text-yellow-400 underline underline-offset-4 hover:text-yellow-300"
+              >
+                contato
+              </a>
+              .
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* =========================================================
           PLANOS (COLAPSÁVEL)
       ========================================================== */}
-      <section className="mb-10">
-        <div className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-950 p-6 text-sm">
-          <h2 className="text-center text-lg font-semibold text-red-400">
-            Quer aprofundar e produzir com frequência?
-          </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-4 p-6 md:p-8 text-sm"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-lg font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Quer aprofundar e produzir com frequência?
+            </h2>
 
-          <p className="mx-auto max-w-3xl text-center text-xs text-zinc-300 md:text-sm">
-            Se você já sabe que quer manter uma rotina de lançamentos, os
-            planos da THouse Rec garantem mais horas de estúdio, melhor
-            custo-benefício e prioridade na agenda. Produzir com consistência
-            muda completamente o ritmo da sua carreira.
-          </p>
+            <p className="text-center text-xs text-white md:text-sm" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Se você já sabe que quer manter uma rotina de lançamentos, os
+              planos da THouse Rec garantem mais horas de estúdio, melhor
+              custo-benefício e prioridade na agenda. Produzir com consistência
+              muda completamente o ritmo da sua carreira.
+            </p>
 
           <div className="flex justify-center">
             <button
@@ -619,7 +757,7 @@ export default function AgendamentoPage() {
                         {plano.beneficios.map((b, idx) => (
                           <li
                             key={idx}
-                            className="flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2"
+                            className="flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2"
                           >
                             <span
                               className={
@@ -662,18 +800,28 @@ export default function AgendamentoPage() {
               </p>
             </>
           )}
-         </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
       {/* =========================================================
           RESUMO / VALOR TOTAL
       ========================================================== */}
-      <section className="rounded-2xl border border-red-700/40 bg-zinc-950/70 p-6">
-        <h2 className="mb-6 text-center text-2xl font-semibold text-red-400">
-          Resumo do seu agendamento
-        </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="mb-6 text-center text-2xl font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Resumo do seu agendamento
+            </h2>
 
-        <div className="flex flex-col gap-8 md:flex-row md:items-end">
+            <div className="flex flex-col gap-8 md:flex-row md:items-end">
           {/* COLUNA ESQUERDA – SERVIÇOS */}
           <div className="flex-1">
             <h3 className="mb-3 text-xl font-semibold text-zinc-200">
@@ -733,76 +881,123 @@ export default function AgendamentoPage() {
               Total estimado: R$ {totalGeral.toFixed(2).replace(".", ",")}
             </p>
           </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* =========================================================
           CONFIRMAR E IR PARA PAGAMENTO
       ========================================================== */}
-      <section className="my-12">
-        <div className="space-y-3 rounded-2xl border border-red-700/40 bg-zinc-950 p-6 text-sm">
-          <p className="text-center text-zinc-300 md:text-base">
-            Ao confirmar, você declara estar ciente de que o agendamento só será
-            efetivado após a confirmação do pagamento e que ajustes finais
-            podem ser alinhados diretamente com o estúdio.
-          </p>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-3 p-6 md:p-8 text-sm"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <p className="text-center text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Ao confirmar, você declara estar ciente de que o agendamento só será
+              efetivado após a confirmação do pagamento e que ajustes finais
+              podem ser alinhados diretamente com o estúdio.
+            </p>
 
-          <div className="mt-8 flex justify-center">
-            <button
-              type="button"
-              onClick={handleConfirmar}
-              className="w-full max-w-6xl rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500"
-            >
-              Confirmar agendamento e ir para pagamentos
-            </button>
+            {/* CHECKBOX DE ACEITE DOS TERMOS */}
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <input
+                type="checkbox"
+                id="aceite-termos"
+                checked={aceiteTermos}
+                onChange={(e) => setAceiteTermos(e.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-red-600 focus:ring-2 focus:ring-red-500 focus:ring-offset-0"
+              />
+              <label
+                htmlFor="aceite-termos"
+                className="text-sm text-white cursor-pointer"
+                style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}
+              >
+                Declaro estar ciente dos{" "}
+                <a
+                  href="/termos-contratos"
+                  className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors"
+                >
+                  termos de contrato
+                </a>
+              </label>
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={handleConfirmar}
+                className="w-full max-w-6xl rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              >
+                Confirmar agendamento e ir para pagamentos
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-zinc-300">
+              A confirmação implica concordância com os{" "}
+              <strong>termos de uso</strong> e com o{" "}
+              <strong>contrato de prestação de serviço</strong> da THouse Rec.
+            </p>
           </div>
-
-          <p className="text-center text-xs text-zinc-400">
-            A confirmação implica concordância com os{" "}
-            <strong>termos de uso</strong> e com o{" "}
-            <strong>contrato de prestação de serviço</strong> da THouse Rec.
-          </p>
         </div>
       </section>
 
       {/* =========================================================
           DÚVIDAS / SUPORTE
       ========================================================== */}
-      <section className="mb-12">
-        <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-lg text-center font-semibold text-red-400">
-            Ficou com alguma dúvida?
-          </h2>
+      <section className="mb-16 flex justify-center px-4">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-4 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-lg text-center font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Ficou com alguma dúvida?
+            </h2>
 
-          <p className="text-sm text-center text-zinc-300 md:text-base">
-            Se ainda restar alguma dúvida sobre horários, valores, planos ou
-            funcionamento do estúdio, você pode consultar o FAQ ou falar
-            diretamente com a gente.
-          </p>
+            <p className="text-sm text-center text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Se ainda restar alguma dúvida sobre horários, valores, planos ou
+              funcionamento do estúdio, você pode consultar o FAQ ou falar
+              diretamente com a gente.
+            </p>
 
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <a
-              href="/faq"
-              className="rounded-full border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-red-500 hover:text-red-300"
-            >
-              Ver FAQ
-            </a>
+            <div className="flex flex-wrap justify-center gap-4 text-sm">
+              <a
+                href="/faq"
+                className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              >
+                Ver FAQ
+              </a>
 
-            <a
-              href="/chat"
-              className="rounded-full border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-red-500 hover:text-red-300"
-            >
-              Suporte via Chat
-            </a>
-          </div>
+              <a
+                href="/chat"
+                className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              >
+                Suporte via Chat
+              </a>
+            </div>
 
-          <div className="mt-4 text-center">
-            <a
-              href="/contato"
-              className="text-xs text-zinc-400 underline-offset-4 hover:underline"
-            >
-              Contato direto
-            </a>
+            <div className="mt-4 text-center">
+              <a
+                href="/contato"
+                className="text-xs text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline transition-colors"
+              >
+                Contato direto
+              </a>
+            </div>
           </div>
         </div>
       </section>

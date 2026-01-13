@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
+import { requireAuth } from "@/app/lib/auth";
 
-export async function POST(req: Request) {
+export async function GET() {
   try {
-    const { userId } = await req.json();
+    const user = await requireAuth();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "UserId não informado" },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
       select: {
         id: true,
         nomeArtistico: true,
@@ -31,16 +25,19 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!user) {
+    if (!userData) {
       return NextResponse.json(
         { error: "Usuário não encontrado" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(user);
-  } catch (err) {
+    return NextResponse.json(userData);
+  } catch (err: any) {
     console.error("Erro /api/conta:", err);
+    if (err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Erro interno" },
       { status: 500 }

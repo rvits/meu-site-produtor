@@ -22,11 +22,24 @@ model User {
   nacionalidade   String?
   foto            String?
   role            String   @default("USER")
+  blocked         Boolean  @default(false)
+  blockedAt       DateTime?
+  blockedReason   String?
 
-  appointments Appointment[]
+  appointments  Appointment[]
+  sessions      Session[]
+  loginLogs     LoginLog[]
+  payments      Payment[]
+  userPlans     UserPlan[]
+  services      Service[]
+  chatSessions  ChatSession[]
+  adminChats    ChatSession[] @relation("AdminChat")
 
   createdAt DateTime  @default(now())
-  Session   Session[]
+
+  @@index([email])
+  @@index([role])
+  @@index([blocked])
 }
 
 model Session {
@@ -38,6 +51,7 @@ model Session {
   expiresAt DateTime
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 model Appointment {
@@ -49,7 +63,15 @@ model Appointment {
   tipo           String
   observacoes    String?
   status         String   @default("pendente")
+  blocked        Boolean  @default(false)
+  blockedAt      DateTime?
+  blockedReason  String?
   createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([data])
+  @@index([status])
+  @@index([blocked])
 }
 
 model FAQ {
@@ -61,6 +83,9 @@ model FAQ {
   updatedAt DateTime @updatedAt
 
   userQuestions UserQuestion[]
+
+  @@index([question])
+  @@index([createdAt])
 }
 
 model UserQuestion {
@@ -68,8 +93,107 @@ model UserQuestion {
   question  String
   userName  String?
   userEmail String?
+  blocked   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   faqId String?
   faq   FAQ?    @relation(fields: [faqId], references: [id])
+}
+
+model LoginLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String
+  userAgent String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mercadopagoId String?  @unique
+  amount        Float
+  currency      String   @default("BRL")
+  status        String   @default("pending")
+  type          String
+  planId        String?
+  serviceId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([mercadopagoId])
+}
+
+model UserPlan {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  planName  String
+  modo      String
+  amount    Float
+  status    String   @default("active")
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([planId])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tipo        String
+  description String?
+  status      String   @default("pendente")
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([tipo])
+}
+
+model ChatSession {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        String        @default("open")
+  humanRequested Boolean       @default(false)
+  adminAccepted Boolean       @default(false)
+  adminId       String?
+  admin         User?         @relation("AdminChat", fields: [adminId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  messages      ChatMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([humanRequested])
+  @@index([adminAccepted])
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  senderType    String
+  content       String
+  createdAt     DateTime    @default(now())
+
+  @@index([chatSessionId])
+  @@index([createdAt])
 }

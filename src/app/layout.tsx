@@ -27,7 +27,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-br">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased text-zinc-100`}
+        style={{ backgroundColor: "#606060" }}
+      >
         <AuthProvider>
           <Header />   {/* ✅ HEADER GLOBAL */}
           {children}

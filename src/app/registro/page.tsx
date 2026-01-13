@@ -82,7 +82,7 @@ export default function RegistroPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-2xl border border-red-700/40 bg-zinc-950 p-6"
+        className="space-y-5 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
       >
         {/* Nome artístico */}
         <Input
@@ -172,7 +172,7 @@ export default function RegistroPage() {
           disabled={carregando}
           className={`w-full rounded-full px-4 py-3 text-sm font-semibold transition ${
             carregando
-              ? "cursor-wait bg-zinc-800 text-zinc-500"
+              ? "cursor-wait bg-zinc-900 text-zinc-500"
               : "bg-red-600 text-white hover:bg-red-500"
           }`}
         >
