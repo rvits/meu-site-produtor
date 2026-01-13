@@ -190,7 +190,7 @@ export default function Home() {
               <p>
                 A THouse Rec é o estúdio independente criado por Victor Pereira
                 Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e
-                engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. A
+                engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua
                 trajetória começou nas batalhas de rima, rodas de freestyle e na
                 cena independente, explorando o FL Studio e construindo uma
                 estética própria.
