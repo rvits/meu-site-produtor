@@ -32,6 +32,7 @@ export const updateContaSchema = z.object({
   email: z.string().email().optional(),
   telefone: z.string().optional(),
   senha: z.string().min(6).optional(),
+  senhaAtual: z.string().optional(),
 });
 
 export const checkoutSchema = z.object({
