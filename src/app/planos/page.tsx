@@ -349,13 +349,13 @@ export default function PlanosPage() {
               WebkitBackdropFilter: "blur(16px)",
             }}
           >
-            <p className="text-center text-sm leading-relaxed text-white md:text-base mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <p className="text-sm md:text-base leading-relaxed text-white mb-4 text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               Assinar um plano da THouse Rec é a forma mais inteligente de produzir
               com constância. Além do desconto financeiro, os planos oferecem
               prioridade na agenda e acompanhamento contínuo do seu projeto.
             </p>
             
-            <p className="text-center text-xs text-zinc-300 mt-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <p className="text-xs md:text-sm text-zinc-300 mt-4 text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               A contratação de qualquer plano está sujeita à confirmação do pagamento e
               ao aceite dos <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
             </p>
