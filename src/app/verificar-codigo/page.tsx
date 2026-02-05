@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function VerificarCodigoPage() {
+function VerificarCodigoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
@@ -140,5 +140,23 @@ export default function VerificarCodigoPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function VerificarCodigoPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
+        <div className="w-full max-w-md">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-zinc-800 rounded"></div>
+            <div className="h-4 bg-zinc-800 rounded"></div>
+            <div className="h-10 bg-zinc-800 rounded"></div>
+          </div>
+        </div>
+      </main>
+    }>
+      <VerificarCodigoContent />
+    </Suspense>
   );
 }
