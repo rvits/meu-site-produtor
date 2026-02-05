@@ -1,9 +1,9 @@
 // src/app/api/payment-provider/route.ts
 import { NextResponse } from "next/server";
+import { getAsaasApiKey } from "@/app/lib/env";
 
 export async function GET() {
   // Sistema simplificado: usa apenas Asaas
-import { getAsaasApiKey } from "@/app/lib/env";
 
   const asaasKey = getAsaasApiKey();
   
