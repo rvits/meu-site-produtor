@@ -523,14 +523,13 @@ export default function AgendamentoPage() {
         <h1 className="mb-2 sm:mb-3 md:mb-4 mt-4 sm:mt-8 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
           Crie sua própria música
         </h1>
-        <h2 className="mb-3 sm:mb-4 md:mb-6 text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+        <h2 className="mb-4 sm:mb-5 md:mb-6 text-center text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
           na <span className="text-red-500">T</span>House Rec
         </h2>
         
         {/* TEXTO DESCRITIVO SEM BOX */}
-        <p className="mb-4 sm:mb-6 md:mb-8 text-center text-xs sm:text-sm md:text-base leading-tight md:leading-relaxed text-zinc-300 px-4 space-y-1" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-          <span className="block">Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados.</span>
-          <span className="block">A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.</span>
+        <p className="mb-4 sm:mb-6 md:mb-8 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+          Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados. A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.
         </p>
       </section>
 
@@ -983,7 +982,7 @@ export default function AgendamentoPage() {
               WebkitBackdropFilter: "blur(16px)",
             }}
           >
-            <p className="text-xs text-center leading-relaxed text-white md:text-sm" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <p className="text-xs md:text-sm text-white leading-relaxed text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               Qualquer trabalho à parte, como <strong className="text-yellow-300">técnico de som</strong>,{" "}
               <strong className="text-yellow-300">técnico de mixagem</strong>,{" "}
               <strong className="text-yellow-300">mestre de cerimônia</strong> e outras funções relacionadas
