@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 
 type TipoPagamento = "plano" | "agendamento";
 
-export default function PagamentosPage() {
+function PagamentosContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -628,5 +628,20 @@ export default function PagamentosPage() {
         </button>
       </section>
     </main>
+  );
+}
+
+export default function PagamentosPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
+        <div className="animate-pulse text-center">
+          <div className="h-8 bg-zinc-800 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-zinc-800 rounded w-48"></div>
+        </div>
+      </main>
+    }>
+      <PagamentosContent />
+    </Suspense>
   );
 }
