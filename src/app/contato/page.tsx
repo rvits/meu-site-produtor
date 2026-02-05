@@ -39,7 +39,7 @@ export default function ContatoPage() {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Contato
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2 text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
         </p>
       </section>
