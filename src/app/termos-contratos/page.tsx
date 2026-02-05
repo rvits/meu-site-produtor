@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import DuvidasBox from "../components/DuvidasBox";
 
 type DocKey =
   | "termos"
@@ -533,12 +534,13 @@ export default function TermosContratosPage() {
       </section>
 
       {/* TEXTO DO DOCUMENTO SELECIONADO */}
-      <section>
-        <div
-          id={`doc-${activeDoc}`}
-          className="rounded-2xl border border-red-500 bg-zinc-950 p-4 md:p-6"
-          style={{ borderWidth: "1px" }}
-        >
+      <section className="mb-8">
+        <div className="w-full max-w-5xl mx-auto">
+          <div
+            id={`doc-${activeDoc}`}
+            className="rounded-2xl border border-red-500 bg-zinc-950 p-4 md:p-6"
+            style={{ borderWidth: "1px" }}
+          >
           <h2 className="mb-4 text-base md:text-lg font-semibold text-center text-zinc-100">
             {DOCS.find((d) => d.key === activeDoc)?.title ||
               "Documento selecionado"}
@@ -549,7 +551,7 @@ export default function TermosContratosPage() {
             {activeDoc === "termos" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
 
                 <p>
@@ -613,15 +615,32 @@ export default function TermosContratosPage() {
                 </p>
                 <p>
                   4.2. A confirmação do agendamento só ocorre após o
-                  pagamento.
+                  pagamento ser aprovado pelo processador de pagamento.
                 </p>
                 <p>
                   4.3. Os valores exibidos são atualizados periodicamente e
                   podem sofrer reajustes.
                 </p>
                 <p>
-                  4.4. O pagamento é processado pelo Mercado Pago. A THouse Rec não armazena dados
-                  de cartão.
+                  4.4. O pagamento é processado pelo <strong>Asaas</strong>, que oferece múltiplas formas de pagamento:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li><strong>PIX</strong> - Pagamento instantâneo via QR Code ou chave PIX;</li>
+                  <li><strong>Cartão de Crédito</strong> - Parcelamento disponível conforme regras do Asaas;</li>
+                  <li><strong>Cartão de Débito</strong> - Débito automático em conta;</li>
+                  <li><strong>Boleto Bancário</strong> - Vencimento conforme gerado pelo sistema.</li>
+                </ul>
+                <p className="mt-2">
+                  4.5. A THouse Rec <strong>não armazena</strong> dados sensíveis de cartão de crédito, senhas bancárias ou informações de conta. Todos os dados financeiros sensíveis são processados exclusivamente pelo Asaas, em conformidade com as normas de segurança de pagamento (PCI-DSS).
+                </p>
+                <p>
+                  4.6. O sistema armazena apenas informações necessárias para identificação do pagamento (ID do pagamento, valor, status, método de pagamento selecionado) e associação com agendamentos/planos, sem dados bancários ou de cartão.
+                </p>
+                <p>
+                  4.7. <strong>Sistema de Cupons:</strong> A plataforma oferece cupons de desconto que podem ser aplicados em agendamentos ou planos. Cupons podem ser gerados automaticamente (ex: reembolsos) ou fornecidos pela THouse Rec. Cada cupom possui regras específicas de validade, tipo de desconto e serviços aplicáveis.
+                </p>
+                <p>
+                  4.8. Cupons de reembolso são gerados automaticamente quando um agendamento é cancelado dentro do prazo legal, podendo ser utilizados em futuros agendamentos ou convertidos conforme política de cancelamento.
                 </p>
 
                 <h3 className="mt-4 font-semibold">
@@ -785,16 +804,127 @@ export default function TermosContratosPage() {
                 </ul>
 
                 <h3 className="mt-4 font-semibold">
-                  13. Alterações nos termos
+                  13. Sistema de FAQ (Perguntas Frequentes) e Suporte
                 </h3>
-                <p>13.1. Os termos podem ser atualizados a qualquer momento.</p>
                 <p>
-                   13.2. O usuário será informado quando alterações
+                  13.1. A plataforma oferece um sistema de FAQ onde usuários podem:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>consultar perguntas frequentes e respostas publicadas;</li>
+                  <li>enviar perguntas personalizadas que serão respondidas pela equipe THouse Rec;</li>
+                  <li>receber notificações quando suas perguntas forem respondidas.</li>
+                </ul>
+                <p className="mt-2">
+                  13.2. Perguntas enviadas pelos usuários são armazenadas no banco de dados e podem ser:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>respondidas pela equipe e enviadas diretamente ao usuário;</li>
+                  <li>publicadas no FAQ público (com autorização implícita ao enviar);</li>
+                  <li>recusadas caso não sejam adequadas ou violem políticas do site.</li>
+                </ul>
+                <p className="mt-2">
+                  13.3. O usuário recebe notificações quando suas perguntas são respondidas, através de:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>badge de notificação no header do site (ao lado de "Minha Conta");</li>
+                  <li>notificação visual deslizante ao fazer login;</li>
+                  <li>e-mail de notificação (quando configurado).</li>
+                </ul>
+                <p className="mt-2">
+                  13.4. As notificações desaparecem automaticamente quando o usuário visualiza a página "Minha Conta" e acessa a seção "Minhas Perguntas ao FAQ".
+                </p>
+
+                <h3 className="mt-4 font-semibold">
+                  14. Sistema de Chat e Atendimento
+                </h3>
+                <p>
+                  14.1. A plataforma oferece um sistema de chat com duas modalidades:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li><strong>Chat com IA:</strong> Respostas automáticas para dúvidas frequentes sobre agendamentos, planos, pagamentos e serviços;</li>
+                  <li><strong>Atendimento Humano:</strong> Solicitação de atendimento com equipe real da THouse Rec, disponível mediante aprovação do administrador.</li>
+                </ul>
+                <p className="mt-2">
+                  14.2. <strong>Armazenamento de Conversas:</strong> As conversas de chat são armazenadas no banco de dados por <strong>1 semana (7 dias)</strong> após a última mensagem. Após esse período, as conversas são automaticamente excluídas para otimizar o banco de dados.
+                </p>
+                <p>
+                  14.3. <strong>Dados Armazenados:</strong> O sistema armazena apenas:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>mensagens trocadas (texto);</li>
+                  <li>identificação do remetente (usuário, IA ou admin);</li>
+                  <li>data e hora das mensagens;</li>
+                  <li>status da sessão (ativa, aguardando atendimento humano, etc.).</li>
+                </ul>
+                <p className="mt-2">
+                  14.4. <strong>Dados NÃO Armazenados:</strong> O sistema <strong>não armazena</strong>:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>áudio ou vídeo de chamadas (não há funcionalidade de chamada);</li>
+                  <li>arquivos enviados pelo chat (não há funcionalidade de upload);</li>
+                  <li>dados de localização ou informações sensíveis não fornecidas pelo usuário.</li>
+                </ul>
+                <p className="mt-2">
+                  14.5. <strong>Notificações de Chat:</strong> O usuário recebe notificações quando:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>sua solicitação de atendimento humano é aceita por um administrador;</li>
+                  <li>um administrador responde em uma conversa de atendimento humano;</li>
+                  <li>existem mensagens não lidas de administradores em conversas anteriores.</li>
+                </ul>
+                <p className="mt-2">
+                  14.6. As notificações aparecem como badge numérico ao lado do link "Chat" no header e desaparecem quando o usuário visualiza a conversa correspondente.
+                </p>
+                <p>
+                  14.7. <strong>Interferência da IA:</strong> Quando um atendimento humano é aceito, a IA automaticamente deixa de responder naquela conversa, garantindo que apenas administradores respondam durante o atendimento humano.
+                </p>
+
+                <h3 className="mt-4 font-semibold">
+                  15. Sistema de Notificações
+                </h3>
+                <p>
+                  15.1. A plataforma possui um sistema integrado de notificações que alerta o usuário sobre:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li><strong>Perguntas FAQ respondidas:</strong> Quando uma pergunta enviada pelo usuário recebe resposta;</li>
+                  <li><strong>Agendamentos confirmados:</strong> Quando um agendamento é confirmado após pagamento aprovado;</li>
+                  <li><strong>Planos ativados:</strong> Quando um plano mensal é confirmado e ativado após pagamento;</li>
+                  <li><strong>Mensagens de chat:</strong> Quando há mensagens não lidas de administradores.</li>
+                </ul>
+                <p className="mt-2">
+                  15.2. <strong>Badge de Notificações:</strong> Todas as notificações são somadas e exibidas como um único número no badge ao lado de "Minha Conta" no header. Por exemplo: se houver 1 pergunta FAQ respondida + 1 agendamento confirmado + 1 plano ativado, o badge mostrará "3".
+                </p>
+                <p>
+                  15.3. <strong>Desaparecimento de Notificações:</strong> As notificações desaparecem automaticamente quando o usuário:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>visualiza a página "Minha Conta" (para FAQ, agendamentos e planos);</li>
+                  <li>abre e visualiza a conversa de chat correspondente (para mensagens de chat).</li>
+                </ul>
+                <p className="mt-2">
+                  15.4. <strong>Frequência de Atualização:</strong> O sistema verifica novas notificações a cada <strong>1 minuto</strong>, garantindo que o usuário seja notificado em tempo razoável sem sobrecarregar o servidor.
+                </p>
+                <p>
+                  15.5. <strong>Notificações por E-mail:</strong> Além das notificações visuais, o usuário pode receber e-mails de notificação para:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>confirmação de pagamento e agendamento;</li>
+                  <li>resposta a perguntas do FAQ;</li>
+                  <li>aceitação de solicitação de atendimento humano;</li>
+                  <li>resposta de administrador em chat.</li>
+                </ul>
+
+                <h3 className="mt-4 font-semibold">
+                  16. Alterações nos termos
+                </h3>
+                <p>16.1. Os termos podem ser atualizados a qualquer momento.</p>
+                <p>
+                  16.2. O usuário será informado quando alterações
                   significativas forem aplicadas.
                 </p>
 
                 <h3 className="mt-4 font-semibold">
-                  14. Foro e legislação aplicável
+                  17. Foro e legislação aplicável
                 </h3>
                 <p>
                   Este documento é regido pelas leis brasileiras. Qualquer
@@ -802,7 +932,7 @@ export default function TermosContratosPage() {
                   – RJ.
                 </p>
 
-                <h3 className="mt-4 font-semibold">15. Aceite dos Termos</h3>
+                <h3 className="mt-4 font-semibold">18. Aceite dos Termos</h3>
                 <p>
                   Ao clicar em <strong>“Li e aceito os Termos de Uso”</strong>
                   , o usuário declara:
@@ -819,7 +949,7 @@ export default function TermosContratosPage() {
             {activeDoc === "privacidade" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   A THouse Rec respeita sua privacidade e protege seus dados
@@ -833,29 +963,79 @@ export default function TermosContratosPage() {
                   1. Quais dados coletamos
                   </h3>
                 <p>
-                  1.1. Dados fornecidos por você (nome, e-mail, senha,
-                  telefone se informado, informações em formulários, dados de
-                  agendamento).
+                  1.1. <strong>Dados fornecidos por você:</strong>
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>Dados de cadastro: nome artístico, nome completo, nome social, e-mail, senha (criptografada), telefone, CPF, data de nascimento, sexo, gênero, localização (país, estado, cidade, bairro), estilos musicais, nacionalidade, foto de perfil (URL);</li>
+                  <li>Dados de agendamento: data, horário, tipo de serviço, duração, observações, serviços adicionais, beats selecionados;</li>
+                  <li>Dados de planos: plano escolhido, modo (mensal/anual), status de assinatura;</li>
+                  <li>Perguntas do FAQ: texto da pergunta, nome do usuário, e-mail associado;</li>
+                  <li>Mensagens de chat: texto das mensagens, identificação do remetente, data e hora.</li>
+                </ul>
+                <p className="mt-2">
+                  1.2. <strong>Dados coletados automaticamente:</strong>
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>IP, navegador, sistema operacional;</li>
+                  <li>Cookies essenciais (para manter sessão de login);</li>
+                  <li>Logs de acesso e tentativas de login (sucesso/falha);</li>
+                  <li>Histórico de visualizações de FAQ (para estatísticas de perguntas mais frequentes).</li>
+                </ul>
+                <p className="mt-2">
+                  1.3. <strong>Dados financeiros sensíveis:</strong> Dados de cartão de crédito, senhas bancárias e informações de conta bancária são processados exclusivamente pelo <strong>Asaas</strong> (processador de pagamento). A THouse Rec <strong>não armazena</strong> estes dados em nenhum momento.
                 </p>
                 <p>
-                  1.2. Dados coletados automaticamente (IP, navegador, sistema
-                  operacional, cookies essenciais, logs de acesso).
+                  1.4. <strong>Dados de pagamento armazenados pela THouse Rec:</strong> Apenas informações não sensíveis são armazenadas:
                 </p>
-                <p>
-                  1.3. Dados financeiros sensíveis (como número de cartão)
-                  são processados por terceiros como Mercado Pago. A THouse
-                  Rec não armazena estes dados.
-                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>ID do pagamento no Asaas;</li>
+                  <li>Valor pago;</li>
+                  <li>Status do pagamento (pendente, aprovado, recusado);</li>
+                  <li>Método de pagamento selecionado (PIX, cartão, boleto);</li>
+                  <li>Data e hora do pagamento;</li>
+                  <li>Associação com agendamento ou plano.</li>
+                </ul>
 
                 <h3 className="mt-4 font-semibold">
                   2. Para que usamos esses dados
                 </h3>
                 <p>
-                  Usamos seus dados para prestar serviços (agendamentos,
-                  pagamentos, contato), melhorar sua experiência (histórico,
-                  status de planos), garantir segurança (prevenir fraudes) e
-                  comunicação (suporte, avisos importantes, melhoria do FAQ).
+                  2.1. <strong>Prestação de serviços:</strong> Usamos seus dados para:
                 </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>processar agendamentos e confirmar sessões;</li>
+                  <li>gerenciar planos mensais e assinaturas;</li>
+                  <li>processar pagamentos através do Asaas;</li>
+                  <li>gerenciar cupons de desconto e reembolsos;</li>
+                  <li>responder perguntas do FAQ e fornecer suporte via chat;</li>
+                  <li>enviar notificações sobre status de agendamentos, planos, FAQ e chat.</li>
+                </ul>
+                <p className="mt-2">
+                  2.2. <strong>Melhoria da experiência:</strong> Usamos dados para:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>manter histórico de agendamentos e planos na página "Minha Conta";</li>
+                  <li>personalizar notificações e alertas;</li>
+                  <li>melhorar o sistema de FAQ com base em perguntas frequentes;</li>
+                  <li>otimizar o atendimento via chat com histórico de conversas.</li>
+                </ul>
+                <p className="mt-2">
+                  2.3. <strong>Segurança e prevenção de fraudes:</strong> Usamos dados para:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>verificar identidade em tentativas de login;</li>
+                  <li>associar pagamentos a agendamentos para prevenir fraudes;</li>
+                  <li>monitorar atividades suspeitas na plataforma.</li>
+                </ul>
+                <p className="mt-2">
+                  2.4. <strong>Comunicação:</strong> Usamos dados para:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>enviar e-mails de confirmação de pagamento e agendamento;</li>
+                  <li>notificar sobre respostas a perguntas do FAQ;</li>
+                  <li>comunicar sobre atendimento humano no chat;</li>
+                  <li>enviar avisos importantes sobre mudanças nos termos ou serviços.</li>
+                </ul>
 
                 <h3 className="mt-4 font-semibold">
                   3. Base legal para tratamento de dados
@@ -869,15 +1049,18 @@ export default function TermosContratosPage() {
                 <h3 className="mt-4 font-semibold">
                   4. Compartilhamento de dados
                 </h3>
-                <p>Compartilhamos apenas com serviços essenciais, como:</p>
+                <p>4.1. Compartilhamos apenas com serviços essenciais, como:</p>
                 <ul className="mt-1 list-disc pl-5 space-y-1">
-                  <li>processadores de pagamento (Mercado Pago);</li>
-                  <li>hospedagem e infraestrutura (Vercel, banco de dados);</li>
-                  <li>provedores de e-mail (para envio de comunicações).</li>
+                  <li><strong>Asaas</strong> - Processador de pagamento (PIX, cartão, boleto). Compartilhamos apenas: nome, e-mail, CPF (quando disponível) e valor da transação. Dados de cartão são processados exclusivamente pelo Asaas;</li>
+                  <li><strong>Vercel</strong> - Hospedagem e infraestrutura do site;</li>
+                  <li><strong>Provedores de e-mail</strong> - Para envio de comunicações e notificações (Gmail/Google Workspace);</li>
+                  <li><strong>Banco de dados</strong> - SQLite (desenvolvimento) ou PostgreSQL (produção) para armazenamento seguro de dados.</li>
                 </ul>
                 <p className="mt-2">
-                  Nunca vendemos seus dados e não compartilhamos para fins de
-                  marketing de terceiros.
+                  4.2. <strong>Nunca vendemos seus dados</strong> e não compartilhamos para fins de marketing de terceiros.
+                </p>
+                <p>
+                  4.3. <strong>Dados compartilhados com Asaas:</strong> Apenas dados necessários para processar pagamentos são compartilhados. O Asaas possui sua própria política de privacidade e está em conformidade com normas de segurança de pagamento (PCI-DSS).
                 </p>
 
                 <h3 className="mt-4 font-semibold">5. Proteção dos dados</h3>
@@ -895,17 +1078,34 @@ export default function TermosContratosPage() {
                   de consentimento. Basta enviar um e-mail para:
                 </p>
                 <p className="mt-1">
-                  📩 <strong>vicperra@gmail.com</strong>
+                  📩 <strong>thouse.rec.tremv@gmail.com</strong>
                 </p>
 
                 <h3 className="mt-4 font-semibold">
                   7. Prazo de armazenamento
                 </h3>
                 <p>
-                  Contas inativas podem ser apagadas após 24 meses. Dados
-                  relacionados a contrato e obrigações legais podem ser
-                  mantidos por prazo maior. Perguntas do FAQ e histórico de
-                  suporte podem ser preservados para melhoria contínua.
+                  7.1. <strong>Contas de usuários:</strong> Contas inativas podem ser apagadas após 24 meses. Dados relacionados a contratos e obrigações legais podem ser mantidos por prazo maior conforme exigências legais.
+                </p>
+                <p className="mt-2">
+                  7.2. <strong>Conversas de chat:</strong> As conversas de chat são armazenadas por <strong>1 semana (7 dias)</strong> após a última mensagem. Após esse período, são automaticamente excluídas do banco de dados para otimização.
+                </p>
+                <p>
+                  7.3. <strong>Perguntas do FAQ:</strong> Perguntas enviadas pelos usuários e respostas podem ser preservadas indefinidamente para:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>melhoria contínua do sistema de FAQ;</li>
+                  <li>publicação no FAQ público (quando aprovadas);</li>
+                  <li>histórico de suporte e atendimento.</li>
+                </ul>
+                <p className="mt-2">
+                  7.4. <strong>Dados de pagamento:</strong> Informações de pagamento (ID, valor, status, método) são mantidas por tempo necessário para cumprimento de obrigações legais e fiscais, geralmente por 5 anos conforme legislação brasileira.
+                </p>
+                <p>
+                  7.5. <strong>Agendamentos e planos:</strong> Histórico de agendamentos e planos são mantidos enquanto a conta estiver ativa e por período adicional conforme necessidades legais.
+                </p>
+                <p className="mt-2">
+                  7.6. <strong>Logs de acesso:</strong> Logs de tentativas de login e acessos são mantidos por 90 dias para segurança e detecção de atividades suspeitas.
                 </p>
 
                 <h3 className="mt-4 font-semibold">8. Cookies</h3>
@@ -938,7 +1138,7 @@ export default function TermosContratosPage() {
                 </h3>
                 <p>Para qualquer dúvida sobre seus dados pessoais, fale com a gente:</p>
                 <p className="mt-1">
-                  📩 <strong>vicperra@gmail.com</strong> — Rio de Janeiro – RJ
+                  📩 <strong>thouse.rec.tremv@gmail.com</strong> — Rio de Janeiro – RJ
                 </p>
 
                 <h3 className="mt-4 font-semibold">12. Aceite</h3>
@@ -954,7 +1154,7 @@ export default function TermosContratosPage() {
             {activeDoc === "servicos" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Este contrato regula a relação entre o Cliente (Artista) e
@@ -977,20 +1177,47 @@ export default function TermosContratosPage() {
                   2. Agendamentos, horários e funcionamento
                 </h3>
                 <p>
-                  O agendamento é feito pela plataforma oficial. A sessão
+                  2.1. O agendamento é feito pela plataforma oficial. A sessão
                   começa e termina nos horários marcados, e atrasos não
                   estendem o tempo. A ausência sem aviso pode implicar perda
                   do valor pago, conforme política de cancelamento.
+                </p>
+                <p className="mt-2">
+                  2.2. <strong>Sistema de Cupons:</strong> Cupons de desconto podem ser aplicados durante o agendamento, reduzindo o valor total. Cupons podem ser:
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li>gerados automaticamente em caso de reembolso de agendamento cancelado;</li>
+                  <li>fornecidos pela THouse Rec para promoções específicas;</li>
+                  <li>válidos por período determinado ou até expiração;</li>
+                  <li>aplicáveis a serviços específicos ou gerais conforme regras do cupom.</li>
+                </ul>
+                <p className="mt-2">
+                  2.3. <strong>Notificações de Agendamento:</strong> O usuário recebe notificação quando um agendamento é confirmado após pagamento aprovado. A notificação desaparece automaticamente ao visualizar a página "Minha Conta".
                 </p>
 
                 <h3 className="mt-4 font-semibold">
                   3. Pagamentos e valores
                 </h3>
                 <p>
-                  Os pagamentos são feitos de forma antecipada, via Mercado
-                  Pago ou outro meio indicado. O serviço só é iniciado após a
-                  confirmação do pagamento. Valores podem ser reajustados para
-                  novas contratações.
+                  3.1. Os pagamentos são feitos de forma antecipada, via <strong>Asaas</strong> (processador de pagamento). O serviço só é iniciado após a confirmação do pagamento pelo Asaas.
+                </p>
+                <p className="mt-2">
+                  3.2. <strong>Formas de pagamento disponíveis:</strong>
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-1">
+                  <li><strong>PIX:</strong> Pagamento instantâneo via QR Code ou chave PIX. Confirmação imediata após pagamento;</li>
+                  <li><strong>Cartão de Crédito:</strong> Parcelamento disponível conforme regras do Asaas. Confirmação em até 2 dias úteis;</li>
+                  <li><strong>Cartão de Débito:</strong> Débito automático em conta. Confirmação em até 1 dia útil;</li>
+                  <li><strong>Boleto Bancário:</strong> Vencimento conforme gerado. Confirmação após compensação bancária (até 3 dias úteis).</li>
+                </ul>
+                <p className="mt-2">
+                  3.3. Valores podem ser reajustados para novas contratações. O valor pago é garantido para o serviço contratado naquele momento.
+                </p>
+                <p>
+                  3.4. <strong>Segurança de pagamento:</strong> Todos os dados sensíveis de cartão são processados exclusivamente pelo Asaas, que possui certificação PCI-DSS. A THouse Rec não tem acesso a números de cartão, CVV ou senhas bancárias.
+                </p>
+                <p className="mt-2">
+                  3.5. <strong>Associação de pagamento a agendamento:</strong> Cada pagamento confirmado é associado diretamente ao agendamento correspondente para prevenir fraudes e garantir rastreabilidade.
                 </p>
 
                 <h3 className="mt-4 font-semibold">
@@ -1092,7 +1319,7 @@ export default function TermosContratosPage() {
             {activeDoc === "planos" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Este contrato regula a assinatura de planos mensais de
@@ -1113,9 +1340,16 @@ export default function TermosContratosPage() {
                   2. Vigência e renovação automática
                 </h3>
                 <p>
-                  A assinatura é mensal, com renovação automática na mesma
-                  data da compra, até cancelamento pelo Cliente. Cobranças
-                  são feitas via Mercado Pago ou meio equivalente.
+                  2.1. A assinatura é mensal ou anual (conforme escolha do Cliente), com renovação automática na mesma data da compra, até cancelamento pelo Cliente.
+                </p>
+                <p className="mt-2">
+                  2.2. Cobranças são feitas via <strong>Asaas</strong> (processador de pagamento), que oferece múltiplas formas de pagamento: PIX, cartão de crédito, cartão de débito ou boleto bancário.
+                </p>
+                <p>
+                  2.3. <strong>Notificações de Plano:</strong> O usuário recebe notificação quando um plano é confirmado e ativado após pagamento aprovado. A notificação desaparece automaticamente ao visualizar a página "Minha Conta".
+                </p>
+                <p className="mt-2">
+                  2.4. <strong>Sistema de Cupons para Planos:</strong> Cupons de desconto podem ser aplicados na assinatura de planos, reduzindo o valor da mensalidade ou anualidade conforme regras do cupom.
                 </p>
 
                 <h3 className="mt-4 font-semibold">
@@ -1197,7 +1431,7 @@ export default function TermosContratosPage() {
             {activeDoc === "cancelamento" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Esta Política organiza de forma justa os cancelamentos,
@@ -1283,7 +1517,7 @@ export default function TermosContratosPage() {
             {activeDoc === "imagem" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Este termo autoriza a THouse Rec a usar imagem, voz e
@@ -1353,7 +1587,7 @@ export default function TermosContratosPage() {
             {activeDoc === "direitos" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Esta política explica quem é dono de cada parte da obra
@@ -1445,7 +1679,7 @@ export default function TermosContratosPage() {
             {activeDoc === "conduta" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Este termo define as regras de conduta, uso do espaço
@@ -1513,7 +1747,7 @@ export default function TermosContratosPage() {
             {activeDoc === "backup" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Janeiro/2025
+                  Última atualização: Fevereiro/2025
                 </p>
                 <p>
                   Esta política explica o que é entregue ao Cliente, por
@@ -1603,8 +1837,12 @@ export default function TermosContratosPage() {
               </button>
             </div>
           </div>
+          </div>
         </div>
       </section>
+
+      {/* BOX DE DÚVIDAS */}
+      <DuvidasBox />
     </main>
   );
 }

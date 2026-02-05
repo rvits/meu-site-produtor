@@ -5,15 +5,20 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
+// Menu sem Dashboard (Dashboard será exibido separadamente no header)
 const MENU = [
-  { label: "Dashboard", href: "/admin" },
-  { label: "Agendamentos", href: "/admin/agendamentos" },
-  { label: "Planos", href: "/admin/planos" },
   { label: "Usuários", href: "/admin/usuarios" },
-  { label: "Serviços", href: "/admin/servicos" },
-  { label: "Pagamentos", href: "/admin/pagamentos" },
+  { label: "Agendamentos", href: "/admin/agendamentos" },
+  { label: "Controle Agendamento", href: "/admin/controle-agendamento" },
+  { label: "Planos e Cupons", href: "/admin/planos" },
   { label: "FAQ", href: "/admin/faq" },
-  { label: "Chat", href: "/admin/chat" },
+  { label: "Serviços Solicitados", href: "/admin/servicos-solicitados" },
+  { label: "Serviços Aceitos", href: "/admin/servicos-aceitos" },
+  { label: "Pagamentos", href: "/admin/pagamentos" },
+  { label: "Estatísticas", href: "/admin/estatisticas" },
+  { label: "Chats Pendentes", href: "/admin/chats-pendentes" },
+  { label: "Chats Gerais", href: "/admin/chats-gerais" },
+  { label: "Pausa Virtual", href: "/admin/manutencao" },
 ];
 
 export default function AdminLayout({
@@ -25,9 +30,9 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🔒 Proteção real de rota ADMIN
+  // 🔒 Proteção real de rota ADMIN - permite por role ADMIN ou email específico
   useEffect(() => {
-    if (!loading && (!user || user.role !== "ADMIN")) {
+    if (!loading && (!user || (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com"))) {
       router.replace("/");
     }
   }, [user, loading, router]);
@@ -40,44 +45,62 @@ export default function AdminLayout({
     );
   }
 
-  if (!user || user.role !== "ADMIN") return null;
+  if (!user || (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com")) return null;
 
   return (
-    <div className="min-h-screen bg-zinc-800 text-zinc-100">
+    <div className="min-h-screen bg-zinc-900 text-zinc-100">
       {/* HEADER ADMIN */}
-      <header className="border-b border-zinc-800 bg-zinc-800">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <span className="text-lg font-bold text-red-500">
-              THouse Rec — Admin
-            </span>
-
-            <nav className="hidden md:flex gap-2">
-              {MENU.map((item) => {
-                const ativo = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-full px-4 py-1 text-sm transition ${
-                      ativo
-                        ? "bg-red-600 text-white"
-                        : "text-zinc-300 hover:text-red-400"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+      <header className="sticky top-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <span className="text-xl font-bold text-red-500">
+                THouse Rec — Admin
+              </span>
+              <button
+                onClick={() => router.push("/")}
+                className="text-sm text-zinc-400 hover:text-red-400 transition"
+              >
+                ← Voltar ao site
+              </button>
+            </div>
+          </div>
+          
+          {/* DASHBOARD CENTRALIZADO */}
+          <div className="flex justify-center mb-4">
+            <Link
+              href="/admin"
+              className={`
+                rounded-xl border-2 px-6 py-3 text-base font-semibold transition-all duration-300
+                ${pathname === "/admin"
+                  ? "bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20"
+                  : "bg-gradient-to-br from-red-500/20 to-red-600/20 border-red-500/50 text-zinc-100 hover:from-red-500/30 hover:to-red-600/30 hover:border-red-500/70"
+                }
+              `}
+            >
+              📊 Dashboard
+            </Link>
           </div>
 
-          <button
-            onClick={() => router.push("/")}
-            className="text-xs text-zinc-400 hover:text-red-400"
-          >
-            Voltar ao site
-          </button>
+          {/* NAVEGAÇÃO PRINCIPAL */}
+          <nav className="flex flex-wrap gap-2 justify-center">
+            {MENU.map((item) => {
+              const ativo = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap ${
+                    ativo
+                      ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                      : "text-zinc-300 hover:text-red-400 hover:bg-zinc-800 border border-zinc-700"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </header>
 

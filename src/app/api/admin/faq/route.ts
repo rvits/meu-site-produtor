@@ -13,12 +13,42 @@ const blockCommentSchema = z.object({
   blocked: z.boolean(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await requireAdmin();
 
+    const { searchParams } = new URL(req.url);
+    const q = searchParams.get("q") || "";
+    const mostrarTodas = searchParams.get("todas") === "true";
+
+    let where: any = {};
+    let orderBy: any = { views: "desc" }; // Por padrão, ordenar por views (mais clicadas)
+
+    // Se houver busca, filtrar por pergunta ou resposta
+    if (q.trim()) {
+      const searchTerm = q.trim();
+      where = {
+        OR: [
+          { question: { contains: searchTerm } },
+          { answer: { contains: searchTerm } },
+        ],
+      };
+      orderBy = { createdAt: "desc" }; // Com busca, ordenar por data
+    } else if (!mostrarTodas) {
+      // Sem busca e sem mostrar todas: mostrar apenas as mais frequentes (top 5 por views)
+      // Não precisa de where adicional, apenas limitar
+    }
+
+    // Lógica de limite:
+    // - Se mostrarTodas = true: mostrar todas (sem limite)
+    // - Se houver busca: mostrar todos os resultados da busca (sem limite)
+    // - Caso contrário: mostrar apenas as 5 mais visualizadas
+    const take = mostrarTodas || q.trim() ? undefined : 5;
+
     const faqs = await prisma.fAQ.findMany({
-      orderBy: { createdAt: "desc" },
+      where,
+      orderBy,
+      take,
       include: {
         userQuestions: {
           orderBy: { createdAt: "desc" },

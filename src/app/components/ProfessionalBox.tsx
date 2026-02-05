@@ -37,6 +37,15 @@ export default function ProfessionalBox({
           WebkitBackdropFilter: "blur(16px)",
         }}
       >
+        {/* LINHA LATERAL ESQUERDA COM FADE */}
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-[1px]"
+          style={{
+            background: "linear-gradient(to bottom, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+            boxShadow: "-1px 0 10px rgba(239, 68, 68, 0.4)"
+          }}
+        />
+
         {showInternalLine && (
           <div
             className="h-[1px] mx-auto mb-5"
@@ -50,6 +59,15 @@ export default function ProfessionalBox({
         )}
 
         <div className="px-6 md:px-8 py-6 text-center">{children}</div>
+
+        {/* LINHA LATERAL DIREITA COM FADE */}
+        <div 
+          className="absolute right-0 top-0 bottom-0 w-[1px]"
+          style={{
+            background: "linear-gradient(to bottom, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
+            boxShadow: "1px 0 10px rgba(239, 68, 68, 0.4)"
+          }}
+        />
       </div>
 
       {/* LINHA INFERIOR COM FADE */}

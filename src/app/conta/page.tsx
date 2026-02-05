@@ -9,19 +9,35 @@ import { useEffect, useState } from "react";
 type ContaData = {
   id: string;
   nomeArtistico: string;
+  nomeSocial: string | null;
   email: string;
   telefone: string;
+  cpf: string | null;
   pais: string;
   estado: string;
   cidade: string;
   bairro: string;
   dataNascimento: string;
+  sexo: string | null;
+  genero: string | null;
+  generoOutro: string | null;
   estilosMusicais: string | null;
   nacionalidade: string | null;
   foto: string | null;
   role: string;
   createdAt: string;
 };
+
+function calcularIdade(dataNascimento: string): number {
+  const hoje = new Date();
+  const nascimento = new Date(dataNascimento);
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const mes = hoje.getMonth() - nascimento.getMonth();
+  if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade--;
+  }
+  return idade;
+}
 
 /* ===================== PAGE ===================== */
 
@@ -38,17 +54,18 @@ export default function ContaPage() {
     if (loading) return;
 
     // ❌ Sem usuário → login
-    if (!user) {
+    if (!user || !user.id) {
       router.push("/login");
       return;
     }
 
     // ✅ Usuário válido → buscar conta
-    carregarConta(user.id);
+    carregarConta();
   }, [user, loading, router]);
 
-  async function carregarConta(userId: string) {
+  async function carregarConta() {
     try {
+      setLoadingConta(true);
       const r = await fetch("/api/conta", {
         method: "GET",
         credentials: "include",
@@ -56,15 +73,27 @@ export default function ContaPage() {
 
       if (!r.ok) {
         const errorData = await r.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao buscar conta");
+        const errorMessage = errorData.error || `Erro ${r.status}: ${r.statusText}`;
+        console.error("Erro na resposta da API:", errorMessage, errorData);
+        throw new Error(errorMessage);
       }
 
       const data: ContaData = await r.json();
+      
+      // Validar se os dados estão completos
+      if (!data || !data.id) {
+        throw new Error("Dados da conta incompletos");
+      }
+      
       setForm(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao carregar conta:", err);
       // Mostrar erro ao usuário
-      alert("Erro ao carregar dados da conta. Tente fazer login novamente.");
+      alert(`Erro ao carregar dados da conta: ${err.message || "Erro desconhecido"}. Tente fazer login novamente.`);
+      // Redirecionar para login em caso de erro de autenticação
+      if (err.message?.includes("Não autenticado") || err.message?.includes("401")) {
+        router.push("/login");
+      }
     } finally {
       setLoadingConta(false);
     }
@@ -103,9 +132,16 @@ export default function ContaPage() {
 
   function setCampo<K extends keyof ContaData>(
     campo: K,
-    valor: ContaData[K]
+    valor: ContaData[K] | string
   ) {
-    setForm((prev) => (prev ? { ...prev, [campo]: valor } : prev));
+    setForm((prev) => {
+      if (!prev) return prev;
+      // Converter string vazia para null em campos opcionais
+      if (valor === "" && (campo === "nomeSocial" || campo === "generoOutro")) {
+        return { ...prev, [campo]: null };
+      }
+      return { ...prev, [campo]: valor as ContaData[K] };
+    });
   }
 
   /* ===================== UI ===================== */
@@ -155,14 +191,80 @@ export default function ContaPage() {
         {/* PERFIL */}
         <Section title="Perfil">
           <Input label="Nome artístico" value={form.nomeArtistico} onChange={(v) => setCampo("nomeArtistico", v)} />
+          <Input label="Nome social (opcional)" value={form.nomeSocial ?? ""} onChange={(v) => setCampo("nomeSocial", v || null)} />
           <Input label="Email" value={form.email} onChange={(v) => setCampo("email", v)} />
           <Input label="Telefone" value={form.telefone} onChange={(v) => setCampo("telefone", v)} />
+          <Input 
+            label="CPF" 
+            value={form.cpf ? form.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ""} 
+            onChange={(v) => {
+              // Formatar CPF automaticamente (XXX.XXX.XXX-XX)
+              const apenasNumeros = v.replace(/\D/g, '');
+              let formatado = apenasNumeros;
+              if (apenasNumeros.length > 3) {
+                formatado = apenasNumeros.slice(0, 3) + '.' + apenasNumeros.slice(3);
+              }
+              if (apenasNumeros.length > 6) {
+                formatado = apenasNumeros.slice(0, 3) + '.' + apenasNumeros.slice(3, 6) + '.' + apenasNumeros.slice(6);
+              }
+              if (apenasNumeros.length > 9) {
+                formatado = apenasNumeros.slice(0, 3) + '.' + apenasNumeros.slice(3, 6) + '.' + apenasNumeros.slice(6, 9) + '-' + apenasNumeros.slice(9, 11);
+              }
+              setCampo("cpf", apenasNumeros || null);
+            }}
+            placeholder="000.000.000-00"
+            maxLength={14}
+          />
           <Input
             type="date"
             label="Data de nascimento"
             value={form.dataNascimento.slice(0, 10)}
             onChange={(v) => setCampo("dataNascimento", v)}
           />
+          <div>
+            <span className="text-sm text-zinc-400">Idade</span>
+            <div className="mt-1 rounded bg-zinc-900 border border-zinc-700 px-3 py-2 text-zinc-300">
+              {calcularIdade(form.dataNascimento)} anos
+            </div>
+          </div>
+          <Select
+            label="Sexo"
+            value={form.sexo || ""}
+            onChange={(v) => setCampo("sexo", v || null)}
+            options={[
+              { value: "", label: "Selecione..." },
+              { value: "masculino", label: "Masculino" },
+              { value: "feminino", label: "Feminino" },
+              { value: "prefiro_nao_declarar", label: "Prefiro não declarar" },
+            ]}
+          />
+          <Select
+            label="Gênero"
+            value={form.genero || ""}
+            onChange={(v) => {
+              setCampo("genero", v || null);
+              if (v !== "outro") {
+                setCampo("generoOutro", null);
+              }
+            }}
+            options={[
+              { value: "", label: "Selecione..." },
+              { value: "heterossexual", label: "Heterossexual" },
+              { value: "homossexual", label: "Homossexual" },
+              { value: "bissexual", label: "Bissexual" },
+              { value: "transsexual", label: "Transsexual" },
+              { value: "nao_binario", label: "Não-binário" },
+              { value: "outro", label: "Outro" },
+            ]}
+          />
+          {form.genero === "outro" && (
+            <Input
+              label="Especifique seu gênero"
+              value={form.generoOutro ?? ""}
+              onChange={(v) => setCampo("generoOutro", v || null)}
+              placeholder="Como você se identifica?"
+            />
+          )}
         </Section>
 
         {/* LOCALIZAÇÃO */}
@@ -185,6 +287,16 @@ export default function ContaPage() {
         >
           Salvar alterações
         </button>
+
+        {/* Botão Admin - apenas para thouse.rec.tremv@gmail.com */}
+        {form.email === "thouse.rec.tremv@gmail.com" && (
+          <button
+            onClick={() => router.push("/admin")}
+            className="w-full rounded bg-yellow-600 py-3 font-semibold hover:bg-yellow-700 transition"
+          >
+            🔐 Área Admin
+          </button>
+        )}
 
         <button
           onClick={logout}
@@ -219,10 +331,14 @@ function Input({
   value,
   onChange,
   type = "text",
+  placeholder,
+  maxLength,
 }: {
   label: string;
   value: string;
   type?: string;
+  placeholder?: string;
+  maxLength?: number;
   onChange: (v: string) => void;
 }) {
   return (
@@ -231,9 +347,49 @@ function Input({
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded bg-zinc-900 border border-zinc-700 px-3 py-2"
+        className="mt-1 w-full rounded bg-zinc-900 border border-zinc-700 px-3 py-2 text-zinc-100"
       />
+    </label>
+  );
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm text-zinc-400">{label}</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-1 w-full rounded bg-zinc-900 border border-zinc-700 px-3 py-2 pr-8 text-zinc-100 appearance-none cursor-pointer"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 0.75rem center',
+            backgroundSize: '12px',
+            paddingRight: '2.5rem',
+          }}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
     </label>
   );
 }

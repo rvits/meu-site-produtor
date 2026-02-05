@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
+import DuvidasBox from "../components/DuvidasBox";
 
 // =========================================================
 // TIPOS
@@ -23,8 +24,8 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
+    mensal: 197.00,
+    anual: 1970.00,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
       { label: "2h de captação por mês", included: true },
@@ -38,15 +39,14 @@ const PLANOS: Plano[] = [
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3499.99,
+    mensal: 347.00,
+    anual: 3470.00,
     descricao: "Para artistas que gravam com regularidade e já possuem músicas próprias.",
     beneficios: [
       { label: "2h de captação por mês", included: true },
       { label: "2 Mix & Master por mês", included: true },
       { label: "1 Beat por mês", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
-      { label: "Prioridade intermediária", included: true, useTilde: true },
       { label: "Não tem desconto em serviços ou beats", included: false },
       { label: "Não tem acompanhamento artístico", included: false },
     ],
@@ -54,8 +54,8 @@ const PLANOS: Plano[] = [
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
+    mensal: 547.00,
+    anual: 5470.00,
     descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
     beneficios: [
       { label: "4 horas de captação por mês", included: true },
@@ -75,7 +75,6 @@ const PLANOS: Plano[] = [
 export default function PlanosPage() {
   const [mounted, setMounted] = useState(false);
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
-  const [loadingPlanoId, setLoadingPlanoId] = useState<string | null>(null);
   const [aceiteTermos, setAceiteTermos] = useState<Record<string, boolean>>({
     bronze: false,
     prata: false,
@@ -103,40 +102,26 @@ export default function PlanosPage() {
       return;
     }
 
-    try {
-      setLoadingPlanoId(plano.id);
+    // Redirecionar para página de pagamentos com dados do plano
+    const queryParams = new URLSearchParams({
+      tipo: "plano",
+      planId: plano.id,
+      modo: modoPlano,
+    });
 
-      const resp = await fetch("/api/pagamentos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planoId: plano.id,
-          modo: modoPlano,
-          userId: user.id,
-          nome: user.nome,
-          email: user.email,
-        }),
-      });
-
-      const data = await resp.json();
-      window.location.href = data.init_point;
-    } catch (err) {
-      alert("Erro ao iniciar o pagamento.");
-    } finally {
-      setLoadingPlanoId(null);
-    }
+    router.push(`/pagamentos?${queryParams.toString()}`);
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12 text-zinc-100">
+    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-12 text-zinc-100 overflow-x-hidden">
       {/* TÍTULO */}
       <section className="mb-8 flex flex-col items-center justify-center w-full">
-        <h1 className="mb-3 text-center text-3xl font-semibold md:text-5xl lg:text-6xl" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+        <h1 className="mb-3 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
           Planos da <span className="text-red-500">THouse Rec</span>
         </h1>
         
         {/* TEXTO DESCRITIVO SEM BOX */}
-        <p className="mb-10 text-center text-sm leading-relaxed text-zinc-300 md:text-base mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <p className="mb-6 sm:mb-8 md:mb-10 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-2" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Escolha o plano que melhor se encaixa na sua rotina de lançamentos.
         </p>
 
@@ -232,20 +217,13 @@ export default function PlanosPage() {
                       <ul className="mt-10 space-y-2 mb-6 text-xs text-zinc-200">
                         {plano.beneficios.map((b, idx) => {
                           const useTilde = b.useTilde && b.included;
-                          const isPriorityIntermediate = b.label === "Prioridade intermediária" && b.included;
-                          const iconColor = b.included 
-                            ? (isPriorityIntermediate ? "bg-yellow-500" : "bg-emerald-500") 
-                            : "bg-red-600";
-                          const textColor = b.included 
-                            ? (isPriorityIntermediate ? "text-yellow-200" : "text-emerald-200") 
-                            : "text-red-300";
-                          const boxBgColor = isPriorityIntermediate ? "bg-yellow-950/40" : "bg-zinc-900";
-                          const boxBorderColor = isPriorityIntermediate ? "border-yellow-500/60" : "";
+                          const iconColor = b.included ? "bg-emerald-500" : "bg-red-600";
+                          const textColor = b.included ? "text-emerald-200" : "text-red-300";
                           
                           return (
                             <li
                               key={idx}
-                              className={`flex items-center gap-2 rounded-lg px-4 py-2 ${boxBgColor} ${boxBorderColor} ${boxBorderColor ? "border" : ""}`}
+                              className="flex items-center gap-2 rounded-lg px-4 py-2 bg-zinc-900"
                             >
                               <span
                                 className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${iconColor} text-black`}
@@ -287,13 +265,10 @@ export default function PlanosPage() {
 
                     <button
                       onClick={() => handleAssinar(plano)}
-                      disabled={loadingPlanoId === plano.id}
-                      className="mt-auto w-full rounded-full border border-red-600 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-600/20 disabled:opacity-50 transition-all"
+                      className="mt-auto w-full rounded-full border border-red-600 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-600/20 transition-all"
                       style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                     >
-                      {loadingPlanoId === plano.id
-                        ? "Redirecionando..."
-                        : "Assinar este plano"}
+                      Assinar este plano
                     </button>
                   </div>
                 </div>
@@ -302,6 +277,66 @@ export default function PlanosPage() {
           </div>
         </div>
       </section>
+
+      {/* BOX DE TESTE - APENAS PARA ADMIN */}
+      {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
+        <section className="mb-16 flex justify-center px-4">
+          <div className="relative w-full max-w-5xl border-2 border-yellow-500 rounded-2xl bg-yellow-950/20 backdrop-blur-sm p-6">
+            <div className="text-center space-y-4">
+              <h3 className="text-xl font-semibold text-yellow-400">
+                🧪 Pagamento de Teste - Plano (Apenas Admin)
+              </h3>
+              <p className="text-sm text-yellow-200">
+                Use esta opção para testar o fluxo de pagamento de PLANO com um valor de R$ 5,00.
+                Um plano de teste será criado e aparecerá na seção "Planos" do admin após o pagamento.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/test-payment", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ tipo: "plano" }),
+                    });
+
+                    if (!res.ok) {
+                      const error = await res.json();
+                      let errorMessage = error.error || "Erro ao criar pagamento de teste";
+                      
+                      // Mensagens mais amigáveis para erros comuns
+                      if (error.details?.tipo === "permissao_insuficiente") {
+                        errorMessage = `❌ Permissão Insuficiente\n\n${error.error}\n\n${error.details.solucao}\n\n${error.details.guia || ""}`;
+                      } else if (error.details?.tipo === "token_invalido") {
+                        errorMessage = `❌ Token Inválido\n\n${error.error}\n\n${error.details.solucao}`;
+                      } else if (error.details?.tipo === "ambiente_invalido") {
+                        errorMessage = `❌ Ambiente Inválido\n\n${error.error}\n\n${error.details.solucao}`;
+                      }
+                      
+                      alert(errorMessage);
+                      console.error("[Test Payment Frontend] Erro completo:", error);
+                      return;
+                    }
+
+                    const data = await res.json();
+                    if (data.initPoint) {
+                      window.location.href = data.initPoint;
+                    } else {
+                      alert("Não foi possível obter o link de pagamento de teste.");
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    alert("Erro inesperado ao iniciar pagamento de teste.");
+                  }
+                }}
+                className="mt-4 w-full max-w-md mx-auto rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
+                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              >
+                Testar Pagamento - R$ 5,00
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* TEXTO FINAL */}
       <section className="mb-16 flex justify-center px-4">
@@ -322,11 +357,14 @@ export default function PlanosPage() {
             
             <p className="text-center text-xs text-zinc-300 mt-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               A contratação de qualquer plano está sujeita à confirmação do pagamento e
-              ao aceite dos <a href="/termos-contratos" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">termos de uso</a> e <a href="/termos-contratos" className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors">contrato de prestação de serviço</a> da THouse Rec.
+              ao aceite dos <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
             </p>
           </div>
         </div>
       </section>
+
+      {/* BOX DE DÚVIDAS */}
+      <DuvidasBox />
     </main>
   );
 }

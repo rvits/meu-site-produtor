@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
 
@@ -10,8 +11,19 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        nomeCompleto: true,
         nomeArtistico: true,
         email: true,
+        telefone: true,
+        cpf: true,
+        pais: true,
+        estado: true,
+        cidade: true,
+        bairro: true,
+        dataNascimento: true,
+        estilosMusicais: true,
+        nacionalidade: true,
+        foto: true,
         role: true,
         blocked: true,
         blockedAt: true,
@@ -22,14 +34,62 @@ export async function GET() {
             appointments: true,
             payments: true,
             userPlans: true,
+            services: true,
           },
         },
       },
     });
 
+    // Buscar planos e cupons de cada usuário
+    const usuariosComPlanosECupons = await Promise.all(
+      usuarios.map(async (user) => {
+        // Buscar planos do usuário
+        const planos = await prisma.userPlan.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          include: {
+            subscription: {
+              select: {
+                id: true,
+                status: true,
+                paymentMethod: true,
+                billingDay: true,
+                nextBillingDate: true,
+                lastBillingDate: true,
+              },
+            },
+          },
+        });
+
+        // Buscar cupons do usuário (gerados pelos planos, reembolsos ou diretamente para o usuário)
+        const agendamentosDoUsuario = await prisma.appointment.findMany({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+        const agendamentosIds = agendamentosDoUsuario.map(a => a.id);
+        
+        const cupons = await prisma.coupon.findMany({
+          where: {
+            OR: [
+              { usedBy: user.id },
+              { userPlanId: { in: planos.map(p => p.id) } },
+              { appointmentId: { in: agendamentosIds.length > 0 ? agendamentosIds : [-1] } }, // Cupons de reembolso
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        return {
+          ...user,
+          planos,
+          cupons,
+        };
+      })
+    );
+
     // Buscar últimos logins de cada usuário
     const usuariosComLogins = await Promise.all(
-      usuarios.map(async (user) => {
+      usuariosComPlanosECupons.map(async (user: any) => {
         try {
           const lastLogin = await prisma.loginLog.findFirst({
             where: { userId: user.id, success: true },
@@ -117,5 +177,43 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
     return NextResponse.json({ error: "Erro ao atualizar usuário" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await requireAdmin();
+
+    const body = await req.json();
+    const { userId, action } = body;
+
+    if (!userId || action !== "reset-password") {
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+    }
+
+    // Gerar senha temporária aleatória
+    const senhaTemporaria = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+    const hash = await bcrypt.hash(senhaTemporaria, 10);
+
+    // Atualizar senha do usuário
+    await prisma.user.update({
+      where: { id: userId },
+      data: { senha: hash },
+    });
+
+    // Invalidar todas as sessões ativas
+    await prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    return NextResponse.json({
+      message: "Senha resetada com sucesso!",
+      senhaTemporaria,
+    });
+  } catch (err: any) {
+    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+    return NextResponse.json({ error: "Erro ao resetar senha" }, { status: 500 });
   }
 }

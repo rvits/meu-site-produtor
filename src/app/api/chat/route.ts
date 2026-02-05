@@ -27,7 +27,9 @@ export async function POST(req: Request) {
     }
 
     const { message, sessionId, messages: bodyMessages } = validation.data;
-    const messages = bodyMessages || body.messages || [];
+    const messages = (bodyMessages || body.messages || []).filter(
+      (m: any) => m && m.content && typeof m.content === "string"
+    );
 
     // ===============================
     // ÚLTIMA MENSAGEM
@@ -42,27 +44,76 @@ export async function POST(req: Request) {
         chatSession = await prisma.chatSession.findUnique({
           where: { id: sessionId },
         });
+        
+        // Verificar se a sessão pertence ao usuário
+        if (chatSession && chatSession.userId !== user.id) {
+          return NextResponse.json(
+            { error: "Acesso negado a esta sessão" },
+            { status: 403 }
+          );
+        }
       }
       
       if (!chatSession) {
+        // Criar nova sessão
         chatSession = await prisma.chatSession.create({
           data: {
             userId: user.id,
             status: "open",
           },
         });
+        console.log(`[Chat] ✅ Nova sessão criada: ${chatSession.id} para usuário ${user.id}`);
       }
 
       // Salvar mensagem do usuário
-      await prisma.chatMessage.create({
-        data: {
-          chatSessionId: chatSession.id,
-          senderType: "user",
-          content: message || messages[messages.length - 1]?.content || "",
-        },
+      const userMessageContent = message || messages[messages.length - 1]?.content || "";
+      if (userMessageContent && userMessageContent.trim()) {
+        await prisma.chatMessage.create({
+          data: {
+            chatSessionId: chatSession.id,
+            senderType: "user",
+            content: userMessageContent,
+          },
+        });
+        console.log(`[Chat] ✅ Mensagem do usuário salva na sessão ${chatSession.id}`);
+        
+        // Atualizar updatedAt da sessão após salvar mensagem
+        await prisma.chatSession.update({
+          where: { id: chatSession.id },
+          data: { updatedAt: new Date() },
+        });
+      }
+    } catch (e: any) {
+      console.error("❌ [Chat] Erro ao criar/atualizar sessão de chat:", e);
+      console.error("❌ [Chat] Stack:", e.stack);
+      return NextResponse.json(
+        { error: "Erro ao processar sessão de chat", details: e.message },
+        { status: 500 }
+      );
+    }
+
+    // Garantir que temos uma sessão válida
+    if (!chatSession) {
+      console.error("❌ [Chat] Sessão não foi criada/encontrada!");
+      return NextResponse.json(
+        { error: "Erro ao criar sessão de chat" },
+        { status: 500 }
+      );
+    }
+
+    // ===============================
+    // VERIFICAR SE CHAT FOI ACEITO PELO ADMIN
+    // Se sim, a IA não deve interferir
+    // ===============================
+    if (chatSession && chatSession.adminAccepted) {
+      console.log("[Chat] Chat aceito pelo admin - IA não será acionada");
+      
+      // Retornar mensagem informando que o atendimento está sendo feito por humano
+      return NextResponse.json({
+        reply: "Sua mensagem foi enviada. Nossa equipe de atendimento humano está cuidando do seu caso e responderá em breve.",
+        sessionId: chatSession.id,
+        adminAccepted: true,
       });
-    } catch (e) {
-      console.error("Erro ao criar sessão de chat:", e);
     }
 
     // ===============================
@@ -88,11 +139,37 @@ export async function POST(req: Request) {
       // ⚠️ Email só envia se credenciais existirem
       if (
         process.env.SUPPORT_EMAIL &&
-        process.env.SUPPORT_EMAIL_PASSWORD
+        process.env.SUPPORT_EMAIL_PASSWORD &&
+        chatSession
       ) {
-        await sendHumanSupportEmail(
-          messages[messages.length - 1]?.content || message || ""
-        );
+        try {
+          console.log("[Chat] Tentando enviar email de atendimento humano...");
+          await sendHumanSupportEmail(
+            messages[messages.length - 1]?.content || message || "",
+            user.id,
+            user.nomeArtistico || user.nomeCompleto || "Usuário",
+            user.email,
+            chatSession.id
+          );
+          console.log("[Chat] ✅ Email de atendimento humano enviado com sucesso!");
+        } catch (emailError: any) {
+          console.error("❌ [Chat] ========================================");
+          console.error("❌ [Chat] ERRO ao enviar email de atendimento humano (não crítico):");
+          console.error("❌ [Chat] Tipo:", emailError?.constructor?.name || "Desconhecido");
+          console.error("❌ [Chat] Mensagem:", emailError?.message || "Sem mensagem");
+          console.error("❌ [Chat] Code:", emailError?.code || "Sem código");
+          console.error("❌ [Chat] Response:", emailError?.response || "Sem resposta");
+          if (emailError?.stack) {
+            console.error("❌ [Chat] Stack:", emailError.stack);
+          }
+          console.error("❌ [Chat] ========================================");
+          // Não falhar o chat por erro de email
+        }
+      } else {
+        console.warn("[Chat] ⚠️ Email de atendimento humano NÃO será enviado:");
+        console.warn("[Chat] SUPPORT_EMAIL:", process.env.SUPPORT_EMAIL ? "✅" : "❌");
+        console.warn("[Chat] SUPPORT_EMAIL_PASSWORD:", process.env.SUPPORT_EMAIL_PASSWORD ? "✅" : "❌");
+        console.warn("[Chat] chatSession:", chatSession ? "✅" : "❌");
       }
 
       const reply = "Vou chamar um atendente humano para te ajudar melhor com isso.";
@@ -110,9 +187,18 @@ export async function POST(req: Request) {
         }
       } catch (e) {}
 
+      // Garantir que temos uma sessão válida
+      if (!chatSession) {
+        console.error("❌ [Chat] Sessão não existe ao retornar resposta de escalada!");
+        return NextResponse.json(
+          { error: "Erro: sessão de chat não encontrada" },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json({
         reply,
-        sessionId: chatSession?.id,
+        sessionId: chatSession.id,
       });
     }
 
@@ -121,22 +207,32 @@ export async function POST(req: Request) {
     // ===============================
     const quickAnswer = getQuickAnswer(ultimaMensagem);
     if (quickAnswer) {
+      // Garantir que temos uma sessão válida
+      if (!chatSession) {
+        console.error("❌ [Chat] Sessão não existe ao retornar quickAnswer!");
+        return NextResponse.json(
+          { error: "Erro: sessão de chat não encontrada" },
+          { status: 500 }
+        );
+      }
+
       // Salvar resposta da AI
       try {
-        if (chatSession) {
-          await prisma.chatMessage.create({
-            data: {
-              chatSessionId: chatSession.id,
-              senderType: "ai",
-              content: quickAnswer,
-            },
-          });
-        }
-      } catch (e) {}
+        await prisma.chatMessage.create({
+          data: {
+            chatSessionId: chatSession.id,
+            senderType: "ai",
+            content: quickAnswer,
+          },
+        });
+        console.log(`[Chat] ✅ QuickAnswer salva na sessão ${chatSession.id}`);
+      } catch (e: any) {
+        console.error("❌ [Chat] Erro ao salvar quickAnswer:", e);
+      }
 
       return NextResponse.json({
         reply: quickAnswer,
-        sessionId: chatSession?.id,
+        sessionId: chatSession.id,
       });
     }
 
@@ -158,10 +254,12 @@ export async function POST(req: Request) {
     // ===============================
     console.log("[Chat] Chamando IA...");
     const aiReply = await askAI(
-      messages.map((m: any) => ({
-        role: m.role === "ai" ? "assistant" : "user",
-        content: m.content,
-      })),
+      messages
+        .filter((m: any) => m && m.content && typeof m.content === "string")
+        .map((m: any) => ({
+          role: m.role === "ai" ? "assistant" : "user",
+          content: m.content || "",
+        })),
       { context: contextPrompt }
     );
     console.log("[Chat] Resposta da IA:", aiReply ? aiReply.substring(0, 100) : "null");
@@ -169,22 +267,32 @@ export async function POST(req: Request) {
     const finalReply = aiReply ||
       "Não consegui entender completamente. Posso chamar um atendente humano para te ajudar melhor?";
 
+    // Garantir que temos uma sessão válida
+    if (!chatSession) {
+      console.error("❌ [Chat] Sessão não existe ao tentar salvar resposta da IA!");
+      return NextResponse.json(
+        { error: "Erro: sessão de chat não encontrada" },
+        { status: 500 }
+      );
+    }
+
     // Salvar resposta da AI
     try {
-      if (chatSession) {
-        await prisma.chatMessage.create({
-          data: {
-            chatSessionId: chatSession.id,
-            senderType: "ai",
-            content: finalReply,
-          },
-        });
-      }
-    } catch (e) {}
+      await prisma.chatMessage.create({
+        data: {
+          chatSessionId: chatSession.id,
+          senderType: "ai",
+          content: finalReply,
+        },
+      });
+      console.log(`[Chat] ✅ Resposta da IA salva na sessão ${chatSession.id}`);
+    } catch (e: any) {
+      console.error("❌ [Chat] Erro ao salvar resposta da IA:", e);
+    }
 
     return NextResponse.json({
       reply: finalReply,
-      sessionId: chatSession?.id,
+      sessionId: chatSession.id, // Sempre retornar o ID da sessão
     });
   } catch (err: any) {
     console.error("Erro no chat:", err);

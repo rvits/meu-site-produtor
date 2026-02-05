@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 interface FAQ {
   id: string;
@@ -28,6 +29,7 @@ const capitalizeWords = (str: string) => {
 };
 
 export default function FAQPage() {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,12 +39,19 @@ export default function FAQPage() {
   const [allFaqs, setAllFaqs] = useState<FAQ[]>([]);
   const [totalFaqs, setTotalFaqs] = useState(0);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [faqsInicializadas, setFaqsInicializadas] = useState(false);
 
   const [userQuestion, setUserQuestion] = useState("");
   const [userName, setUserName] = useState("");
-  const [userEmail, setUserEmail] = useState("");
   const [askMessage, setAskMessage] = useState<string | null>(null);
   const [askLoading, setAskLoading] = useState(false);
+
+  // Preencher dados do usuário logado
+  useEffect(() => {
+    if (user) {
+      setUserName(user.nomeArtistico || "");
+    }
+  }, [user]);
 
   // Buscar FAQs na API
   async function fetchFaqs(term: string) {
@@ -53,13 +62,26 @@ export default function FAQPage() {
         : "/api/faq/search";
 
       console.log("Buscando FAQs com termo:", term, "URL:", url);
-      const res = await fetch(url);
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      const urlWithCache = `${url}${url.includes("?") ? "&" : "?"}t=${timestamp}`;
+      const res = await fetch(urlWithCache, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       if (!res.ok) {
         throw new Error("Erro ao buscar FAQs");
       }
       const data = await res.json();
       let allFaqs: FAQ[] = data.faqs || [];
       console.log("FAQs encontradas:", allFaqs.length);
+      // Atualizar total se disponível na paginação (apenas quando não há busca)
+      if (data.pagination?.total && !term) {
+        setTotalFaqs(data.pagination.total);
+      }
 
       // SEM busca -> exclui FAQs frequentes e mostra 8 principais diferentes
       if (!term) {
@@ -84,7 +106,15 @@ export default function FAQPage() {
   async function fetchFrequentFaqs() {
     try {
       console.log("Buscando FAQs frequentes...");
-      const res = await fetch("/api/faq/search?limit=5");
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/faq/search?limit=5&t=${timestamp}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       console.log("Resposta da API de FAQs frequentes:", res.status, res.ok);
       if (res.ok) {
         const data = await res.json();
@@ -92,6 +122,10 @@ export default function FAQPage() {
         const frequent = (data.faqs || []).slice(0, 5);
         console.log("FAQs frequentes processadas:", frequent.length, frequent);
         setFrequentFaqs(frequent);
+        // Atualizar total se disponível na paginação
+        if (data.pagination?.total) {
+          setTotalFaqs(data.pagination.total);
+        }
       } else {
         const errorText = await res.text();
         console.error("Erro ao buscar FAQs frequentes:", res.status, errorText);
@@ -106,13 +140,26 @@ export default function FAQPage() {
     try {
       setLoadingAll(true);
       console.log("Buscando todas as FAQs...");
-      const res = await fetch("/api/faq/search?limit=50");
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      // Usar limit alto (200) para garantir que pegue todas as FAQs
+      // Ordenar por data (mais recentes primeiro) para ver as novas FAQs
+      const res = await fetch(`/api/faq/search?limit=200&q=&t=${timestamp}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         const all = data.faqs || [];
-        console.log("Todas as FAQs recebidas:", all.length);
+        console.log("Todas as FAQs recebidas:", all.length, "Total no banco:", data.pagination?.total);
         setAllFaqs(all);
-        setTotalFaqs(all.length);
+        // Atualizar total usando a paginação (mais preciso)
+        if (data.pagination?.total) {
+          setTotalFaqs(data.pagination.total);
+        }
         setShowAllFaqs(true);
       } else {
         console.error("Erro ao buscar todas as FAQs:", res.status);
@@ -127,11 +174,19 @@ export default function FAQPage() {
   // Buscar apenas o total de FAQs (sem carregar todas)
   async function fetchTotalFaqs() {
     try {
-      const res = await fetch("/api/faq/search?limit=50");
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/faq/search?limit=1&t=${timestamp}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       if (res.ok) {
         const data = await res.json();
-        const all = data.faqs || [];
-        setTotalFaqs(all.length);
+        // Usar o total da paginação, não o tamanho do array
+        setTotalFaqs(data.pagination?.total || 0);
       }
     } catch (e) {
       console.error("Erro ao buscar total de FAQs:", e);
@@ -143,8 +198,30 @@ export default function FAQPage() {
     console.log("🔄 Carregando FAQs iniciais...");
     fetchFrequentFaqs();
     fetchTotalFaqs();
-    // FAQs serão carregadas quando as frequentes mudarem (via useEffect)
-  }, []);
+    
+    // Atualização automática a cada 15 minutos (900000ms)
+    const interval = setInterval(() => {
+      console.log("🔄 Atualização automática (15 minutos)...");
+      fetchFrequentFaqs();
+      fetchTotalFaqs();
+      // Atualizar FAQs principais apenas se não houver busca ativa
+      setQuery((currentQuery) => {
+        if (!currentQuery.trim()) {
+          fetchFaqs("");
+        }
+        return currentQuery;
+      });
+      // Se estiver mostrando todas as FAQs, atualizar também
+      setShowAllFaqs((currentShowAll) => {
+        if (currentShowAll) {
+          fetchAllFaqs();
+        }
+        return currentShowAll;
+      });
+    }, 900000); // 15 minutos = 900000ms
+    
+    return () => clearInterval(interval);
+  }, []); // Carregar apenas uma vez ao montar o componente
 
   // Atualizar FAQs quando a query mudar
   useEffect(() => {
@@ -156,39 +233,40 @@ export default function FAQPage() {
   }, [query]);
 
   // Recarregar perguntas frequentes quando a query for limpa
-  useEffect(() => {
-    if (!query.trim()) {
-      fetchFrequentFaqs();
-    }
-  }, [query]);
+  // Removido para evitar atualizações muito frequentes
+  // As FAQs frequentes serão atualizadas apenas:
+  // - No carregamento inicial
+  // - A cada 15 minutos automaticamente
+  // - Quando o usuário clicar em "Recarregar"
+  // useEffect(() => {
+  //   if (!query.trim()) {
+  //     fetchFrequentFaqs();
+  //   }
+  // }, [query]);
 
   // Recarregar FAQs quando as frequentes mudarem (para excluir as frequentes)
+  // Ajustado para evitar atualizações desnecessárias - só atualiza no carregamento inicial
   useEffect(() => {
-    if (!query.trim() && frequentFaqs.length > 0) {
+    // Só atualizar uma vez quando as FAQs frequentes forem carregadas pela primeira vez
+    if (!query.trim() && frequentFaqs.length > 0 && !faqsInicializadas) {
       fetchFaqs("");
+      setFaqsInicializadas(true);
     }
-  }, [frequentFaqs]);
+  }, [frequentFaqs, query, faqsInicializadas]); // Adicionar faqsInicializadas como dependência
 
   async function handleAsk(e: React.FormEvent) {
     e.preventDefault();
     setAskMessage(null);
 
+    // ✅ Verificar se usuário está logado
+    if (!user) {
+      setAskMessage("Você precisa estar logado para enviar uma pergunta. Faça login e tente novamente.");
+      return;
+    }
+
     // Validar nome
     if (!userName.trim()) {
       setAskMessage("O nome é obrigatório.");
-      return;
-    }
-
-    // Validar email
-    if (!userEmail.trim()) {
-      setAskMessage("O e-mail é obrigatório.");
-      return;
-    }
-
-    // Validar formato do email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(userEmail.trim())) {
-      setAskMessage("Por favor, insira um e-mail válido.");
       return;
     }
 
@@ -210,13 +288,15 @@ export default function FAQPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: userQuestion,
-          userName,
-          userEmail,
+          userName, // Email será usado automaticamente da conta logada
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Você precisa estar logado para enviar uma pergunta.");
+        }
         throw new Error(data.error || "Erro ao enviar dúvida");
       }
 
@@ -224,8 +304,7 @@ export default function FAQPage() {
         "Dúvida enviada com sucesso! Ela será analisada e poderá aparecer aqui em breve."
       );
       setUserQuestion("");
-      setUserName("");
-      setUserEmail("");
+      setUserName(user.nomeArtistico || "");
     } catch (e: any) {
       console.error(e);
       setAskMessage(
@@ -412,8 +491,18 @@ export default function FAQPage() {
             <button
               type="button"
               onClick={() => {
-                console.log("🔄 Recarregando FAQs frequentes...");
+                console.log("🔄 Recarregando FAQs...");
                 fetchFrequentFaqs();
+                fetchTotalFaqs();
+                // Se estiver mostrando todas as FAQs, recarregar também
+                if (showAllFaqs) {
+                  fetchAllFaqs();
+                } else {
+                  // Se não estiver mostrando, recarregar as FAQs principais
+                  if (!query.trim()) {
+                    fetchFaqs("");
+                  }
+                }
               }}
               className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
               style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
@@ -426,11 +515,8 @@ export default function FAQPage() {
                 if (showAllFaqs) {
                   setShowAllFaqs(false);
                 } else {
-                  if (allFaqs.length === 0) {
-                    fetchAllFaqs();
-                  } else {
-                    setShowAllFaqs(true);
-                  }
+                  // Sempre recarregar do servidor para pegar FAQs novas
+                  fetchAllFaqs();
                 }
               }}
               disabled={loadingAll}
@@ -485,25 +571,36 @@ export default function FAQPage() {
           Não achou sua resposta? Envie sua dúvida.
         </h2>
 
-        <form onSubmit={handleAsk} className="space-y-3 text-sm">
-          <div className="grid gap-3 md:grid-cols-2">
-            <input
-              type="text"
-              placeholder="Seu nome"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              required
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-            />
-            <input
-              type="email"
-              placeholder="Seu e-mail"
-              value={userEmail}
-              onChange={(e) => setUserEmail(e.target.value)}
-              required
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-            />
+        {!user ? (
+          <div className="rounded-lg border border-orange-600/50 bg-orange-950/20 p-4 text-center">
+            <p className="text-orange-300 mb-3">Você precisa estar logado para enviar uma pergunta.</p>
+            <a
+              href="/login"
+              className="inline-block rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+            >
+              Fazer Login
+            </a>
           </div>
+        ) : (
+          <form onSubmit={handleAsk} className="space-y-3 text-sm">
+            <div className="grid gap-3 md:grid-cols-2">
+              <input
+                type="text"
+                placeholder="Seu nome"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                required
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+              />
+              <input
+                type="email"
+                placeholder="Seu e-mail"
+                value={user.email}
+                disabled
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-400 cursor-not-allowed"
+                title="O email da sua conta será usado automaticamente"
+              />
+            </div>
 
           <textarea
             rows={4}
@@ -524,18 +621,19 @@ export default function FAQPage() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={askLoading}
-            className={`w-full rounded-full px-6 py-3 font-semibold transition-all ${
-              askLoading
-                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                : "bg-red-600 text-white hover:bg-red-500"
-            }`}
-          >
-            {askLoading ? "Enviando..." : "Enviar dúvida"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={askLoading}
+              className={`w-full rounded-full px-6 py-3 font-semibold transition-all ${
+                askLoading
+                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-500"
+              }`}
+            >
+              {askLoading ? "Enviando..." : "Enviar dúvida"}
+            </button>
+          </form>
+        )}
       </section>
     </main>
   );

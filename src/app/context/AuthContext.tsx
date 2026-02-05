@@ -21,15 +21,21 @@ export interface User {
 
 
 export interface RegistroPayload {
+  nomeCompleto: string;
   nomeArtistico: string;
+  nomeSocial?: string | null;
   email: string;
   senha: string;
   telefone: string;
+  cpf: string;
   pais: string;
   estado: string;
   cidade: string;
   bairro: string;
   dataNascimento: string;
+  sexo?: string | null;
+  genero?: string | null;
+  generoOutro?: string | null;
   estilosMusicais?: string | null;
   nacionalidade?: string | null;
 }

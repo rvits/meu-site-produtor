@@ -1,12 +1,14 @@
 "use client";
 
+import DuvidasBox from "../components/DuvidasBox";
+
 export default function ContatoPage() {
   const contactInfo = [
     {
       type: "E-mail",
-      value: "tremv03021@gmail.com",
+      value: "thouse.rec.tremv@gmail.com",
       icon: "✉️",
-      link: "mailto:tremv03021@gmail.com",
+      link: "mailto:thouse.rec.tremv@gmail.com",
       description: "Para dúvidas, orçamentos e agendamentos",
     },
     {
@@ -26,18 +28,18 @@ export default function ContatoPage() {
   ];
 
   const lgpdContact = {
-    email: "vicperra@gmail.com",
+    email: "thouse.rec.tremv@gmail.com",
     description: "Para assuntos de privacidade e proteção de dados (LGPD)",
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 text-zinc-100">
+    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 text-zinc-100 overflow-x-hidden">
       {/* TÍTULO PRINCIPAL */}
       <section className="mb-8 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Contato
         </h1>
-        <p className="text-sm md:text-base text-zinc-300 max-w-4xl mx-auto" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
         </p>
       </section>
@@ -178,6 +180,9 @@ export default function ContatoPage() {
           </div>
         </div>
       </section>
+
+      {/* BOX DE DÚVIDAS */}
+      <DuvidasBox />
     </main>
   );
 }

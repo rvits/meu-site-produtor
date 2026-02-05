@@ -20,10 +20,20 @@ export async function POST(req: Request) {
 
     const {
       nomeArtistico,
+      nomeSocial,
       email,
       telefone,
+      sexo,
+      genero,
+      generoOutro,
       senha,
       senhaAtual,
+      cpf,
+      cep,
+      dataNascimento,
+      pais,
+      cidade,
+      bairro,
     } = validation.data;
 
     const userData = await prisma.user.findUnique({
@@ -73,8 +83,20 @@ export async function POST(req: Request) {
     // Preparar dados para atualização
     const updateData: any = {};
     if (nomeArtistico) updateData.nomeArtistico = nomeArtistico;
+    if (nomeSocial !== undefined) updateData.nomeSocial = nomeSocial || null;
     if (email) updateData.email = email;
     if (telefone) updateData.telefone = telefone;
+    if (sexo !== undefined) updateData.sexo = sexo || null;
+    if (genero !== undefined) updateData.genero = genero || null;
+    if (generoOutro !== undefined) updateData.generoOutro = generoOutro || null;
+    if (cpf !== undefined) updateData.cpf = cpf || null;
+    if (cep !== undefined) updateData.cep = cep || null;
+    if (pais !== undefined) updateData.pais = pais;
+    if (cidade !== undefined) updateData.cidade = cidade;
+    if (bairro !== undefined) updateData.bairro = bairro;
+    if (dataNascimento) {
+      updateData.dataNascimento = new Date(dataNascimento);
+    }
     if (senha) {
       updateData.senha = await bcrypt.hash(senha, 10);
     }

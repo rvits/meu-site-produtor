@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
+import DuvidasBox from "../components/DuvidasBox";
+import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
 
 type Servico = {
   id: string;
@@ -15,7 +19,7 @@ type Plano = {
   mensal: number;
   anual: number;
   descricao: string;
-  beneficios: { label: string; included: boolean }[];
+  beneficios: { label: string; included: boolean; useTilde?: boolean }[];
 };
 
 // ================== DADOS ==================
@@ -46,46 +50,48 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
+    mensal: 147.00,
+    anual: 1470.00,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
-      { label: "1h de captação por mês", included: true },
+      { label: "2h de captação por mês", included: true },
       { label: "1 mix por mês", included: true },
       { label: "1 master por mês", included: true },
-      { label: "Prioridade na agenda", included: false },
-      { label: "Sessão de direção de produção", included: false },
-      { label: "Desconto em beats exclusivos", included: false },
+      { label: "Sem Beats personalizados", included: false },
+      { label: "Sem acesso a descontos promocionais", included: false },
+      { label: "Não possui acompanhamento artístico", included: false },
     ],
   },
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3499.99,
-    descricao: "Para artistas que lançam com regularidade.",
+    mensal: 347.00,
+    anual: 3470.00,
+    descricao: "Para artistas que lançam com regularidade e já possuem músicas próprias.",
     beneficios: [
       { label: "2h de captação por mês", included: true },
       { label: "2 mix & master por mês", included: true },
       { label: "1 beat por mês", included: true },
-      { label: "Prioridade intermediária na agenda", included: true },
-      { label: "Sessão de direção de produção", included: false },
-      { label: "Desconto em beats exclusivos", included: false },
+      { label: "Acesso a descontos promocionais do site", included: true },
+      { label: "Prioridade intermediária na agenda", included: true, useTilde: true },
+      { label: "Não tem desconto em Serviços ou Beats", included: false },
+      { label: "Não tem acompanhemtno artístico", included: false },
     ],
   },
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
-    descricao: "Para quem quer acompanhamento contínuo com o Tremv.",
+    mensal: 547.00,
+    anual: 5470.00,
+    descricao: "Acompanhamento artístico contínuo com o Tremv e 1 Produção completa por mês.",
     beneficios: [
       { label: "4h de captação por mês", included: true },
       { label: "2 produções completas por mês", included: true },
       { label: "2 beats por mês", included: true },
-      { label: "Prioridade máxima na agenda", included: true },
-      { label: "Sessão de direção de produção", included: true },
-      { label: "Desconto em beats exclusivos", included: true },
+      { label: "Desconto de 10% em serviços avulsos", included: true },
+      { label: "Desconto de 10% em Beats", included: true },
+      { label: "Acesso a descontos promocionais do site", included: true },
+      { label: "Acompanhamento artístico", included: true },
     ],
   },
 ];
@@ -98,13 +104,20 @@ const HORARIOS_PADRAO = [
 // ================== PAGE ==================
 
 export default function AgendamentoPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [quantidadesServicos, setQuantidadesServicos] = useState<Record<string, number>>({});
   const [quantidadesBeats, setQuantidadesBeats] = useState<Record<string, number>>({});
   const [comentarios, setComentarios] = useState("");
 
+  // Data mínima: 1 de janeiro do ano atual
+  const DATA_MINIMA = new Date(new Date().getFullYear(), 0, 1); // 1 de janeiro do ano atual
+
   const [dataBase, setDataBase] = useState(() => {
     const hoje = new Date();
-    return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    // Se o primeiro dia do mês atual for antes de 1 de janeiro, usar 1 de janeiro
+    return primeiroDia < DATA_MINIMA ? DATA_MINIMA : primeiroDia;
   });
 
   const [dataSelecionada, setDataSelecionada] = useState<string | null>(null);
@@ -113,8 +126,161 @@ export default function AgendamentoPage() {
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
   const [aceiteTermos, setAceiteTermos] = useState(false);
+  const [blockedSlots, setBlockedSlots] = useState<Array<{ data: string; hora: string }>>([]);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  const [loadingHorarios, setLoadingHorarios] = useState(true);
+  const [cupomCode, setCupomCode] = useState("");
+  const [cupomAplicado, setCupomAplicado] = useState<{ code: string; discount: number; couponType: string } | null>(null);
+  const [validandoCupom, setValidandoCupom] = useState(false);
 
-  const horariosOcupadosPorDia: Record<string, Set<string>> = {};
+  // Função helper para verificar se uma data já passou (comparando apenas dia/mês/ano)
+  const isDataPassada = (isoDate: string): boolean => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0); // Zerar horas para comparar apenas a data
+    
+    const dataComparar = new Date(isoDate + "T00:00:00");
+    dataComparar.setHours(0, 0, 0, 0);
+    
+    return dataComparar < hoje;
+  };
+
+  // Função helper para verificar se um horário já passou (comparando data + hora com agora)
+  const isHorarioPassado = (isoDate: string, hora: string): boolean => {
+    const agora = new Date();
+    
+    // Converter hora "HH:MM" para horas e minutos
+    const [horas, minutos] = hora.split(":").map(Number);
+    
+    // Criar data/hora do agendamento
+    const dataHoraAgendamento = new Date(isoDate + `T${hora}:00`);
+    dataHoraAgendamento.setHours(horas, minutos, 0, 0);
+    
+    return dataHoraAgendamento < agora;
+  };
+
+  // Função para carregar horários bloqueados e agendamentos (usando useCallback para evitar recriações)
+  const carregarHorarios = useCallback(async () => {
+    try {
+      setLoadingHorarios(true);
+      
+      // Fazer requisições separadas para melhor tratamento de erros
+      try {
+        const resSlots = await fetch("/api/blocked-slots?" + new Date().getTime());
+        const data = await resSlots.json().catch(() => ({ slots: [] }));
+        
+        // Sempre usar slots do response, mesmo se houver erro
+        if (data.slots && Array.isArray(data.slots)) {
+          setBlockedSlots(data.slots);
+        } else {
+          console.warn("Formato inesperado de slots:", data);
+          setBlockedSlots([]);
+        }
+        
+        // Log apenas se houver erro, mas não quebrar o fluxo
+        if (!resSlots.ok && data.error) {
+          console.warn("Aviso ao carregar slots bloqueados:", data.error, data.message);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar slots bloqueados:", err);
+        setBlockedSlots([]);
+      }
+
+      try {
+        const resAgendamentos = await fetch("/api/agendamentos/disponibilidade?" + new Date().getTime());
+        if (resAgendamentos.ok) {
+          const data = await resAgendamentos.json();
+          if (data.agendamentos && Array.isArray(data.agendamentos)) {
+            setAgendamentos(data.agendamentos);
+          } else {
+            console.warn("Formato inesperado de agendamentos:", data);
+            setAgendamentos([]);
+          }
+        } else {
+          const errorData = await resAgendamentos.json().catch(() => ({}));
+          console.error("Erro ao carregar agendamentos:", resAgendamentos.status, errorData);
+          setAgendamentos([]); // Continuar com array vazio em caso de erro
+        }
+      } catch (err) {
+        console.error("Erro ao buscar agendamentos:", err);
+        setAgendamentos([]);
+      }
+    } catch (err) {
+      console.error("Erro geral ao carregar horários:", err);
+    } finally {
+      setLoadingHorarios(false);
+    }
+  }, []); // Sem dependências - função pura que só usa setters
+
+  // Carregar horários quando mudar o mês
+  useEffect(() => {
+    carregarHorarios();
+  }, [dataBase, carregarHorarios]); // Recarregar quando mudar o mês
+
+  // Usar hook de atualização inteligente (atualiza a cada 5 min, mas garante atualização no início de cada hora)
+  useIntelligentRefresh(carregarHorarios, [dataBase]);
+
+  // Calcular horários ocupados por dia
+  const horariosOcupadosPorDia: Record<string, Set<string>> = useMemo(() => {
+    const ocupados: Record<string, Set<string>> = {};
+
+    // Horários bloqueados pelo admin (prioridade - estes são sempre ocupados)
+    blockedSlots.forEach((slot) => {
+      if (!ocupados[slot.data]) ocupados[slot.data] = new Set();
+      
+      // Garantir formato consistente HH:00
+      let horaFormatada = slot.hora || "";
+      
+      if (!horaFormatada || !horaFormatada.includes(":")) {
+        // Se não tiver ":", assumir que é só a hora
+        const horaNum = parseInt(horaFormatada || "0", 10);
+        horaFormatada = `${String(horaNum).padStart(2, "0")}:00`;
+      } else {
+        // Se tiver ":", normalizar para HH:00
+        const partes = horaFormatada.split(":");
+        if (partes.length >= 2) {
+          const horas = parseInt(partes[0] || "0", 10);
+          horaFormatada = `${String(horas).padStart(2, "0")}:00`;
+        }
+      }
+      
+      ocupados[slot.data].add(horaFormatada);
+    });
+
+    // Agendamentos aceitos/confirmados
+    agendamentos.forEach((a) => {
+      // Converter data para string no formato YYYY-MM-DD
+      let dataStr: string;
+      if (typeof a.data === "string") {
+        // Se já for string, usar diretamente (assumindo formato ISO ou YYYY-MM-DD)
+        const dateObj = new Date(a.data);
+        dataStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(dateObj.getDate()).padStart(2, "0")}`;
+      } else {
+        // Se for Date object
+        const data = new Date(a.data);
+        dataStr = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+      }
+      
+      if (!ocupados[dataStr]) ocupados[dataStr] = new Set();
+      
+      // Processar horário e duração
+      const dataObj = typeof a.data === "string" ? new Date(a.data) : new Date(a.data);
+      const horaInicio = dataObj.getHours();
+      const minutoInicio = dataObj.getMinutes();
+      const duracaoMinutos = a.duracaoMinutos || 60; // Default 1 hora
+      
+      // Calcular todos os horários ocupados baseado na duração
+      // Se começa às 10:00 e dura 2 horas, ocupa 10:00 e 11:00
+      const horasOcupadas = Math.ceil(duracaoMinutos / 60);
+      for (let i = 0; i < horasOcupadas; i++) {
+        const horaOcupada = horaInicio + i;
+        // Formato HH:00 para corresponder aos HORARIOS_PADRAO
+        const horaFormatada = `${String(horaOcupada).padStart(2, "0")}:00`;
+        ocupados[dataStr].add(horaFormatada);
+      }
+    });
+
+    return ocupados;
+  }, [agendamentos, blockedSlots]);
 
   const ultimoDiaDoMes = new Date(
     dataBase.getFullYear(),
@@ -130,7 +296,17 @@ export default function AgendamentoPage() {
 
   const dias: (number | null)[] = [];
   for (let i = 0; i < primeiroDiaSemana; i++) dias.push(null);
-  for (let d = 1; d <= ultimoDiaDoMes; d++) dias.push(d);
+  
+  // Adicionar apenas dias a partir de 1 de janeiro
+  for (let d = 1; d <= ultimoDiaDoMes; d++) {
+    const dataDia = new Date(dataBase.getFullYear(), dataBase.getMonth(), d);
+    // Só adicionar se a data for >= 1 de janeiro
+    if (dataDia >= DATA_MINIMA) {
+      dias.push(d);
+    } else {
+      dias.push(null); // Preencher com null para manter o layout
+    }
+  }
 
   const handleQuantServico = (
     id: string,
@@ -162,13 +338,30 @@ export default function AgendamentoPage() {
 
   const totalGeral = totalServicos + totalBeats;
 
+  // Calcular desconto do cupom e total com desconto
+  const descontoCupom = useMemo(() => {
+    if (!cupomAplicado) return 0;
+    return cupomAplicado.discount || 0;
+  }, [cupomAplicado]);
+
+  const totalComDesconto = useMemo(() => {
+    return Math.max(0, totalGeral - descontoCupom);
+  }, [totalGeral, descontoCupom]);
+
   const dataFormatada = useMemo(() => {
     if (!dataSelecionada) return null;
     const [ano, mes, dia] = dataSelecionada.split("-");
     return new Date(+ano, +mes - 1, +dia).toLocaleDateString("pt-BR");
   }, [dataSelecionada]);
 
-  const handleConfirmar = () => {
+  const handleConfirmar = async () => {
+    // 🔒 Verificar se usuário está logado (exceto admin que pode testar)
+    if (!user) {
+      alert("Você precisa estar logado para fazer um agendamento.");
+      router.push("/login?redirect=/agendamento");
+      return;
+    }
+    
     // Verificar se há algum serviço ou pacote selecionado
     if (totalGeral <= 0) {
       alert("Nenhum serviço selecionado");
@@ -193,14 +386,126 @@ export default function AgendamentoPage() {
       return;
     }
     
-    // Se tudo estiver ok, prosseguir para pagamento
-    alert("Agendamento preparado! Pagamento em breve.");
+    // Preparar dados do agendamento
+    const servicos = SERVICOS_ESTUDIO
+      .filter(s => quantidadesServicos[s.id] > 0)
+      .map(s => ({
+        id: s.id,
+        nome: s.nome,
+        quantidade: quantidadesServicos[s.id],
+        preco: s.preco,
+      }));
+
+    const beats = BEATS_PACOTES
+      .filter(b => quantidadesBeats[b.id] > 0)
+      .map(b => ({
+        id: b.id,
+        nome: b.nome,
+        quantidade: quantidadesBeats[b.id],
+        preco: b.preco,
+      }));
+
+    // Calcular duração total (mínimo 1 hora, baseado nos serviços)
+    // Se tiver captação, usar 1h por captação, senão usar 1h padrão
+    let duracaoMinutos = 60;
+    if (servicos.length > 0) {
+      const captacaoQtd = quantidadesServicos["captacao"] || 0;
+      const sessaoQtd = quantidadesServicos["sessao"] || 0;
+      if (captacaoQtd > 0 || sessaoQtd > 0) {
+        duracaoMinutos = Math.max(60, (captacaoQtd + sessaoQtd) * 60);
+      } else {
+        duracaoMinutos = 60; // Para outros serviços, usar 1h padrão
+      }
+    }
+
+    // Se cupom de serviço foi aplicado e o total com desconto é 0, criar agendamento diretamente sem pagamento
+    if (cupomAplicado && totalComDesconto === 0) {
+      console.log("[Agendamento] Tentando criar agendamento com cupom de serviço:", {
+        cupomCode: cupomAplicado.code,
+        totalComDesconto,
+        servicos,
+        beats,
+        data: dataSelecionada,
+        hora: horaSelecionada,
+      });
+      try {
+        const res = await fetch("/api/agendamentos/com-cupom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data: dataSelecionada,
+            hora: horaSelecionada,
+            duracaoMinutos,
+            tipo: "sessao",
+            servicos,
+            beats,
+            observacoes: comentarios,
+            cupomCode: cupomAplicado.code,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert("Agendamento criado com sucesso! Aguarde a confirmação por email.");
+          // Limpar formulário
+          setQuantidadesServicos({});
+          setQuantidadesBeats({});
+          setComentarios("");
+          setDataSelecionada(null);
+          setHoraSelecionada(null);
+          setCupomAplicado(null);
+          setCupomCode("");
+          setAceiteTermos(false);
+          // Recarregar página para atualizar horários
+          window.location.reload();
+          return;
+        } else {
+          const errorMessage = data.error || "Erro ao criar agendamento com cupom";
+          console.error("[Agendamento] Erro ao criar com cupom:", errorMessage, data);
+          alert(errorMessage);
+          return;
+        }
+      } catch (err: any) {
+        console.error("[Agendamento] Erro ao criar agendamento com cupom:", err);
+        alert(`Erro ao criar agendamento: ${err.message || "Tente novamente."}`);
+        return;
+      }
+    }
+
+    // Se não for cupom de serviço ou se ainda há valor a pagar, seguir fluxo normal de pagamento
+    const agendamentoData = {
+      data: dataSelecionada,
+      hora: horaSelecionada,
+      duracaoMinutos,
+      tipo: "sessao",
+      servicos,
+      beats,
+      total: totalComDesconto, // Usar total com desconto se cupom foi aplicado
+      observacoes: comentarios,
+      cupomCode: cupomAplicado?.code || undefined, // Incluir código do cupom se aplicado
+    };
+
+    // Redirecionar para página de pagamentos com os dados
+    const queryParams = new URLSearchParams({
+      tipo: "agendamento",
+      agendamento: encodeURIComponent(JSON.stringify(agendamentoData)),
+    });
+
+    router.push(`/pagamentos?${queryParams.toString()}`);
   };
 
   const handleMesAnterior = () => {
-    setDataBase(prev =>
-      new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
-    );
+    setDataBase(prev => {
+      const novoMes = new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+      // Não permitir ir antes de 1 de janeiro
+      return novoMes < DATA_MINIMA ? DATA_MINIMA : novoMes;
+    });
+  };
+
+  // Verificar se pode ir para o mês anterior
+  const podeIrMesAnterior = () => {
+    const mesAnterior = new Date(dataBase.getFullYear(), dataBase.getMonth() - 1, 1);
+    return mesAnterior >= DATA_MINIMA;
   };
 
   const handleProximoMes = () => {
@@ -210,61 +515,28 @@ export default function AgendamentoPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
+    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
       {/* =========================================================
           TÍTULO / INTRODUÇÃO
       ========================================================== */}
-      <section className="mt-12 mb-24 flex flex-col items-center justify-center w-full">
-        <h1 className="mb-20 mt-35 text-center text-base font-semibold md:text-4xl lg:text-5xl" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+      <section className="mt-12 mb-8 sm:mb-12 flex flex-col items-center justify-center w-full min-h-[60vh] sm:min-h-[70vh]">
+        <h1 className="mb-3 sm:mb-4 md:mb-6 mt-4 sm:mt-8 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
           Crie sua própria música na{" "}
-          <span className="text-red-500">THouse Rec</span>
+          <span className="text-red-500">T</span>House Rec
         </h1>
         
-        {/* TEXTO DESCRITIVO COM ESTILO PROFISSIONAL */}
-        <div className="flex justify-center items-center px-4 w-full max-w-5xl mb-30 mx-auto">
-          <div className="relative w-full">
-            {/* LINHA SUPERIOR COM FADE */}
-            <div 
-              className="h-[1px]"
-              style={{
-                background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
-                boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
-              }}
-            />
-            
-            {/* CONTEÚDO COM FUNDO PRETO */}
-            <div 
-              className="relative p-6 md:p-8"
-              style={{
-                background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
-              }}
-            >
-              <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                Aqui você monta sua sessão de estúdio do seu jeito: escolhendo
-                serviços avulsos, pacotes de beats, data e horário no calendário. A
-                ideia é deixar o agendamento o mais claro e direto possível, para
-                que você foque na parte mais importante: a música.
-              </p>
-            </div>
-            
-            {/* LINHA INFERIOR COM FADE */}
-            <div 
-              className="h-[1px]"
-              style={{
-                background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
-                boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
-              }}
-            />
-          </div>
-        </div>
+        {/* TEXTO DESCRITIVO SEM BOX */}
+        <p className="mb-6 sm:mb-8 md:mb-10 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+          Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados.
+          <br />
+          A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.
+        </p>
       </section>
 
       {/* =========================================================
           SERVIÇOS DE ESTÚDIO
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4 mt-40">
+      <section className="mb-16 flex justify-center px-4 mt-32 sm:mt-40 md:mt-48">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
@@ -359,7 +631,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           BEATS E PACOTES
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
@@ -440,7 +712,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           COMENTÁRIOS ADICIONAIS
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
@@ -473,7 +745,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-6 p-6 md:p-8"
@@ -502,7 +774,12 @@ export default function AgendamentoPage() {
                 <button
                   type="button"
                   onClick={handleMesAnterior}
-                  className="rounded-full border border-zinc-700 px-3 py-1 hover:border-red-500"
+                  disabled={!podeIrMesAnterior()}
+                  className={`rounded-full border border-zinc-700 px-3 py-1 transition ${
+                    podeIrMesAnterior()
+                      ? "hover:border-red-500 cursor-pointer"
+                      : "opacity-50 cursor-not-allowed"
+                  }`}
                 >
                   ◀
                 </button>
@@ -536,21 +813,57 @@ export default function AgendamentoPage() {
                   const isoDate = `${dataBase.getFullYear()}-${String(
                     dataBase.getMonth() + 1
                   ).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+                  
+                  // Verificar se a data é válida (>= 1 de janeiro)
+                  const dataDia = new Date(dataBase.getFullYear(), dataBase.getMonth(), dia);
+                  if (dataDia < DATA_MINIMA) {
+                    return <div key={idx} />;
+                  }
 
                   const ocupados =
                     horariosOcupadosPorDia[isoDate] || new Set<string>();
 
+                  // Contar quantos horários padrão estão ocupados
+                  const horariosOcupadosCount = HORARIOS_PADRAO.filter((h) =>
+                    ocupados.has(h)
+                  ).length;
+
+                  const totalHorarios = HORARIOS_PADRAO.length;
+                  
+                  // Verificar se a data já passou
+                  const diaPassado = isDataPassada(isoDate);
+                  
+                  // Debug: apenas para o dia específico mencionado pelo usuário
+                  if (isoDate === "2026-01-01" || isoDate === "2026-01-02") {
+                    console.log(`[DEBUG] ${isoDate}:`, {
+                      ocupados: Array.from(ocupados),
+                      horariosOcupadosCount,
+                      totalHorarios,
+                      diaPassado,
+                      blockedSlots: blockedSlots.filter(s => s.data === isoDate),
+                      agendamentos: agendamentos.filter(a => {
+                        const aDate = new Date(a.data);
+                        const aStr = `${aDate.getFullYear()}-${String(aDate.getMonth() + 1).padStart(2, "0")}-${String(aDate.getDate()).padStart(2, "0")}`;
+                        return aStr === isoDate;
+                      }),
+                    });
+                  }
+                  
                   let corDia = "border-green-600 bg-green-600/20 text-green-300";
 
-                  if (ocupados.size > 0 && ocupados.size < HORARIOS_PADRAO.length) {
-                    corDia =
-                      "border-yellow-500 bg-yellow-500/20 text-yellow-300";
+                  // VERMELHO: Se o dia já passou, sempre vermelho
+                  if (diaPassado) {
+                    corDia = "border-red-600 bg-red-600/30 text-red-300 opacity-60";
                   }
-
-                  if (ocupados.size === HORARIOS_PADRAO.length) {
-                    corDia =
-                      "border-red-600 bg-red-600/30 text-red-300";
+                  // Vermelho: todos os horários ocupados/bloqueados
+                  else if (horariosOcupadosCount >= totalHorarios) {
+                    corDia = "border-red-600 bg-red-600/30 text-red-300";
                   }
+                  // Amarelo: alguns horários ocupados (mas não todos)
+                  else if (horariosOcupadosCount > 0) {
+                    corDia = "border-yellow-500 bg-yellow-500/20 text-yellow-300";
+                  }
+                  // Verde: todos os horários livres (já está definido acima)
 
                   const selecionado = dataSelecionada === isoDate;
 
@@ -559,12 +872,23 @@ export default function AgendamentoPage() {
                       key={isoDate}
                       type="button"
                       onClick={() => {
-                        setDataSelecionada(isoDate);
-                        setHoraSelecionada(null);
+                        // Não permitir selecionar dias passados
+                        if (diaPassado) return;
+                        
+                        if (selecionado) {
+                          setDataSelecionada(null);
+                          setHoraSelecionada(null);
+                        } else {
+                          setDataSelecionada(isoDate);
+                          setHoraSelecionada(null);
+                        }
                       }}
+                      disabled={diaPassado}
                       className={[
                         "rounded-md border px-1 py-1 text-center text-xs transition",
-                        selecionado
+                        diaPassado
+                          ? "cursor-not-allowed opacity-60"
+                          : selecionado
                           ? "border-white bg-white/10 text-white"
                           : corDia,
                       ].join(" ")}
@@ -595,20 +919,33 @@ export default function AgendamentoPage() {
 
                   const estaOcupado = ocupados.has(h);
                   const selecionado = horaSelecionada === h;
+                  
+                  // Verificar se o horário já passou (se a data selecionada já passou ou se é hoje e o horário já passou)
+                  const horarioPassado = dataSelecionada 
+                    ? (isDataPassada(dataSelecionada) || isHorarioPassado(dataSelecionada, h))
+                    : false;
 
                   return (
                     <button
                       key={h}
                       type="button"
-                      onClick={() =>
-                        !estaOcupado && setHoraSelecionada(h)
-                      }
+                      onClick={() => {
+                        // Não permitir selecionar horários ocupados ou passados
+                        if (estaOcupado || horarioPassado) return;
+                        
+                        if (selecionado) {
+                          setHoraSelecionada(null);
+                        } else {
+                          setHoraSelecionada(h);
+                        }
+                      }}
+                      disabled={estaOcupado || horarioPassado}
                       className={[
                         "rounded-lg border px-3 py-2 font-medium transition",
-                        estaOcupado
-                          ? "cursor-not-allowed border-red-700 bg-red-900/60 text-red-200"
+                        estaOcupado || horarioPassado
+                          ? "cursor-not-allowed border-red-700 bg-red-900/60 text-red-200 opacity-60"
                           : selecionado
-                          ? "border-green-500 bg-green-600/30 text-green-200"
+                          ? "border-white bg-white/10 text-white"
                           : "border-green-700 bg-green-900/20 hover:border-green-500",
                       ].join(" ")}
                     >
@@ -635,7 +972,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           TRABALHOS EXTERNOS
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative p-6 md:p-8"
@@ -666,7 +1003,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           PLANOS (COLAPSÁVEL)
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-4 p-6 md:p-8 text-sm"
@@ -700,15 +1037,15 @@ export default function AgendamentoPage() {
           {mostrarPlanos && (
             <>
               {/* Toggle Mensal / Anual */}
-              <div className="flex justify-center">
-                <div className="inline-flex rounded-full border border-red-700/60 bg-zinc-900 p-1 text-[11px]">
+              <div className="flex justify-center items-center px-4 w-full mb-3">
+                <div className="inline-flex rounded-full border border-red-700/60 bg-zinc-900 p-1">
                   <button
                     type="button"
                     onClick={() => setModoPlano("mensal")}
-                    className={`rounded-full px-4 py-1 font-semibold ${
+                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
                       modoPlano === "mensal"
-                        ? "bg-red-600 text-white"
-                        : "text-zinc-300 hover:text-red-300"
+                        ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                        : "text-zinc-300 hover:text-red-300 hover:bg-black/40"
                     }`}
                   >
                     Mensal
@@ -716,10 +1053,10 @@ export default function AgendamentoPage() {
                   <button
                     type="button"
                     onClick={() => setModoPlano("anual")}
-                    className={`rounded-full px-4 py-1 font-semibold ${
+                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
                       modoPlano === "anual"
-                        ? "bg-red-600 text-white"
-                        : "text-zinc-300 hover:text-red-300"
+                        ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                        : "text-zinc-300 hover:text-red-300 hover:bg-black/40"
                     }`}
                   >
                     Anual
@@ -728,7 +1065,7 @@ export default function AgendamentoPage() {
               </div>
 
               {/* GRID DOS PLANOS */}
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
                 {PLANOS.map((plano) => {
                   const valorBase =
                     modoPlano === "mensal" ? plano.mensal : plano.anual;
@@ -738,65 +1075,104 @@ export default function AgendamentoPage() {
                       ? `R$ ${valorBase.toFixed(2).replace(".", ",")} / mês`
                       : `R$ ${valorBase.toFixed(2).replace(".", ",")} / ano`;
 
+                  const borderColor = plano.id === "bronze" 
+                    ? "border-amber-600/80" 
+                    : plano.id === "prata" 
+                    ? "border-gray-400/80" 
+                    : "border-yellow-400/80";
+                  const hoverBorderColor = plano.id === "bronze"
+                    ? "hover:border-amber-500"
+                    : plano.id === "prata"
+                    ? "hover:border-gray-300"
+                    : "hover:border-yellow-300";
+
                   return (
                     <div
                       key={plano.id}
-                      className="flex flex-col space-y-3 rounded-2xl border border-red-700/40 bg-zinc-900 p-4"
+                      className={`flex h-full flex-col rounded-2xl border ${borderColor} bg-black/50 backdrop-blur-sm p-6 transition-all ${hoverBorderColor} hover:bg-black/70`}
+                      style={{ 
+                        textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)", 
+                        borderWidth: "1px",
+                        boxShadow: plano.id === "bronze" 
+                          ? "0 0 20px rgba(217, 119, 6, 0.4), 0 0 10px rgba(217, 119, 6, 0.2)"
+                          : plano.id === "prata"
+                          ? "0 0 20px rgba(156, 163, 175, 0.4), 0 0 10px rgba(156, 163, 175, 0.2)"
+                          : "0 0 20px rgba(234, 179, 8, 0.4), 0 0 10px rgba(234, 179, 8, 0.2)"
+                      }}
                     >
-                      <h3 className="text-center text-sm font-semibold text-red-300">
-                        {plano.nome}
-                      </h3>
-                      <p className="text-center text-lg font-bold text-red-400">
-                        {precoFormatado}
-                      </p>
-                      <p className="text-center text-[11px] text-zinc-400">
-                        {plano.descricao}
-                      </p>
+                      <div className="flex flex-col h-full">
+                        <div className="flex-1 flex flex-col">
+                          <div className="space-y-6">
+                            <h3 className="text-center text-lg font-semibold">
+                              {plano.id === "bronze" ? (
+                                <span className="text-amber-600">Plano Bronze</span>
+                              ) : plano.id === "prata" ? (
+                                <span className="text-gray-400">Plano Prata</span>
+                              ) : plano.id === "ouro" ? (
+                                <span className="text-yellow-400">Plano Ouro</span>
+                              ) : (
+                                <span className="text-red-300">{plano.nome}</span>
+                              )}
+                            </h3>
 
-                      <ul className="space-y-2 text-[11px] text-zinc-200">
-                        {plano.beneficios.map((b, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2"
-                          >
-                            <span
-                              className={
-                                "flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold " +
-                                (b.included
-                                  ? "bg-emerald-500 text-black"
-                                  : "bg-red-600 text-black")
-                              }
-                            >
-                              {b.included ? "✓" : "✕"}
-                            </span>
-                            <span
-                              className={
-                                b.included
-                                  ? "text-emerald-200"
-                                  : "text-red-300 line-through"
-                              }
-                            >
-                              {b.label}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                            <p className="text-center text-2xl font-bold text-red-400">
+                              {precoFormatado}
+                            </p>
 
-                      <a
-                        href="/planos"
-                        className="mt-2 inline-block rounded-full border border-red-600 px-3 py-1 text-center text-[11px] font-semibold text-red-300 hover:bg-red-600/20"
-                      >
-                        Ver este plano em detalhes
-                      </a>
+                            <p className="text-center text-xs text-zinc-400">
+                              {plano.descricao}
+                            </p>
+                          </div>
+
+                          <ul className="mt-10 space-y-2 mb-6 text-xs text-zinc-200">
+                            {plano.beneficios.map((b, idx) => {
+                              const useTilde = b.useTilde && b.included;
+                              const isPriorityIntermediate = (b.label === "Prioridade intermediária" || b.label === "Prioridade intermediária na agenda") && b.included;
+                              const iconColor = b.included 
+                                ? (isPriorityIntermediate ? "bg-yellow-500" : "bg-emerald-500") 
+                                : "bg-red-600";
+                              const textColor = b.included 
+                                ? (isPriorityIntermediate ? "text-yellow-200" : "text-emerald-200") 
+                                : "text-red-300";
+                              const boxBgColor = isPriorityIntermediate ? "bg-yellow-950/40" : "bg-zinc-900";
+                              const boxBorderColor = isPriorityIntermediate ? "border-yellow-500/60" : "";
+                              
+                              return (
+                                <li
+                                  key={idx}
+                                  className={`flex items-center gap-2 rounded-lg px-4 py-2 ${boxBgColor} ${boxBorderColor} ${boxBorderColor ? "border" : ""}`}
+                                >
+                                  <span
+                                    className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${iconColor} text-black`}
+                                  >
+                                    {useTilde ? "~" : (b.included ? "✓" : "✕")}
+                                  </span>
+                                  <span className={b.included ? textColor : "text-red-300"}>
+                                    {b.label}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+
+                        <a
+                          href="/planos"
+                          className="mt-auto w-full rounded-full border border-red-600 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-600/20 transition-all text-center"
+                          style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+                        >
+                          Ver este plano em detalhes
+                        </a>
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
               <p className="mt-1 text-center text-[11px] text-zinc-400">
-                A contratação de qualquer plano só poderá ser concluída após a
-                leitura e o aceite dos <strong>termos de uso</strong> e do{" "}
-                <strong>contrato de prestação de serviço</strong>.
+                A contratação de qualquer plano está sujeita à confirmação do pagamento e ao aceite dos{" "}
+                <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e{" "}
+                <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
               </p>
             </>
           )}
@@ -805,9 +1181,101 @@ export default function AgendamentoPage() {
       </section>
 
       {/* =========================================================
+          CUPOM DE DESCONTO
+      ========================================================== */}
+      <section className="mb-16 flex justify-center px-4 mt-16">
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+          <div
+            className="relative space-y-3 p-6 md:p-8"
+            style={{
+              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          >
+            <h2 className="text-center text-lg font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              Cupom de Desconto
+            </h2>
+
+            <p className="text-center text-sm text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Se você possui um cupom de desconto ou cupom de plano, insira o código abaixo para aplicar o desconto automaticamente.
+            </p>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={cupomCode}
+                onChange={(e) => setCupomCode(e.target.value.toUpperCase())}
+                placeholder="Digite o código do cupom"
+                disabled={validandoCupom || !!cupomAplicado}
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              {!cupomAplicado ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!cupomCode.trim()) {
+                      alert("Digite um código de cupom");
+                      return;
+                    }
+                    if (totalGeral <= 0) {
+                      alert("Selecione pelo menos um serviço antes de aplicar o cupom");
+                      return;
+                    }
+                    setValidandoCupom(true);
+                    try {
+                      const res = await fetch("/api/coupons/validate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code: cupomCode, total: totalGeral }),
+                      });
+                      const data = await res.json();
+                      if (data.valid) {
+                        setCupomAplicado({
+                          code: cupomCode,
+                          discount: data.discount,
+                          couponType: data.couponType,
+                        });
+                      } else {
+                        alert(data.error || "Cupom inválido ou inexistente");
+                      }
+                    } catch (err) {
+                      alert("Erro ao validar cupom. Tente novamente.");
+                    } finally {
+                      setValidandoCupom(false);
+                    }
+                  }}
+                  disabled={validandoCupom || totalGeral <= 0}
+                  className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {validandoCupom ? "Validando..." : "Aplicar"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCupomAplicado(null);
+                    setCupomCode("");
+                  }}
+                  className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+            {cupomAplicado && (
+              <p className="mt-2 text-center text-sm text-green-400">
+                ✓ Cupom {cupomAplicado.couponType === "reembolso" ? "de reembolso" : "de plano"} aplicado com sucesso! Desconto de R$ {cupomAplicado.discount.toFixed(2).replace(".", ",")}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================
           RESUMO / VALOR TOTAL
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative p-6 md:p-8"
@@ -877,9 +1345,21 @@ export default function AgendamentoPage() {
               </span>
             </p>
 
-            <p className="mt-2 text-2xl md:text-3xl font-extrabold text-yellow-300 whitespace-nowrap">
-              Total estimado: R$ {totalGeral.toFixed(2).replace(".", ",")}
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-2xl md:text-3xl font-extrabold text-yellow-300 whitespace-nowrap">
+                Total estimado: R$ {totalGeral.toFixed(2).replace(".", ",")}
+              </p>
+              {cupomAplicado && descontoCupom > 0 && (
+                <>
+                  <p className="text-sm text-green-400 whitespace-nowrap">
+                    Cupom {cupomAplicado.code}: -R$ {descontoCupom.toFixed(2).replace(".", ",")}
+                  </p>
+                  <p className="text-xl md:text-2xl font-extrabold text-yellow-200 whitespace-nowrap">
+                    Total com desconto: R$ {totalComDesconto.toFixed(2).replace(".", ",")}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
             </div>
           </div>
@@ -889,7 +1369,7 @@ export default function AgendamentoPage() {
       {/* =========================================================
           CONFIRMAR E IR PARA PAGAMENTO
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
+      <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8 text-sm"
@@ -942,65 +1422,271 @@ export default function AgendamentoPage() {
 
             <p className="text-center text-xs text-zinc-300">
               A confirmação implica concordância com os{" "}
-              <strong>termos de uso</strong> e com o{" "}
-              <strong>contrato de prestação de serviço</strong> da THouse Rec.
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e com o{" "}
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
             </p>
           </div>
         </div>
       </section>
 
       {/* =========================================================
-          DÚVIDAS / SUPORTE
+          BOX DE TESTE - APENAS PARA ADMIN
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
-          <div
-            className="relative space-y-4 p-6 md:p-8"
-            style={{
-              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-            }}
-          >
-            <h2 className="text-lg text-center font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-              Ficou com alguma dúvida?
-            </h2>
+      {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
+        <section className="mb-16 flex justify-center px-4 mt-16">
+          <div className="relative w-full max-w-5xl border-2 border-yellow-500 rounded-2xl bg-yellow-950/20 backdrop-blur-sm p-6">
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold text-yellow-400 text-center">
+                🧪 Pagamento de Teste - Agendamento (Apenas Admin)
+              </h3>
+              <p className="text-sm text-yellow-200 text-center">
+                Use esta opção para testar o fluxo de pagamento. Preencha apenas data, horário e comentário. 
+                O agendamento será criado apenas após o pagamento ser confirmado (R$ 5,00).
+              </p>
+              
+              {/* Formulário de Teste Simplificado */}
+              <div className="space-y-4 mt-6">
+                {/* Data */}
+                <div>
+                  <label className="block text-sm font-medium text-yellow-300 mb-2">
+                    Data do Agendamento *
+                  </label>
+                  <input
+                    type="date"
+                    value={dataSelecionada || ""}
+                    onChange={(e) => setDataSelecionada(e.target.value || null)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full rounded-lg border border-yellow-600 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
 
-            <p className="text-sm text-center text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Se ainda restar alguma dúvida sobre horários, valores, planos ou
-              funcionamento do estúdio, você pode consultar o FAQ ou falar
-              diretamente com a gente.
-            </p>
+                {/* Horário */}
+                <div>
+                  <label className="block text-sm font-medium text-yellow-300 mb-2">
+                    Horário *
+                  </label>
+                  <select
+                    value={horaSelecionada || ""}
+                    onChange={(e) => setHoraSelecionada(e.target.value || null)}
+                    className="w-full rounded-lg border border-yellow-600 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 focus:border-yellow-400 focus:outline-none appearance-none"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 0.75rem center',
+                      paddingRight: '2.5rem',
+                    }}
+                  >
+                    <option value="">Selecione um horário</option>
+                    {HORARIOS_PADRAO.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="flex flex-wrap justify-center gap-4 text-sm">
-              <a
-                href="/faq"
-                className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-              >
-                Ver FAQ
-              </a>
+                {/* Campo de Cupom */}
+                <div>
+                  <label className="block text-sm font-medium text-yellow-300 mb-2">
+                    Cupom de Desconto (Opcional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={cupomCode}
+                      onChange={(e) => setCupomCode(e.target.value.toUpperCase())}
+                      placeholder="Digite o código do cupom"
+                      disabled={validandoCupom || !!cupomAplicado}
+                      className="flex-1 rounded-lg border border-yellow-600 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-yellow-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {!cupomAplicado ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!cupomCode.trim()) {
+                            alert("Digite um código de cupom");
+                            return;
+                          }
+                          if (totalGeral <= 0) {
+                            alert("Selecione pelo menos um serviço antes de aplicar o cupom");
+                            return;
+                          }
+                          setValidandoCupom(true);
+                          try {
+                            const res = await fetch("/api/coupons/validate", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ code: cupomCode, total: totalGeral }),
+                            });
+                            const data = await res.json();
+                            if (data.valid) {
+                              setCupomAplicado({
+                                code: cupomCode,
+                                discount: data.discount,
+                                couponType: data.couponType,
+                              });
+                            } else {
+                              alert(data.error || "Cupom inválido");
+                            }
+                          } catch (err) {
+                            alert("Erro ao validar cupom");
+                          } finally {
+                            setValidandoCupom(false);
+                          }
+                        }}
+                        disabled={validandoCupom || totalGeral <= 0}
+                        className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {validandoCupom ? "Validando..." : "Aplicar"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCupomAplicado(null);
+                          setCupomCode("");
+                        }}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  {cupomAplicado && (
+                    <p className="mt-2 text-xs text-green-400">
+                      ✓ Cupom {cupomAplicado.couponType === "reembolso" ? "de reembolso" : "de plano"} aplicado com sucesso!
+                    </p>
+                  )}
+                </div>
 
-              <a
-                href="/chat"
-                className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-              >
-                Suporte via Chat
-              </a>
-            </div>
+                {/* Comentários */}
+                <div>
+                  <label className="block text-sm font-medium text-yellow-300 mb-2">
+                    Comentários / Observações *
+                  </label>
+                  <textarea
+                    value={comentarios}
+                    onChange={(e) => setComentarios(e.target.value)}
+                    placeholder="Descreva o que você precisa para esta sessão..."
+                    rows={3}
+                    className="w-full rounded-lg border border-yellow-600 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 focus:border-yellow-400 focus:outline-none resize-none"
+                  />
+                </div>
 
-            <div className="mt-4 text-center">
-              <a
-                href="/contato"
-                className="text-xs text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline transition-colors"
-              >
-                Contato direto
-              </a>
+                {/* Checkbox de Aceite */}
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="aceite-termos-teste"
+                    checked={aceiteTermos}
+                    onChange={(e) => setAceiteTermos(e.target.checked)}
+                    className="mt-1 h-4 w-4 cursor-pointer rounded border-yellow-600 bg-zinc-900 text-yellow-600 focus:ring-2 focus:ring-yellow-500 focus:ring-offset-0"
+                  />
+                  <label
+                    htmlFor="aceite-termos-teste"
+                    className="text-sm text-yellow-200 cursor-pointer"
+                  >
+                    Declaro estar ciente dos{" "}
+                    <a
+                      href="/termos-contratos"
+                      className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors"
+                    >
+                      termos de contrato
+                    </a>
+                  </label>
+                </div>
+
+                {/* Botão de Teste */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    // Validações
+                    if (!dataSelecionada) {
+                      alert("Por favor, selecione uma data.");
+                      return;
+                    }
+                    
+                    if (!horaSelecionada) {
+                      alert("Por favor, selecione um horário.");
+                      return;
+                    }
+                    
+                    if (!comentarios.trim()) {
+                      alert("Por favor, preencha o campo de comentários.");
+                      return;
+                    }
+                    
+                    if (!aceiteTermos) {
+                      alert("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
+                      return;
+                    }
+
+                    // Verificar se a data/hora não passou
+                    const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
+                    if (dataHoraISO < new Date()) {
+                      alert("Não é possível agendar para uma data/hora que já passou.");
+                      return;
+                    }
+
+                    try {
+                      const res = await fetch("/api/test-payment", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          tipo: "agendamento",
+                          data: dataSelecionada,
+                          hora: horaSelecionada,
+                          observacoes: comentarios,
+                          duracaoMinutos: 60,
+                        }),
+                      });
+
+                      if (!res.ok) {
+                        const error = await res.json();
+                        let errorMessage = error.error || "Erro ao criar pagamento de teste";
+                        
+                      // Mensagens mais amigáveis para erros comuns
+                      if (error.details?.tipo === "permissao_insuficiente") {
+                        errorMessage = `❌ Permissão Insuficiente\n\n${error.error}\n\n${error.details.solucao}\n\n${error.details.guia || ""}`;
+                      } else if (error.details?.tipo === "token_invalido") {
+                        errorMessage = `❌ Token Inválido\n\n${error.error}\n\n${error.details.solucao}`;
+                      } else if (error.details?.tipo === "ambiente_invalido") {
+                        errorMessage = `❌ Ambiente Inválido\n\n${error.error}\n\n${error.details.solucao}`;
+                      } else if (error.details?.tipo === "dominio_nao_configurado") {
+                        errorMessage = `❌ Domínio Não Configurado\n\n${error.error}\n\n${error.details.solucao}\n\n📖 ${error.details.guia || ""}`;
+                      }
+                        
+                        alert(errorMessage);
+                        console.error("[Test Payment Frontend] Erro completo:", error);
+                        return;
+                      }
+
+                      const data = await res.json();
+                      if (data.initPoint) {
+                        window.location.href = data.initPoint;
+                      } else {
+                        alert("Não foi possível obter o link de pagamento de teste.");
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      alert("Erro inesperado ao iniciar pagamento de teste.");
+                    }
+                  }}
+                  className="w-full rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+                >
+                  Testar Pagamento - R$ 5,00
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* =========================================================
+          DÚVIDAS / SUPORTE
+      ========================================================== */}
+      <DuvidasBox />
     </main>
   );
 }

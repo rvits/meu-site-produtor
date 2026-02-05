@@ -14,7 +14,7 @@ export default function PagamentoFalhaPage() {
       </p>
 
       <p className="mb-6 text-sm text-zinc-300">
-        Se o valor tiver sido debitado, o Mercado Pago poderá realizar o
+        Se o valor tiver sido debitado, o Asaas poderá realizar o
         estorno automaticamente. Em caso de dúvida, fale com o suporte, chat ou
         tente novamente.
       </p>

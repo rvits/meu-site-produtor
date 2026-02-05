@@ -30,7 +30,8 @@ export async function requireAuth() {
 
 export async function requireAdmin() {
   const user = await requireAuth();
-  if (user.role !== "ADMIN") {
+  // Permite acesso se for ADMIN ou se for o email específico
+  if (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com") {
     throw new Error("Acesso negado");
   }
   return user;

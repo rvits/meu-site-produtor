@@ -1,6 +1,6 @@
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -8,21 +8,28 @@ generator client {
 }
 
 model User {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
+  nomeCompleto    String
   nomeArtistico   String
-  email           String   @unique
+  nomeSocial      String?
+  email           String    @unique
   senha           String
   telefone        String
   pais            String
   estado          String
   cidade          String
   bairro          String
+  cep             String?
+  cpf             String?
   dataNascimento  DateTime
+  sexo            String?
+  genero          String?
+  generoOutro     String?
   estilosMusicais String?
   nacionalidade   String?
   foto            String?
-  role            String   @default("USER")
-  blocked         Boolean  @default(false)
+  role            String    @default("USER")
+  blocked         Boolean   @default(false)
   blockedAt       DateTime?
   blockedReason   String?
 
@@ -31,11 +38,13 @@ model User {
   loginLogs     LoginLog[]
   payments      Payment[]
   userPlans     UserPlan[]
+  subscriptions Subscription[]
   services      Service[]
   chatSessions  ChatSession[]
-  adminChats    ChatSession[] @relation("AdminChat")
+  adminChats    ChatSession[]  @relation("AdminChat")
+  faqQuestions  UserQuestion[]
 
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([email])
   @@index([role])
@@ -55,18 +64,19 @@ model Session {
 }
 
 model Appointment {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   data           DateTime
   duracaoMinutos Int
   tipo           String
   observacoes    String?
-  status         String   @default("pendente")
-  blocked        Boolean  @default(false)
+  status         String    @default("pendente")
+  blocked        Boolean   @default(false)
   blockedAt      DateTime?
   blockedReason  String?
-  createdAt      DateTime @default(now())
+  readAt         DateTime? // Quando o usuário visualizou o agendamento confirmado
+  createdAt      DateTime  @default(now())
 
   @@index([userId])
   @@index([data])
@@ -89,15 +99,29 @@ model FAQ {
 }
 
 model UserQuestion {
-  id        String   @id @default(cuid())
-  question  String
-  userName  String?
-  userEmail String?
-  blocked   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id            String    @id @default(cuid())
+  question      String
+  userName      String?
+  userEmail     String?
+  userId        String? // ID do usuário se estiver logado
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blocked       Boolean   @default(false)
+  blockedReason String? // Motivo da recusa
+  status        String    @default("pendente") // "pendente", "respondida", "publicada"
+  answer        String? // Resposta do admin
+  answeredAt    DateTime?
+  answeredBy    String? // ID do admin que respondeu
+  readAt        DateTime? // Quando o usuário leu a resposta
+  published     Boolean   @default(false) // Se foi publicado no FAQ público
+  createdAt     DateTime  @default(now())
 
   faqId String?
   faq   FAQ?    @relation(fields: [faqId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([published])
+  @@index([createdAt])
 }
 
 model LoginLog {
@@ -118,49 +142,93 @@ model Payment {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mercadopagoId String?  @unique
+  asaasId       String?  @unique // ID do pagamento no Asaas
   amount        Float
   currency      String   @default("BRL")
   status        String   @default("pending")
   type          String
+  paymentMethod String? // Método de pagamento selecionado pelo usuário
   planId        String?
   serviceId     String?
+  appointmentId Int? // ID do agendamento associado (para prevenir fraudes)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
   @@index([mercadopagoId])
+  @@index([asaasId])
+  @@index([appointmentId])
+}
+
+// Armazenar metadata completo de pagamentos antes de criar no gateway
+// Isso permite passar apenas userId no externalReference (limite de 100 caracteres do Asaas)
+model PaymentMetadata {
+  id        String   @id @default(uuid())
+  userId    String // userId usado como externalReference no Asaas
+  metadata  String   @default("{}") // JSON stringificado com todos os dados
+  asaasId   String?  @unique // ID do pagamento no Asaas (preenchido após criação)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // Limpar após 24 horas se não usado
+
+  @@index([userId])
+  @@index([asaasId])
+  @@index([expiresAt])
 }
 
 model UserPlan {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId    String
-  planName  String
-  modo      String
-  amount    Float
-  status    String   @default("active")
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId       String
+  planName     String
+  modo         String
+  amount       Float
+  status       String        @default("active")
+  startDate    DateTime      @default(now())
+  endDate      DateTime?
+  readAt       DateTime?     // Quando o usuário visualizou o plano confirmado
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  subscription Subscription? // Assinatura recorrente associada
+  coupons      Coupon[] // Cupons gerados por este plano
 
   @@index([userId])
   @@index([status])
   @@index([planId])
 }
 
+model Subscription {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userPlanId          String    @unique
+  userPlan            UserPlan  @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
+  asaasSubscriptionId String?   @unique // ID da assinatura no Asaas
+  paymentMethod       String // "pix", "cartao_credito", "cartao_debito", "boleto"
+  billingDay          Int // Dia do mês para cobrança (1-28)
+  status              String    @default("active") // "active", "paused", "cancelled"
+  nextBillingDate     DateTime // Próxima data de cobrança
+  lastBillingDate     DateTime? // Última data de cobrança realizada
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([nextBillingDate])
+  @@index([asaasSubscriptionId])
+}
+
 model Service {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tipo        String
   description String?
-  status      String   @default("pendente")
+  status      String    @default("pendente")
   acceptedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -168,17 +236,18 @@ model Service {
 }
 
 model ChatSession {
-  id            String        @id @default(uuid())
-  userId        String
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status        String        @default("open")
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String        @default("open")
   humanRequested Boolean       @default(false)
-  adminAccepted Boolean       @default(false)
-  adminId       String?
-  admin         User?         @relation("AdminChat", fields: [adminId], references: [id])
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  messages      ChatMessage[]
+  adminAccepted  Boolean       @default(false)
+  adminId        String?
+  admin          User?         @relation("AdminChat", fields: [adminId], references: [id])
+  lastReadAt     DateTime? // Última vez que o usuário leu as mensagens
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  messages       ChatMessage[]
 
   @@index([userId])
   @@index([status])
@@ -196,4 +265,63 @@ model ChatMessage {
 
   @@index([chatSessionId])
   @@index([createdAt])
+}
+
+model BlockedTimeSlot {
+  id        String   @id @default(cuid())
+  data      String
+  hora      String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([data, hora])
+  @@index([data])
+  @@index([ativo])
+}
+
+model SiteSettings {
+  id              String   @id @default("main")
+  maintenanceMode Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+model PasswordResetCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([code])
+  @@index([expiresAt])
+  @@index([used])
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  couponType    String    @default("plano") // "plano" ou "reembolso"
+  discountType  String // "percent", "fixed" ou "service"
+  discountValue Float // Valor do desconto (percentual ou fixo) ou ID do serviço
+  serviceType   String? // Tipo de serviço quando discountType = "service" (ex: "sessao", "captacao", "mix", etc.)
+  minValue      Float? // Valor mínimo do pedido para usar o cupom
+  maxDiscount   Float? // Desconto máximo (para cupons percentuais)
+  used          Boolean   @default(false)
+  usedAt        DateTime?
+  usedBy        String? // userId que usou o cupom
+  appointmentId Int? // ID do agendamento que gerou este cupom (para cupons de reembolso)
+  userPlanId    String? // ID do plano que gerou este cupom (para cupons de plano)
+  userPlan      UserPlan? @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([code])
+  @@index([used])
+  @@index([expiresAt])
+  @@index([usedBy])
+  @@index([userPlanId])
+  @@index([couponType])
+  @@index([appointmentId])
 }

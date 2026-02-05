@@ -10,8 +10,15 @@
 /* =========================
    FUNDO GLOBAL COM TEXTURA
 ========================= */
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 
   /* fallback */
   background-color: #606060;
@@ -26,6 +33,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
+  padding-top: 72px; /* Espaço para o header fixo */
 }
 
 /* =========================
@@ -37,10 +45,60 @@ a {
 }
 
 /* =========================
+   ANIMAÇÕES
+========================= */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* =========================
    ACESSIBILIDADE / MOBILE
 ========================= */
 *:focus {
   outline: none;
+}
+
+/* Desabilitar botão nativo de mostrar senha do navegador */
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-strong-password-auto-fill-button,
+input[type="password"]::-webkit-inner-spin-button,
+input[type="password"]::-webkit-outer-spin-button {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Para Edge/IE */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Para Firefox - desabilitar autocomplete visual */
+input[type="password"] {
+  -moz-appearance: textfield;
+}
+
+/* Garantir que não apareça botão nativo em nenhum navegador */
+input[type="password"]::placeholder {
+  -webkit-text-security: none;
+  text-security: none;
 }
 
 /* =========================

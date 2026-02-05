@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import ProfessionalBox from "@/app/components/ProfessionalBox";
 
+// ID do vídeo do YouTube - Substitua pelo ID real do vídeo
+// Para obter o ID: pegue a URL do YouTube (ex: https://www.youtube.com/watch?v=VIDEO_ID)
+// e use apenas a parte após "v=" (antes do primeiro & se houver)
+const YOUTUBE_VIDEO_ID = "UPY_DfdiGK4"; // ID do vídeo (apenas a parte após v=)
+
 /* =========================
    SERVICO CARD
 ========================= */
@@ -57,8 +62,8 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
+    mensal: 197.00,
+    anual: 1970.00,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
       { label: "2h de captação por mês", included: true },
@@ -72,8 +77,8 @@ const PLANOS: Plano[] = [
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3499.99,
+    mensal: 347.00,
+    anual: 3470.00,
     descricao: "Para artistas que gravam com regularidade e já possuem músicas próprias.",
     beneficios: [
       { label: "2h de captação por mês", included: true },
@@ -88,8 +93,8 @@ const PLANOS: Plano[] = [
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
+    mensal: 547.00,
+    anual: 5470.00,
     descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
     beneficios: [
       { label: "4 horas de captação por mês", included: true },
@@ -108,7 +113,7 @@ export default function Home() {
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
+    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
 
         {/* =========================================================
             INTRODUÇÃO / HERO
@@ -120,65 +125,28 @@ export default function Home() {
           <div className="w-full max-w-7xl space-y-5 px-6">
 
             {/* TÍTULO */}
-            <h1 className="text-6xl font-extrabold tracking-tight md:text-8xl lg:text-9xl" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl xl:text-9xl font-extrabold tracking-tight" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
               <span className="text-red-500">T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS E DESCRIÇÃO - DESIGN PROFISSIONAL */}
-            <section className="mt-20 flex justify-center px-4">
-              <div className="relative w-full max-w-4xl mx-auto">
-                {/* LINHA SUPERIOR COM FADE - LIMITE SUPERIOR */}
-                <div 
-                  className="h-[1px]"
-                  style={{
-                    background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
-                    boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
-                  }}
-                />
+            {/* TEXTO DE SERVIÇOS - SEM FUNDO */}
+            <div className="mt-4 text-center">
+              <p 
+                className="text-xs sm:text-sm md:text-base uppercase tracking-[0.2em] sm:tracking-[0.35em] text-red-500 font-bold leading-relaxed inline-block px-2"
+                style={{ 
+                  textShadow: "0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)",
+                  fontWeight: 700
+                }}
+              >
+                ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
+              </p>
+            </div>
 
-                {/* CONTEÚDO COM FUNDO PRETO QUE TERMINA NA LINHA INFERIOR */}
-                <div 
-                  className="relative"
-                  style={{
-                    background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
-                    backdropFilter: "blur(16px)",
-                    WebkitBackdropFilter: "blur(16px)",
-                  }}
-                >
-                  {/* TEXTO DE SERVIÇOS */}
-                  <div className="px-8 md:px-12 py-6 text-center overflow-hidden">
-                    <p className="text-xs md:text-sm uppercase tracking-[0.35em] text-red-500 font-medium leading-relaxed whitespace-nowrap" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                      ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
-                    </p>
-                  </div>
-
-                  {/* LINHA INTERNA COM FADE (MAIS CURTA) */}
-                  <div 
-                    className="h-[1px] mx-auto"
-                    style={{
-                      width: "55%",
-                      background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.4) 25%, rgba(239, 68, 68, 0.7) 50%, rgba(239, 68, 68, 0.4) 75%, transparent 100%)",
-                      boxShadow: "0 1px 8px rgba(239, 68, 68, 0.3)"
-                    }}
-                  />
-
-                  {/* TEXTO PRINCIPAL */}
-                  <div className="px-8 md:px-12 py-6 text-center overflow-hidden">
-                    <p className="text-sm md:text-base leading-relaxed text-white font-light whitespace-nowrap" style={{ textShadow: "0 2px 10px rgba(0, 0, 0, 0.9)" }}>
+            {/* TEXTO DESCRITIVO SEM BOX */}
+            <section className="mt-6 sm:mt-8 md:mt-10 flex justify-center px-2 sm:px-4">
+              <p className="text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4 max-w-4xl" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                       Crie sua música com identidade e qualidade profissional em um estúdio pensado para artistas independentes.
                     </p>
-                  </div>
-                </div>
-
-                {/* LINHA INFERIOR COM FADE - LIMITE INFERIOR */}
-                <div 
-                  className="h-[1px]"
-                  style={{
-                    background: "linear-gradient(to right, transparent 0%, rgba(239, 68, 68, 0.3) 15%, rgba(239, 68, 68, 0.6) 50%, rgba(239, 68, 68, 0.3) 85%, transparent 100%)",
-                    boxShadow: "0 1px 10px rgba(239, 68, 68, 0.4)"
-                  }}
-                />
-              </div>
             </section>
           </div>
         </section>
@@ -188,7 +156,7 @@ export default function Home() {
           <ProfessionalBox>
             <div className="space-y-4 text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               <p>
-                A THouse Rec é o estúdio independente criado por Victor Pereira
+              A THouse Rec é o estúdio independente criado por Victor Pereira
                 Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e
                 engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua
                 trajetória começou nas batalhas de rima, rodas de freestyle e na
@@ -208,7 +176,7 @@ export default function Home() {
               <p>
                 Com o tempo, Tremv passou a produzir artistas, mixar,
                 masterizar, trabalhar com sonoplastia e desenvolver uma visão
-                completa de projeto: do beat à música finalizada. O estúdio
+                completa de projeto: do beat a música finalizada. O estúdio
                 nasceu para ser um espaço criativo, acessível e profissional,
                 onde cada artista é tratado com atenção e cuidado.
               </p>
@@ -224,9 +192,9 @@ export default function Home() {
           </ProfessionalBox>
         </section>
 
-        {/* =========================================================
-            VÍDEO - CLIPE DO ARTISTA
-        ========================================================== */}
+          {/* =========================================================
+              VÍDEO - CLIPE DO ARTISTA
+          ========================================================== */}
         <section className="mt-10 flex justify-center px-4">
           <div className="flex flex-col items-center space-y-4 w-full max-w-5xl">
             <h2 className="text-base md:text-lg font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
@@ -234,13 +202,24 @@ export default function Home() {
             </h2>
 
             <div className="aspect-video w-full max-w-5xl overflow-hidden rounded-xl border border-red-500 bg-zinc-900" style={{ borderWidth: "1px" }}>
-              <iframe
-                src="https://www.youtube.com/embed/VIDEO_ID_AQUI"
-                title="Clipe THouse Rec"
-                className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              {YOUTUBE_VIDEO_ID ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?rel=0&modestbranding=1&playsinline=1`}
+                  title="Clipe THouse Rec - Reprogramação — Dizzy (Prod. Tremv)"
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                  style={{ border: "none" }}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-zinc-400">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold mb-2">Vídeo não configurado</p>
+                    <p className="text-sm">Configure o ID do vídeo do YouTube no arquivo page.tsx</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -260,12 +239,12 @@ export default function Home() {
               }}
             >
               <p className="text-sm leading-relaxed text-white md:text-base text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                Você pode contratar serviços avulsos ou combinar diferentes etapas
-                da produção para montar a sessão ideal: captação, mix, master,
-                sonoplastia e beats. Cada item pode ser usado separadamente ou em
-                conjunto, dependendo da fase em que o seu som está e do tipo de
-                suporte que você precisa no estúdio.
-              </p>
+            Você pode contratar serviços avulsos ou combinar diferentes etapas
+            da produção para montar a sessão ideal: captação, mix, master,
+            sonoplastia e beats. Cada item pode ser usado separadamente ou em
+            conjunto, dependendo da fase em que o seu som está e do tipo de
+            suporte que você precisa no estúdio.
+          </p>
             </div>
           </div>
         </section>
@@ -287,8 +266,8 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Serviços de Estúdio
-              </h2>
+              Serviços de Estúdio
+            </h2>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <ServicoCard titulo="Sessão" preco="R$ 40 / h" />
@@ -325,8 +304,8 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Beats e Pacotes Especiais
-              </h2>
+              Beats e Pacotes Especiais
+            </h2>
 
             {/* LINHA 1 */}
             <div className="grid grid-cols-3 gap-6">
@@ -375,7 +354,7 @@ export default function Home() {
                   4h captação + beat + mix + master
                 </p>
               </Link>
-            </div>
+              </div>
             </div>
           </div>
         </section>
@@ -396,11 +375,11 @@ export default function Home() {
             >
               <p className="text-sm leading-relaxed text-yellow-100 md:text-base text-left" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                 <strong className="text-yellow-300">Lembrete importante:</strong> o agendamento só é liberado
-                após o pagamento da sessão ou da captação. Para serviços de beats,
-                mix e master, você terá acesso a uma área do usuário (em
-                desenvolvimento) para acompanhar prazos, pagamentos, andamento do
-                projeto e download dos arquivos finalizados.
-              </p>
+              após o pagamento da sessão ou da captação. Para serviços de beats,
+              mix e master, você terá acesso a uma área do usuário (em
+              desenvolvimento) para acompanhar prazos, pagamentos, andamento do
+              projeto e download dos arquivos finalizados.
+            </p>
             </div>
           </div>
         </section>
@@ -421,14 +400,14 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Quer aprofundar e produzir com frequência?
-              </h2>
+              Quer aprofundar e produzir com frequência?
+            </h2>
 
               <p className="mx-auto max-w-3xl text-center text-sm text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                Os planos da THouse Rec foram pensados para artistas que desejam
-                manter uma rotina de lançamentos, garantir prioridade na agenda e
-                ter o melhor custo-benefício em relação aos serviços avulsos.
-              </p>
+              Os planos da THouse Rec foram pensados para artistas que desejam
+              manter uma rotina de lançamentos, garantir prioridade na agenda e
+              ter o melhor custo-benefício em relação aos serviços avulsos.
+            </p>
 
             {/* Toggle Mensal / Anual */}
             <div className="flex justify-center">
@@ -499,15 +478,15 @@ export default function Home() {
                             ) : (
                               <span className="text-red-300">{plano.nome}</span>
                             )}
-                          </h3>
+                    </h3>
 
-                          <p className="text-center text-2xl font-bold text-red-400">
-                            {precoFormatado}
-                          </p>
+                    <p className="text-center text-2xl font-bold text-red-400">
+                      {precoFormatado}
+                    </p>
 
-                          <p className="text-center text-xs text-zinc-400">
-                            {plano.descricao}
-                          </p>
+                    <p className="text-center text-xs text-zinc-400">
+                      {plano.descricao}
+                    </p>
                         </div>
 
                         <ul className="mt-10 space-y-2 mb-6 text-xs text-zinc-200">
@@ -524,30 +503,30 @@ export default function Home() {
                         const boxBorderColor = isPriorityIntermediate ? "border-yellow-500/60" : "";
                         
                         return (
-                          <li
-                            key={idx}
+                        <li
+                          key={idx}
                             className={`flex items-center gap-2 rounded-lg px-4 py-2 ${boxBgColor} ${boxBorderColor} ${boxBorderColor ? "border" : ""}`}
-                          >
-                            <span
+                        >
+                          <span
                               className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${iconColor} text-black`}
                             >
                               {useTilde ? "~" : (b.included ? "✓" : "✕")}
-                            </span>
+                          </span>
                             <span className={b.included ? textColor : "text-red-300"}>
-                              {b.label}
-                            </span>
-                          </li>
+                            {b.label}
+                          </span>
+                        </li>
                         );
                         })}
-                        </ul>
+                    </ul>
                       </div>
 
-                      <a
-                        href="/planos"
-                        className="mt-auto inline-block rounded-full border border-red-600 px-4 py-2 text-center text-sm font-semibold text-red-300 hover:bg-red-600/20"
-                      >
-                        Ver este plano em detalhes
-                      </a>
+                    <a
+                      href="/planos"
+                      className="mt-auto inline-block rounded-full border border-red-600 px-4 py-2 text-center text-sm font-semibold text-red-300 hover:bg-red-600/20"
+                    >
+                      Ver este plano em detalhes
+                    </a>
                     </div>
                   </div>
                 );
@@ -556,9 +535,9 @@ export default function Home() {
 
             {/* Aviso sobre termos de uso e contrato */}
             <p className="mt-4 md:mt-6 text-center text-xs text-zinc-400 max-w-4xl mx-auto px-4">
-              A contratação de qualquer plano só poderá ser concluída após a
-              leitura e o aceite dos <strong>termos de uso</strong> e do{" "}
-              <strong>contrato de prestação de serviço</strong>.
+              A confirmação implica concordância com os{" "}
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e com o{" "}
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
             </p>
             </div>
           </div>
@@ -579,29 +558,31 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-2xl md:text-3xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Loja Digital THouse Rec (em desenvolvimento)
-              </h2>
+            Loja Digital THouse Rec (em desenvolvimento)
+          </h2>
 
               <div className="space-y-4 text-center">
                 <p className="text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                  Em breve você poderá adquirir camisetas, moletons, bonés e outros
-                  itens personalizados exclusivos da THouse Rec.
-                </p>
+              Em breve você poderá adquirir camisetas, moletons, bonés e outros
+              itens personalizados exclusivos da THouse Rec.
+            </p>
 
                 <p className="text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                   A aba <strong className="text-red-300">Shopping</strong> está em construção e será
-                  atualizada conforme os produtos forem lançados, sempre alinhados à
-                  estética e à identidade do estúdio.
-                </p>
+              atualizada conforme os produtos forem lançados, sempre alinhados à
+              estética e à identidade do estúdio.
+            </p>
               </div>
 
-              <a
-                href="/shopping"
-                className="block rounded-full bg-red-600 w-full py-4 text-lg font-semibold text-white text-center hover:bg-red-500 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-              >
-                Acessar Shopping
-              </a>
+              <div className="flex justify-center">
+                <a
+                  href="/shopping"
+                  className="max-w-2xl w-full rounded-full bg-red-600 py-3 text-base font-semibold text-white text-center hover:bg-red-500 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+                >
+                  Acessar Shopping
+                </a>
+              </div>
             </div>
             {/* Linha vermelha inferior */}
             <div
@@ -629,28 +610,20 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-2xl md:text-3xl font-semibold text-red-400 mb-4" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Pronto para começar sua próxima faixa?
-              </h2>
+            Pronto para começar sua próxima faixa?
+          </h2>
 
               <p className="mx-auto max-w-5xl text-center text-sm leading-relaxed text-white md:text-base mb-6 px-6 md:px-8" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                A THouse Rec existe para transformar ideias em música real. Se você
-                tem um projeto, um verso, um beat ou apenas vontade de começar, esse
-                pode ser o momento perfeito para dar o próximo passo com estrutura,
-                apoio e qualidade de estúdio.
-              </p>
+            A THouse Rec existe para transformar ideias em música real. Se você
+            tem um projeto, um verso, um beat ou apenas vontade de começar, esse
+            pode ser o momento perfeito para dar o próximo passo com estrutura,
+            apoio e qualidade de estúdio.
+          </p>
 
-              <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center">
-                <a
-                  href="/planos"
-                  className="flex-1 max-w-xs mx-auto md:mx-0 rounded-full bg-red-600 px-6 py-3 text-center text-base font-semibold text-white hover:bg-red-500 transition-all"
-                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-                >
-                  Ver planos e pagamentos
-                </a>
-
+              <div className="flex justify-center">
                 <a
                   href="/agendamento"
-                  className="flex-1 max-w-xs mx-auto md:mx-0 rounded-full border border-red-600 px-6 py-3 text-center text-base font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                  className="max-w-2xl w-full rounded-full bg-red-600 py-3 text-base font-semibold text-white text-center hover:bg-red-500 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Agendar sessão
@@ -675,41 +648,40 @@ export default function Home() {
               }}
             >
               <h2 className="text-center text-xl md:text-2xl font-semibold text-red-400 mb-4" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                Ficou com alguma dúvida?
-              </h2>
+            Ficou com alguma dúvida?
+          </h2>
 
               <p className="mx-auto max-w-5xl text-center text-sm leading-relaxed text-white md:text-base mb-6 px-6 md:px-8" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                Se ainda restar alguma dúvida sobre sessões, prazos, valores ou
-                questões técnicas, você pode consultar o FAQ ou falar diretamente
-                com o suporte pelo chat. Estamos aqui para te ajudar a tirar o
-                máximo proveito de cada sessão.
-              </p>
+            Se ainda restar alguma dúvida sobre sessões, prazos, valores ou
+            questões técnicas, você pode consultar o FAQ ou falar diretamente
+            com o suporte pelo chat. Estamos aqui para te ajudar a tirar o
+            máximo proveito de cada sessão.
+          </p>
 
-              <div className="flex flex-wrap justify-center gap-4">
-                <a
-                  href="/faq"
+              <div className="flex flex-wrap justify-center items-center gap-4">
+            <a
+              href="/faq"
                   className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-                >
-                  Ver FAQ
-                </a>
+            >
+              Ver FAQ
+            </a>
 
-                <a
-                  href="/chat"
+            <a
+              href="/chat"
                   className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-                >
-                  Suporte via Chat
-                </a>
-              </div>
+            >
+              Suporte via Chat
+            </a>
 
-              <div className="text-center pt-2">
-                <a
-                  href="/contato"
-                  className="text-xs text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline transition-colors"
-                >
-                  Contato direto
-                </a>
+            <a
+              href="/contato"
+                  className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+            >
+              Contato direto
+            </a>
               </div>
             </div>
           </div>

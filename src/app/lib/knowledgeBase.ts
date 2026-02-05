@@ -197,13 +197,13 @@ export function buildKnowledgeBase(): KnowledgeItem[] {
   items.push({
     id: "contato-1",
     category: "contato",
-    content: `Informações de contato da THouse Rec: E-mail: tremv03021@gmail.com. WhatsApp: +55 (21) 99129-2544. Localização: Rio de Janeiro (RJ) — Botafogo.`,
+    content: `Informações de contato da THouse Rec: E-mail: thouse.rec.tremv@gmail.com. WhatsApp: +55 (21) 99129-2544. Localização: Rio de Janeiro (RJ) — Botafogo.`,
   });
 
   items.push({
     id: "contato-2",
     category: "contato",
-    content: `Para assuntos de privacidade e proteção de dados (LGPD), o contato é: vicperra@gmail.com — Rio de Janeiro – RJ.`,
+    content: `Para assuntos de privacidade e proteção de dados (LGPD), o contato é: thouse.rec.tremv@gmail.com — Rio de Janeiro – RJ.`,
   });
 
   // Informações sobre termos e contratos
@@ -222,7 +222,7 @@ export function buildKnowledgeBase(): KnowledgeItem[] {
   items.push({
     id: "termos-3",
     category: "termos",
-    content: `A política de privacidade (LGPD) explica como a THouse Rec coleta, usa, armazena e protege dados pessoais. Para questões sobre privacidade, o contato é vicperra@gmail.com.`,
+    content: `A política de privacidade (LGPD) explica como a THouse Rec coleta, usa, armazena e protege dados pessoais. Para questões sobre privacidade, o contato é thouse.rec.tremv@gmail.com.`,
   });
 
   items.push({

@@ -13,6 +13,7 @@ export async function GET() {
     let activePlans = 0;
     let services = 0;
     let pendingChats = 0;
+    let pendingFaqs = 0;
 
     try {
       appointments = await prisma.appointment.count();
@@ -42,6 +43,12 @@ export async function GET() {
       });
     } catch (e) {}
 
+    try {
+      pendingFaqs = await prisma.userQuestion.count({
+        where: { status: "pendente" },
+      });
+    } catch (e) {}
+
     return NextResponse.json({
       appointments,
       users,
@@ -49,6 +56,7 @@ export async function GET() {
       activePlans,
       services,
       pendingChats,
+      pendingFaqs,
     });
   } catch (err: any) {
     console.error("Erro ao buscar stats:", err);

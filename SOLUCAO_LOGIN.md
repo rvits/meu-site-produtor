@@ -18,7 +18,7 @@ npx prisma studio
 ```
 - Vá em "Session"
 - Delete todas as sessões
-- Ou delete apenas as do email `vicperra@gmail.com`
+- Ou delete apenas as do email `thouse.rec.tremv@gmail.com`
 
 **Opção B - Via SQL:**
 ```bash
@@ -39,7 +39,7 @@ sqlite3 prisma/dev.db "DELETE FROM Session;"
 - Acesse `/admin/reset-senha`
 
 **Passo 2: Verificar Usuários**
-- Digite `vicperra@gmail.com` e clique em "Verificar"
+- Digite `thouse.rec.tremv@gmail.com` e clique em "Verificar"
 - Veja se o usuário existe e seus dados
 - Repita para `raulvitorfs@gmail.com`
 
@@ -56,7 +56,7 @@ npx prisma studio
 ```
 1. Clique em "User"
 2. Procure pelos emails:
-   - `vicperra@gmail.com`
+   - `thouse.rec.tremv@gmail.com`
    - `raulvitorfs@gmail.com`
 3. Veja os dados (senha está hasheada, não dá para ver)
 
@@ -70,7 +70,7 @@ Este script testa as senhas possíveis e mostra informações dos usuários.
 
 - [ ] Limpar todas as sessões ativas (Prisma Studio)
 - [ ] Limpar cookies do navegador
-- [ ] Verificar se `vicperra@gmail.com` existe no banco
+- [ ] Verificar se `thouse.rec.tremv@gmail.com` existe no banco
 - [ ] Verificar se `raulvitorfs@gmail.com` existe no banco
 - [ ] Resetar senhas via `/admin/reset-senha` se necessário
 - [ ] Testar login com as novas senhas

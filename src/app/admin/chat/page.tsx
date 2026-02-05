@@ -25,15 +25,60 @@ interface ChatSession {
 
 export default function AdminChatPage() {
   const [sessoes, setSessoes] = useState<ChatSession[]>([]);
+  const [sessoesFiltradas, setSessoesFiltradas] = useState<ChatSession[]>([]);
   const [sessaoAtual, setSessaoAtual] = useState<ChatSession | null>(null);
   const [novaMensagem, setNovaMensagem] = useState("");
+  const [busca, setBusca] = useState("");
+  const [apenasUsoIndevido, setApenasUsoIndevido] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     carregarSessoes();
-    const interval = setInterval(carregarSessoes, 5000); // Atualizar a cada 5s
+    const interval = setInterval(carregarSessoes, 60000); // Atualizar a cada 1 minuto
     return () => clearInterval(interval);
   }, []);
+
+  // Função para detectar uso indevido
+  function temUsoIndevido(sessao: ChatSession): boolean {
+    const palavrasChave = [
+      "bloquear",
+      "cancelamento de conta",
+      "uso indevido",
+      "bloqueio",
+      "cancelar conta",
+      "indevidamente",
+      "responsabilidade",
+    ];
+    
+    return sessao.messages.some((msg) => {
+      if (msg.senderType === "ai" || msg.senderType === "system") {
+        const conteudo = msg.content.toLowerCase();
+        return palavrasChave.some((palavra) => conteudo.includes(palavra));
+      }
+      return false;
+    });
+  }
+
+  useEffect(() => {
+    let filtrados = [...sessoes];
+
+    // Filtro de uso indevido
+    if (apenasUsoIndevido) {
+      filtrados = filtrados.filter(temUsoIndevido);
+    }
+
+    // Filtro de busca
+    if (busca.trim() !== "") {
+      const termo = busca.toLowerCase();
+      filtrados = filtrados.filter(
+        (s) =>
+          s.user.nomeArtistico.toLowerCase().includes(termo) ||
+          s.user.email.toLowerCase().includes(termo)
+      );
+    }
+
+    setSessoesFiltradas(filtrados);
+  }, [busca, apenasUsoIndevido, sessoes]);
 
   async function carregarSessoes() {
     try {
@@ -105,40 +150,83 @@ export default function AdminChatPage() {
         <p className="text-zinc-400">Atender solicitações humanas e responder usuários</p>
       </div>
 
+      {/* Filtros e Busca */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome ou email do usuário..."
+            className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+          />
+          <button
+            onClick={() => setApenasUsoIndevido(!apenasUsoIndevido)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              apenasUsoIndevido
+                ? "bg-red-600 text-white hover:bg-red-500"
+                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+            }`}
+          >
+            {apenasUsoIndevido ? "🔴 Apenas Uso Indevido" : "⚪ Todos"}
+          </button>
+        </div>
+        {(busca || apenasUsoIndevido) && (
+          <p className="text-sm text-zinc-400">
+            {sessoesFiltradas.length} sessão(ões) encontrada(s)
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lista de Sessões */}
         <div className="lg:col-span-1 space-y-4">
           <h2 className="text-lg font-semibold text-zinc-300">Sessões de Chat</h2>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {sessoes.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => setSessaoAtual(s)}
-                className={`rounded-lg border p-4 cursor-pointer transition ${
-                  sessaoAtual?.id === s.id
-                    ? "border-red-500 bg-red-500/10"
-                    : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
-                }`}
-              >
-                <div className="font-medium text-zinc-100">{s.user.nomeArtistico}</div>
-                <div className="text-xs text-zinc-400">{s.user.email}</div>
-                <div className="mt-2 flex gap-2 flex-wrap">
-                  {s.humanRequested && (
-                    <span className="rounded px-2 py-1 text-xs font-semibold bg-orange-500/20 text-orange-300">
-                      Solicitação Humana
+            {sessoesFiltradas.map((s) => {
+              const temIndevido = temUsoIndevido(s);
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setSessaoAtual(s)}
+                  className={`rounded-lg border p-4 cursor-pointer transition ${
+                    sessaoAtual?.id === s.id
+                      ? "border-red-500 bg-red-500/10"
+                      : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
+                  } ${temIndevido ? "border-red-600/50 bg-red-950/20" : ""}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-zinc-100">{s.user.nomeArtistico}</div>
+                    {temIndevido && (
+                      <span className="text-red-500" title="Uso indevido detectado">
+                        ⚠️
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-zinc-400">{s.user.email}</div>
+                  <div className="mt-2 flex gap-2 flex-wrap">
+                    {temIndevido && (
+                      <span className="rounded px-2 py-1 text-xs font-semibold bg-red-500/20 text-red-300">
+                        Uso Indevido
+                      </span>
+                    )}
+                    {s.humanRequested && (
+                      <span className="rounded px-2 py-1 text-xs font-semibold bg-orange-500/20 text-orange-300">
+                        Solicitação Humana
+                      </span>
+                    )}
+                    {s.adminAccepted && (
+                      <span className="rounded px-2 py-1 text-xs font-semibold bg-green-500/20 text-green-300">
+                        Aceito
+                      </span>
+                    )}
+                    <span className="rounded px-2 py-1 text-xs font-semibold bg-blue-500/20 text-blue-300">
+                      {s.messages.length} msgs
                     </span>
-                  )}
-                  {s.adminAccepted && (
-                    <span className="rounded px-2 py-1 text-xs font-semibold bg-green-500/20 text-green-300">
-                      Aceito
-                    </span>
-                  )}
-                  <span className="rounded px-2 py-1 text-xs font-semibold bg-blue-500/20 text-blue-300">
-                    {s.messages.length} msgs
-                  </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

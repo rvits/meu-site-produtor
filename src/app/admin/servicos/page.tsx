@@ -17,11 +17,27 @@ interface Service {
 
 export default function AdminServicosPage() {
   const [servicos, setServicos] = useState<Service[]>([]);
+  const [servicosFiltrados, setServicosFiltrados] = useState<Service[]>([]);
+  const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     carregarServicos();
   }, []);
+
+  useEffect(() => {
+    if (busca.trim() === "") {
+      setServicosFiltrados(servicos);
+    } else {
+      const termo = busca.toLowerCase();
+      const filtrados = servicos.filter(
+        (s) =>
+          s.user.nomeArtistico.toLowerCase().includes(termo) ||
+          s.user.email.toLowerCase().includes(termo)
+      );
+      setServicosFiltrados(filtrados);
+    }
+  }, [busca, servicos]);
 
   async function carregarServicos() {
     try {
@@ -29,6 +45,7 @@ export default function AdminServicosPage() {
       if (res.ok) {
         const data = await res.json();
         setServicos(data.servicos || []);
+        setServicosFiltrados(data.servicos || []);
       }
     } catch (err) {
       console.error("Erro ao carregar serviços", err);
@@ -64,7 +81,23 @@ export default function AdminServicosPage() {
         <p className="text-zinc-400">Gerenciar serviços selecionados e aceitos</p>
       </div>
 
-      {servicos.length === 0 ? (
+      {/* Input de Busca */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou email do usuário..."
+          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+        />
+        {busca && (
+          <p className="mt-2 text-sm text-zinc-400">
+            {servicosFiltrados.length} serviço(s) encontrado(s)
+          </p>
+        )}
+      </div>
+
+      {servicosFiltrados.length === 0 ? (
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
           Nenhum serviço encontrado.
         </div>
@@ -82,7 +115,7 @@ export default function AdminServicosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-700">
-              {servicos.map((s) => (
+              {servicosFiltrados.map((s) => (
                 <tr key={s.id}>
                   <td className="px-4 py-3 text-zinc-300 text-xs">
                     {new Date(s.createdAt).toLocaleDateString("pt-BR")}
