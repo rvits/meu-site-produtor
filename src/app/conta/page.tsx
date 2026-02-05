@@ -147,19 +147,19 @@ export default function ContaPage() {
   /* ===================== UI ===================== */
 
   return (
-    <div className="relative min-h-screen bg-zinc-900 text-zinc-200 px-6 py-10">
+    <div className="relative min-h-screen bg-zinc-900 text-zinc-200 px-4 md:px-6 py-10">
       {/* VOLTAR */}
       <button
         onClick={() => router.push("/")}
-        className="absolute left-6 top-6 rounded-full border border-red-600 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-600 hover:text-white transition"
+        className="absolute left-4 md:left-6 top-4 md:top-6 rounded-full border border-red-600 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-semibold text-red-400 hover:bg-red-600 hover:text-white transition"
       >
         ← Voltar para o site
       </button>
 
-      <div className="mx-auto max-w-3xl space-y-10">
+      <div className="mx-auto max-w-3xl space-y-10 pt-12 md:pt-0">
         {/* TÍTULO */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">Minha Conta</h1>
+        <div className="text-center mt-4 md:mt-0">
+          <h1 className="text-3xl md:text-4xl font-bold">Minha Conta</h1>
           <p className="mt-2 text-red-400 text-lg font-semibold">
             {form.nomeArtistico}
           </p>
