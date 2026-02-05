@@ -193,21 +193,21 @@ export default function AdminDashboard() {
       {/* Menu Items */}
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold text-zinc-200 text-center mb-6">Módulos de Gerenciamento</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {MENU_ITEMS.map((item) => (
             <Link
               key={item.id}
               href={item.href}
               className={`
-                relative rounded-2xl border-2 p-6 transition-all duration-300
+                relative rounded-xl md:rounded-2xl border-2 p-3 md:p-6 transition-all duration-300
                 ${item.color} ${item.hoverColor}
                 cursor-pointer group
               `}
             >
-              <div className="text-4xl mb-3">{item.icon}</div>
-              <h3 className="text-lg font-bold text-zinc-100 mb-1">{item.title}</h3>
-              <p className="text-sm text-zinc-400">{item.description}</p>
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="text-2xl md:text-4xl mb-2 md:mb-3">{item.icon}</div>
+              <h3 className="text-sm md:text-lg font-bold text-zinc-100 mb-1">{item.title}</h3>
+              <p className="text-xs md:text-sm text-zinc-400 hidden md:block">{item.description}</p>
+              <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-gradient-to-br from-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           ))}
         </div>
