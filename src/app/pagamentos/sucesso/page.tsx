@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function Sucesso() {
+function SucessoContent() {
   const searchParams = useSearchParams();
   const isTeste = searchParams.get("teste") === "true";
   const tipo = searchParams.get("tipo"); // "agendamento" ou "plano"
@@ -168,5 +168,26 @@ export default function Sucesso() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Sucesso() {
+  return (
+    <Suspense fallback={
+      <main className="mx-auto max-w-xl px-6 py-16 text-zinc-100">
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-500/20 mb-4 animate-pulse">
+              <div className="w-10 h-10 bg-blue-400 rounded"></div>
+            </div>
+            <h1 className="text-3xl font-bold text-blue-400 mb-4">
+              Carregando...
+            </h1>
+          </div>
+        </div>
+      </main>
+    }>
+      <SucessoContent />
+    </Suspense>
   );
 }
