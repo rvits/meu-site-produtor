@@ -125,7 +125,7 @@ export default function Home() {
           <div className="w-full max-w-7xl space-y-5 px-6">
 
             {/* TÍTULO */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl xl:text-9xl font-extrabold tracking-tight" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+            <h1 className="text-5xl sm:text-6xl md:text-6xl lg:text-8xl xl:text-9xl font-extrabold tracking-tight" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
               <span className="text-red-500">T</span>House Rec
             </h1>
 
@@ -152,41 +152,39 @@ export default function Home() {
         </section>
 
         {/* INTRODUÇÃO EM CAIXA */}
-        <section className="mt-16 flex justify-center px-4">
+        <section className="mt-6 md:mt-16 flex justify-center px-4">
           <ProfessionalBox>
-            <div className="space-y-4 text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <div className="space-y-3 md:space-y-4 text-xs md:text-sm leading-relaxed md:leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               <p>
-              A THouse Rec é o estúdio independente criado por Victor Pereira
-                Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e
-                engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua
-                trajetória começou nas batalhas de rima, rodas de freestyle e na
-                cena independente, explorando o FL Studio e construindo uma
-                estética própria.
+                A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro.
               </p>
 
               <p>
-                Além da vivência prática, Victor está cursando{" "}
-                <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>,
-                atualmente no <strong className="text-red-400">5º período</strong>, com previsão de
-                formatura para <strong className="text-red-400">dezembro de 2026</strong>. Essa formação
-                acadêmica se soma à experiência de estúdio, trazendo uma base
-                técnica sólida para cada projeto que passa pela THouse Rec.
+                Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria.
               </p>
 
               <p>
-                Com o tempo, Tremv passou a produzir artistas, mixar,
-                masterizar, trabalhar com sonoplastia e desenvolver uma visão
-                completa de projeto: do beat a música finalizada. O estúdio
-                nasceu para ser um espaço criativo, acessível e profissional,
-                onde cada artista é tratado com atenção e cuidado.
+                Além da vivência prática, Victor está cursando <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>, atualmente no <strong className="text-red-400">5º período</strong>, com previsão de formatura para <strong className="text-red-400">dezembro de 2026</strong>.
               </p>
 
               <p>
-                Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify
-                e SoundCloud, direção de shows, trabalhos como mestre de
-                cerimônia e consultorias musicais. A ideia é simples:
-                transformar suas referências e ideias em sons que tenham força,
-                sentimento e qualidade de lançamento.
+                Essa formação acadêmica se soma à experiência de estúdio, trazendo uma base técnica sólida para cada projeto que passa pela THouse Rec.
+              </p>
+
+              <p>
+                Com o tempo, Tremv passou a produzir artistas, mixar, masterizar, trabalhar com sonoplastia e desenvolver uma visão completa de projeto: do beat a música finalizada.
+              </p>
+
+              <p>
+                O estúdio nasceu para ser um espaço criativo, acessível e profissional, onde cada artista é tratado com atenção e cuidado.
+              </p>
+
+              <p>
+                Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify e SoundCloud, direção de shows, trabalhos como mestre de cerimônia e consultorias musicais.
+              </p>
+
+              <p>
+                A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.
               </p>
             </div>
           </ProfessionalBox>
@@ -238,12 +236,8 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <p className="text-sm leading-relaxed text-white md:text-base text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-            Você pode contratar serviços avulsos ou combinar diferentes etapas
-            da produção para montar a sessão ideal: captação, mix, master,
-            sonoplastia e beats. Cada item pode ser usado separadamente ou em
-            conjunto, dependendo da fase em que o seu som está e do tipo de
-            suporte que você precisa no estúdio.
+              <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            Você pode contratar serviços avulsos ou combinar diferentes etapas da produção para montar a sessão ideal: captação, mix, master, sonoplastia e beats. Cada item pode ser usado separadamente ou em conjunto, dependendo da fase em que o seu som está e do tipo de suporte que você precisa no estúdio.
           </p>
             </div>
           </div>
@@ -269,20 +263,41 @@ export default function Home() {
               Serviços de Estúdio
             </h2>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <ServicoCard titulo="Sessão" preco="R$ 40 / h" />
-              <ServicoCard titulo="Captação" preco="R$ 50 / h" />
-              <ServicoCard titulo="Mixagem" preco="R$ 110" />
+            {/* LINHA 1 */}
+            <div className="grid grid-cols-3 gap-3 md:gap-6">
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Sessão</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 40 / h</p>
+              </Link>
+
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Captação</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 50 / h</p>
+              </Link>
+
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Mixagem</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 110</p>
+              </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <ServicoCard titulo="Masterização" preco="R$ 60" />
-              <ServicoCard titulo="Mix + Master" preco="R$ 160" />
-              <ServicoCard
-                titulo="Sonoplastia"
-                subtitulo="(a partir de)"
-                preco="R$ 320"
-              />
+            {/* LINHA 2 */}
+            <div className="grid grid-cols-3 gap-3 md:gap-6">
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Masterização</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 60</p>
+              </Link>
+
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Mix + Master</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 160</p>
+              </Link>
+
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">Sonoplastia</p>
+                <p className="text-[10px] md:text-xs text-zinc-300">(a partir de)</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 320</p>
+              </Link>
             </div>
             </div>
           </div>
@@ -308,53 +323,53 @@ export default function Home() {
             </h2>
 
             {/* LINHA 1 */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-3 md:gap-6">
               {/* 1 beat */}
-              <Link href="/agendamento" className="rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">1 Beat</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 150</p>
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">1 Beat</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 150</p>
               </Link>
 
               {/* 2 beats */}
-              <Link href="/agendamento" className="rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">2 Beats</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 250</p>
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">2 Beats</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 250</p>
               </Link>
 
               {/* 3 beats */}
-              <Link href="/agendamento" className="rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">3 Beats</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 350</p>
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">3 Beats</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 350</p>
               </Link>
             </div>
 
             {/* LINHA 2 */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-3 md:gap-6">
               {/* 4 beats */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">4 Beats</p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 400</p>
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">4 Beats</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 400</p>
               </Link>
 
               {/* beat + mix + master */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">
                   Beat + Mix + Master
                 </p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 280</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 280</p>
               </Link>
 
               {/* produção completa */}
-              <Link href="/agendamento" className="min-h-[110px] rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-sm font-medium text-white">
+              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-xs md:text-sm font-medium text-white">
                   Produção Completa
                 </p>
-                <p className="mt-1 text-xl font-bold text-red-400">R$ 400</p>
-                <p className="mt-1 text-xs text-zinc-300">
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 400</p>
+                <p className="mt-1 text-[10px] md:text-xs text-zinc-300">
                   4h captação + beat + mix + master
                 </p>
               </Link>
-              </div>
+            </div>
             </div>
           </div>
         </section>
@@ -561,16 +576,13 @@ export default function Home() {
             Loja Digital THouse Rec (em desenvolvimento)
           </h2>
 
-              <div className="space-y-4 text-center">
-                <p className="text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Em breve você poderá adquirir camisetas, moletons, bonés e outros
-              itens personalizados exclusivos da THouse Rec.
+              <div className="space-y-4">
+                <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Em breve você poderá adquirir camisetas, moletons, bonés e outros itens personalizados exclusivos da THouse Rec.
             </p>
 
-                <p className="text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                  A aba <strong className="text-red-300">Shopping</strong> está em construção e será
-              atualizada conforme os produtos forem lançados, sempre alinhados à
-              estética e à identidade do estúdio.
+                <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                  A aba <strong className="text-red-300">Shopping</strong> está em construção e será atualizada conforme os produtos forem lançados, sempre alinhados à estética e à identidade do estúdio.
             </p>
               </div>
 
@@ -613,11 +625,8 @@ export default function Home() {
             Pronto para começar sua próxima faixa?
           </h2>
 
-              <p className="mx-auto max-w-5xl text-center text-sm leading-relaxed text-white md:text-base mb-6 px-6 md:px-8" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-            A THouse Rec existe para transformar ideias em música real. Se você
-            tem um projeto, um verso, um beat ou apenas vontade de começar, esse
-            pode ser o momento perfeito para dar o próximo passo com estrutura,
-            apoio e qualidade de estúdio.
+              <p className="mx-auto max-w-5xl text-xs md:text-sm leading-relaxed text-white md:text-base mb-6 px-4 md:px-8 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            A THouse Rec existe para transformar ideias em música real. Se você tem um projeto, um verso, um beat ou apenas vontade de começar, esse pode ser o momento perfeito para dar o próximo passo com estrutura, apoio e qualidade de estúdio.
           </p>
 
               <div className="flex justify-center">
@@ -651,11 +660,8 @@ export default function Home() {
             Ficou com alguma dúvida?
           </h2>
 
-              <p className="mx-auto max-w-5xl text-center text-sm leading-relaxed text-white md:text-base mb-6 px-6 md:px-8" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-            Se ainda restar alguma dúvida sobre sessões, prazos, valores ou
-            questões técnicas, você pode consultar o FAQ ou falar diretamente
-            com o suporte pelo chat. Estamos aqui para te ajudar a tirar o
-            máximo proveito de cada sessão.
+              <p className="mx-auto max-w-5xl text-xs md:text-sm leading-relaxed text-white md:text-base mb-6 px-4 md:px-8 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            Se ainda restar alguma dúvida sobre sessões, prazos, valores ou questões técnicas, você pode consultar o FAQ ou falar diretamente com o suporte pelo chat. Estamos aqui para te ajudar a tirar o máximo proveito de cada sessão.
           </p>
 
               <div className="flex flex-wrap justify-center items-center gap-4">
