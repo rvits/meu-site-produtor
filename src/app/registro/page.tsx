@@ -167,7 +167,7 @@ export default function RegistroPage() {
         <Input
           label="CPF"
           value={cpf}
-          onChange={(value) => {
+          onChange={(value: string) => {
             // Formatar CPF automaticamente (XXX.XXX.XXX-XX)
             const apenasNumeros = value.replace(/\D/g, '');
             let formatado = apenasNumeros;
