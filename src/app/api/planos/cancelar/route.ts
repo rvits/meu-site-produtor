@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       }
 
       // Se escolheu cupom ou se reembolso direto falhou, criar cupom
-      if (refundType === "coupon" || (!refundDirectSuccess && refundType === "direct")) {
+      if (actualRefundType === "coupon" || (!refundDirectSuccess && actualRefundType === "direct")) {
         try {
           const refundCoupon = await prisma.coupon.create({
             data: {
