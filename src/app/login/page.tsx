@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 
-export default function LoginPage() {
+function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,20 +36,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-      <div className="w-full max-w-md">
-        <h1 className="mb-2 text-2xl text-center font-semibold">
-          Entrar na THouse Rec
-        </h1>
-
-        <p className="mb-6 text-sm text-center text-zinc-400">
-          Acesse sua conta para acompanhar agendamentos, planos e serviços.
-        </p>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
-        >
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
+    >
           <div className="space-y-1">
             <label className="text-xs text-zinc-300">Email</label>
             <input
@@ -136,6 +126,32 @@ export default function LoginPage() {
             {carregando ? "Entrando..." : "Entrar"}
           </button>
         </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
+      <div className="w-full max-w-md">
+        <h1 className="mb-2 text-2xl text-center font-semibold">
+          Entrar na THouse Rec
+        </h1>
+
+        <p className="mb-6 text-sm text-center text-zinc-400">
+          Acesse sua conta para acompanhar agendamentos, planos e serviços.
+        </p>
+
+        <Suspense fallback={
+          <div className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-10 bg-zinc-800 rounded"></div>
+              <div className="h-10 bg-zinc-800 rounded"></div>
+              <div className="h-10 bg-zinc-800 rounded"></div>
+            </div>
+          </div>
+        }>
+          <LoginForm />
+        </Suspense>
 
         <div className="mt-6 text-center space-y-3">
           <p className="text-sm text-white mb-2">
