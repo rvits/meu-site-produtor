@@ -465,6 +465,11 @@ export async function POST(req: Request) {
                     cpf: user.cpf || undefined,
                   });
 
+                  if (!customerId) {
+                    console.error("[Asaas Webhook] ❌ Não foi possível criar/buscar customerId no Asaas");
+                    return NextResponse.json({ received: true, error: "Erro ao criar cliente no Asaas" }, { status: 200 });
+                  }
+
                   // Mapear método de pagamento
                   const billingTypeMap: Record<string, "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "BOLETO"> = {
                     "cartao_credito": "CREDIT_CARD",
