@@ -520,12 +520,15 @@ export default function AgendamentoPage() {
           TÍTULO / INTRODUÇÃO
       ========================================================== */}
       <section className="mt-12 mb-8 sm:mb-12 flex flex-col items-center justify-center w-full min-h-[60vh] sm:min-h-[70vh]">
-        <h1 className="mb-2 sm:mb-3 md:mb-4 mt-4 sm:mt-8 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-          Crie sua própria música
-        </h1>
-        <h2 className="mb-4 sm:mb-5 md:mb-6 text-center text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-          na <span className="text-red-500">T</span>House Rec
-        </h2>
+        {/* Título: duas linhas no mobile, uma linha no desktop */}
+        <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-4 sm:mb-5 md:mb-6 mt-4 sm:mt-8">
+          <h1 className="text-center md:text-left text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+            Crie sua própria música
+          </h1>
+          <h2 className="text-center md:text-left text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+            na <span className="text-red-500">T</span>House Rec
+          </h2>
+        </div>
         
         {/* TEXTO DESCRITIVO SEM BOX */}
         <p className="mb-4 sm:mb-6 md:mb-8 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
@@ -1168,7 +1171,9 @@ export default function AgendamentoPage() {
 
               <p className="mt-1 text-[11px] text-zinc-400 text-justify md:text-center px-2 md:px-0">
                 A contratação de qualquer plano está sujeita à confirmação do pagamento e ao aceite dos{" "}
-                <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e{" "}
+                <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a>
+                <span className="hidden md:inline"><br />e </span>
+                <span className="md:hidden"> e </span>
                 <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
               </p>
             </>

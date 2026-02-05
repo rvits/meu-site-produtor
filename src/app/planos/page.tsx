@@ -356,8 +356,11 @@ export default function PlanosPage() {
             </p>
             
             <p className="text-xs md:text-sm text-zinc-300 mt-4 text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              A contratação de qualquer plano está sujeita à confirmação do pagamento e
-              ao aceite dos <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
+              A contratação de qualquer plano está sujeita à confirmação do pagamento e ao aceite dos{" "}
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a>
+              <span className="hidden md:inline"><br />e </span>
+              <span className="md:hidden"> e </span>
+              <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
             </p>
           </div>
         </div>

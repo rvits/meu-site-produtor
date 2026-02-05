@@ -48,10 +48,24 @@ function readEnvFile(): string | undefined {
  * Obtém uma variável de ambiente removendo aspas e espaços
  */
 export function getEnv(key: string): string | undefined {
-  // Para ASAAS_API_KEY, usar leitura direta do arquivo
+  // Em produção, sempre usar process.env diretamente
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    const value = process.env[key];
+    if (!value) return undefined;
+    return value.replace(/^["']|["']$/g, '').trim() || undefined;
+  }
+  
+  // Em desenvolvimento, para ASAAS_API_KEY, tentar ler do arquivo primeiro
   if (key === 'ASAAS_API_KEY') {
     if (asaasApiKeyCache === undefined) {
       asaasApiKeyCache = readEnvFile();
+    }
+    // Se não encontrou no arquivo, tentar process.env
+    if (!asaasApiKeyCache) {
+      const value = process.env[key];
+      if (value) {
+        asaasApiKeyCache = value.replace(/^["']|["']$/g, '').trim() || undefined;
+      }
     }
     return asaasApiKeyCache;
   }
@@ -65,7 +79,18 @@ export function getEnv(key: string): string | undefined {
 
 /**
  * Obtém ASAAS_API_KEY de forma robusta
+ * Em produção (Vercel), usa process.env diretamente
+ * Em desenvolvimento, tenta ler do arquivo .env
  */
 export function getAsaasApiKey(): string | undefined {
+  // Em produção (Vercel), sempre usar process.env diretamente
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    const key = process.env.ASAAS_API_KEY;
+    if (!key) return undefined;
+    // Remover aspas se presentes
+    return key.replace(/^["']|["']$/g, '').trim() || undefined;
+  }
+  
+  // Em desenvolvimento, usar a função getEnv que tenta ler do arquivo
   return getEnv('ASAAS_API_KEY');
 }

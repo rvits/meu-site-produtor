@@ -154,7 +154,8 @@ export default function Home() {
         {/* INTRODUÇÃO EM CAIXA */}
         <section className="mt-6 md:mt-16 flex justify-center px-4">
           <ProfessionalBox>
-            <div className="space-y-3 md:space-y-4 text-xs md:text-sm leading-relaxed md:leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            {/* Versão Mobile: 8 parágrafos separados */}
+            <div className="space-y-3 md:hidden text-xs leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               <p>
                 A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro.
               </p>
@@ -185,6 +186,21 @@ export default function Home() {
 
               <p>
                 A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.
+              </p>
+            </div>
+
+            {/* Versão Desktop: 3 parágrafos agrupados */}
+            <div className="hidden md:block space-y-1.5 text-sm leading-relaxed text-white text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p>
+                A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria. Além da vivência prática, Victor está cursando <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>, atualmente no <strong className="text-red-400">5º período</strong>, com previsão de formatura para <strong className="text-red-400">dezembro de 2026</strong>.
+              </p>
+
+              <p>
+                Essa formação acadêmica se soma à experiência de estúdio, trazendo uma base técnica sólida para cada projeto que passa pela THouse Rec. Com o tempo, Tremv passou a produzir artistas, mixar, masterizar, trabalhar com sonoplastia e desenvolver uma visão completa de projeto: do beat a música finalizada. O estúdio nasceu para ser um espaço criativo, acessível e profissional, onde cada artista é tratado com atenção e cuidado.
+              </p>
+
+              <p>
+                Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify e SoundCloud, direção de shows, trabalhos como mestre de cerimônia e consultorias musicais. A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.
               </p>
             </div>
           </ProfessionalBox>
@@ -236,7 +252,7 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-left px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
             Você pode contratar serviços avulsos ou combinar diferentes etapas da produção para montar a sessão ideal: captação, mix, master, sonoplastia e beats. Cada item pode ser usado separadamente ou em conjunto, dependendo da fase em que o seu som está e do tipo de suporte que você precisa no estúdio.
           </p>
             </div>
