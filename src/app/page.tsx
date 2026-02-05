@@ -388,12 +388,8 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <p className="text-sm leading-relaxed text-yellow-100 md:text-base text-left" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                <strong className="text-yellow-300">Lembrete importante:</strong> o agendamento só é liberado
-              após o pagamento da sessão ou da captação. Para serviços de beats,
-              mix e master, você terá acesso a uma área do usuário (em
-              desenvolvimento) para acompanhar prazos, pagamentos, andamento do
-              projeto e download dos arquivos finalizados.
+              <p className="text-xs md:text-sm leading-relaxed text-yellow-100 md:text-base text-justify md:text-left px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                <strong className="text-yellow-300">Lembrete importante:</strong> o agendamento só é liberado após o pagamento da sessão ou da captação. Para serviços de beats, mix e master, você terá acesso a uma área do usuário (em desenvolvimento) para acompanhar prazos, pagamentos, andamento do projeto e download dos arquivos finalizados.
             </p>
             </div>
           </div>

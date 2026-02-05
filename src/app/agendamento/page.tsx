@@ -520,16 +520,17 @@ export default function AgendamentoPage() {
           TÍTULO / INTRODUÇÃO
       ========================================================== */}
       <section className="mt-12 mb-8 sm:mb-12 flex flex-col items-center justify-center w-full min-h-[60vh] sm:min-h-[70vh]">
-        <h1 className="mb-3 sm:mb-4 md:mb-6 mt-4 sm:mt-8 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-          Crie sua própria música na{" "}
-          <span className="text-red-500">T</span>House Rec
+        <h1 className="mb-2 sm:mb-3 md:mb-4 mt-4 sm:mt-8 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+          Crie sua própria música
         </h1>
+        <h2 className="mb-3 sm:mb-4 md:mb-6 text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
+          na <span className="text-red-500">T</span>House Rec
+        </h2>
         
         {/* TEXTO DESCRITIVO SEM BOX */}
-        <p className="mb-6 sm:mb-8 md:mb-10 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-          Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados.
-          <br />
-          A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.
+        <p className="mb-4 sm:mb-6 md:mb-8 text-center text-xs sm:text-sm md:text-base leading-tight md:leading-relaxed text-zinc-300 px-4 space-y-1" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+          <span className="block">Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados.</span>
+          <span className="block">A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.</span>
         </p>
       </section>
 
@@ -1017,11 +1018,8 @@ export default function AgendamentoPage() {
               Quer aprofundar e produzir com frequência?
             </h2>
 
-            <p className="text-center text-xs text-white md:text-sm" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Se você já sabe que quer manter uma rotina de lançamentos, os
-              planos da THouse Rec garantem mais horas de estúdio, melhor
-              custo-benefício e prioridade na agenda. Produzir com consistência
-              muda completamente o ritmo da sua carreira.
+            <p className="text-xs md:text-sm text-white text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              Se você já sabe que quer manter uma rotina de lançamentos, os planos da THouse Rec garantem mais horas de estúdio, melhor custo-benefício e prioridade na agenda. Produzir com consistência muda completamente o ritmo da sua carreira.
             </p>
 
           <div className="flex justify-center">
@@ -1169,7 +1167,7 @@ export default function AgendamentoPage() {
                 })}
               </div>
 
-              <p className="mt-1 text-center text-[11px] text-zinc-400">
+              <p className="mt-1 text-[11px] text-zinc-400 text-justify md:text-center px-2 md:px-0">
                 A contratação de qualquer plano está sujeita à confirmação do pagamento e ao aceite dos{" "}
                 <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e{" "}
                 <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.
@@ -1201,14 +1199,14 @@ export default function AgendamentoPage() {
               Se você possui um cupom de desconto ou cupom de plano, insira o código abaixo para aplicar o desconto automaticamente.
             </p>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={cupomCode}
                 onChange={(e) => setCupomCode(e.target.value.toUpperCase())}
                 placeholder="Digite o código do cupom"
                 disabled={validandoCupom || !!cupomAplicado}
-                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {!cupomAplicado ? (
                 <button
@@ -1246,7 +1244,7 @@ export default function AgendamentoPage() {
                     }
                   }}
                   disabled={validandoCupom || totalGeral <= 0}
-                  className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-red-600 px-4 md:px-6 py-2 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   {validandoCupom ? "Validando..." : "Aplicar"}
                 </button>
@@ -1257,7 +1255,7 @@ export default function AgendamentoPage() {
                     setCupomAplicado(null);
                     setCupomCode("");
                   }}
-                  className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                  className="rounded-xl bg-red-600 px-4 md:px-6 py-2 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-500 transition-colors whitespace-nowrap"
                 >
                   Remover
                 </button>
@@ -1420,7 +1418,7 @@ export default function AgendamentoPage() {
               </button>
             </div>
 
-            <p className="text-center text-xs text-zinc-300">
+            <p className="text-xs text-zinc-300 text-justify md:text-center px-2 md:px-0">
               A confirmação implica concordância com os{" "}
               <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>termos de uso</a> e com o{" "}
               <a href="/termos-contratos" className="!text-blue-400 underline underline-offset-2 hover:!text-blue-300 transition-colors" style={{ color: '#60a5fa' }}>contrato de prestação de serviço</a> da THouse Rec.

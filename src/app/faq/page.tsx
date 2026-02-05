@@ -483,11 +483,11 @@ export default function FAQPage() {
 
       {/* Seção de todas as perguntas - Sempre visível, conteúdo toggle */}
       <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-200">
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <h2 className="text-base sm:text-lg font-semibold text-zinc-200">
             Todas as Perguntas ({totalFaqs || allFaqs.length || 0})
           </h2>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
@@ -504,7 +504,7 @@ export default function FAQPage() {
                   }
                 }
               }}
-              className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
+              className="rounded-full border border-zinc-600 bg-zinc-800/50 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
               style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
             >
               Recarregar
@@ -520,9 +520,9 @@ export default function FAQPage() {
                 }
               }}
               disabled={loadingAll}
-              className="rounded-full border border-red-600 bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-full border border-red-600 bg-red-600 px-3 md:px-6 py-1.5 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loadingAll ? "Carregando..." : showAllFaqs ? "Ocultar todas as perguntas" : "Mostrar todas as perguntas"}
+              {loadingAll ? "Carregando..." : showAllFaqs ? "Ocultar" : "Mostrar todas"}
             </button>
           </div>
         </div>

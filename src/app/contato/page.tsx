@@ -39,7 +39,7 @@ export default function ContatoPage() {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Contato
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
         </p>
       </section>
@@ -116,7 +116,7 @@ export default function ContatoPage() {
                   Horário de Atendimento
                 </h3>
                 
-                <p className="text-sm md:text-base text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                <p className="text-sm md:text-base text-white text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                   O atendimento começa as 10h da manhã e vai até as 10h da noite, apenas em dias úteis, salvo exceções. Mensagens enviadas fora desse período serão respondidas assim que possível.
                 </p>
               </div>
@@ -170,10 +170,10 @@ export default function ContatoPage() {
             }}
           >
             <div className="text-center space-y-4">
-              <p className="text-sm md:text-base leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="text-sm md:text-base leading-relaxed text-white text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                 A THouse Rec agradece pela confiança, pela escolha e pela oportunidade de estar sendo considerada para qualquer tipo de serviço. Cada contato representa uma chance de construir algo único, com dedicação, cuidado e respeito pela música e pela trajetória de cada artista.
               </p>
-              <p className="text-sm md:text-base leading-relaxed text-zinc-300" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="text-sm md:text-base leading-relaxed text-zinc-300 text-justify md:text-center px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                 Será um prazer conversar, entender suas ideias e, se fizer sentido para ambos os lados, transformar essa troca em trabalho, som e identidade.
               </p>
             </div>
