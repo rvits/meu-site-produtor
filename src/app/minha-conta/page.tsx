@@ -62,6 +62,7 @@ interface FAQQuestion {
   blockedReason?: string | null; // Motivo da recusa
   published: boolean;
   answeredAt: string | null;
+  readAt: string | null; // Quando o usuário leu a resposta
   createdAt: string;
   faq?: {
     id: string;
