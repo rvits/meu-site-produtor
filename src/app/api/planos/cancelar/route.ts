@@ -61,6 +61,7 @@ export async function POST(req: Request) {
     let refundAmount: number | null = null;
     let couponCode: string | null = null;
     let refundDirectSuccess: boolean = false;
+    let actualRefundType: "direct" | "coupon" = refundType || "coupon"; // Variável mutável para controlar o tipo de reembolso
 
     // Calcular valor do reembolso
     if (totalServices === 0) {
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
 
     // Processar reembolso baseado no tipo escolhido
     if (refundAmount && refundAmount > 0) {
-      if (refundType === "direct") {
+      if (actualRefundType === "direct") {
         // Reembolso direto via Asaas
         try {
           // Buscar pagamento do plano
@@ -100,12 +101,12 @@ export async function POST(req: Request) {
           } else {
             console.warn("[Cancelar Plano] Pagamento não encontrado para reembolso direto, criando cupom como fallback");
             // Fallback: criar cupom se não conseguir fazer reembolso direto
-            refundType = "coupon";
+            actualRefundType = "coupon";
           }
         } catch (refundError: any) {
           console.error("[Cancelar Plano] Erro ao fazer reembolso direto:", refundError);
           // Fallback: criar cupom se reembolso direto falhar
-          refundType = "coupon";
+          actualRefundType = "coupon";
         }
       }
 
