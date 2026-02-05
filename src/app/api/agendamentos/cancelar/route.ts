@@ -45,14 +45,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar se já foi cancelado
-    if (agendamento.status === "cancelado" || agendamento.status === "recusado") {
-      return NextResponse.json(
-        { error: "Este agendamento já foi cancelado ou recusado" },
-        { status: 400 }
-      );
-    }
-
     // Buscar pagamento associado
     const payment = await prisma.payment.findFirst({
       where: { appointmentId: parseInt(appointmentId) },
