@@ -159,7 +159,7 @@ export default function ContaPage() {
       <div className="mx-auto max-w-3xl space-y-10 pt-12 md:pt-0">
         {/* TÍTULO */}
         <div className="text-center mt-4 md:mt-0">
-          <h1 className="text-3xl md:text-4xl font-bold">Minha Conta</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">Perfil</h1>
           <p className="mt-2 text-red-400 text-lg font-semibold">
             {form.nomeArtistico}
           </p>
