@@ -153,9 +153,9 @@ export default function Home() {
 
         {/* INTRODUÇÃO EM CAIXA */}
         <section className="mt-6 md:mt-16 flex justify-center px-4">
-          <ProfessionalBox>
+          <ProfessionalBox contentAlign="inherit">
             {/* Versão Mobile: 8 parágrafos separados */}
-            <div className="space-y-4 md:hidden text-xs leading-relaxed text-white text-justify" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <div className="space-y-4 md:hidden text-xs leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
               <p>
                 A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro.
               </p>
@@ -190,7 +190,7 @@ export default function Home() {
             </div>
 
             {/* Versão Desktop: 3 parágrafos agrupados */}
-            <div className="hidden md:block space-y-5 text-sm leading-relaxed text-white text-base text-justify" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+            <div className="hidden md:block space-y-5 text-sm leading-relaxed text-white text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
               <p>
                 A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria. Além da vivência prática, Victor está cursando <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>, atualmente no <strong className="text-red-400">5º período</strong>, com previsão de formatura para <strong className="text-red-400">dezembro de 2026</strong>.
               </p>

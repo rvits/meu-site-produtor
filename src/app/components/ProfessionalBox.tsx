@@ -4,6 +4,8 @@ type ProfessionalBoxProps = {
   showTopLine?: boolean;
   showBottomLine?: boolean;
   showInternalLine?: boolean;
+  /** Alinhamento do conteúdo: "center" (padrão) ou deixe o conteúdo controlar com suas próprias classes/styles */
+  contentAlign?: "center" | "inherit";
 };
 
 export default function ProfessionalBox({
@@ -12,6 +14,7 @@ export default function ProfessionalBox({
   showTopLine = true,
   showBottomLine = true,
   showInternalLine = false,
+  contentAlign = "center",
 }: ProfessionalBoxProps) {
   return (
     <div className={`relative w-full max-w-5xl mx-auto ${className}`}>
@@ -58,7 +61,7 @@ export default function ProfessionalBox({
           />
         )}
 
-        <div className="px-6 md:px-8 py-6 text-center">{children}</div>
+        <div className={`px-6 md:px-8 py-6 ${contentAlign === "center" ? "text-center" : ""}`}>{children}</div>
 
         {/* LINHA LATERAL DIREITA COM FADE */}
         <div 
