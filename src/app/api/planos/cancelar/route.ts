@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireAuth();
     const body = await req.json();
-    const { userPlanId, refundType } = body; // refundType: "direct" ou "coupon"
+    const { userPlanId, refundType: requestedRefundType } = body; // "direct" ou "coupon"
 
     if (!userPlanId) {
       return NextResponse.json({ error: "ID do plano é obrigatório" }, { status: 400 });
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     let refundAmount: number | null = null;
     let couponCode: string | null = null;
     let refundDirectSuccess: boolean = false;
-    let actualRefundType: "direct" | "coupon" = refundType || "coupon"; // Variável mutável para controlar o tipo de reembolso
+    let actualRefundType: "direct" | "coupon" = requestedRefundType || "coupon";
 
     // Calcular valor do reembolso
     if (totalServices === 0) {
