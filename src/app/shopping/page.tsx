@@ -13,7 +13,18 @@ export default function ShoppingPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 text-zinc-100">
+    <main className="relative mx-auto max-w-6xl px-4 py-8 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página Shopping */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/shopping-bg.png.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-10">
       {/* TÍTULO PRINCIPAL */}
       <section className="mb-8 text-center">
         <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
@@ -105,6 +116,7 @@ export default function ShoppingPage() {
           </div>
         </div>
       </section>
+      </div>
     </main>
   );
 }

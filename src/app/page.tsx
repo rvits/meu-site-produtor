@@ -10,6 +10,20 @@ import ProfessionalBox from "@/app/components/ProfessionalBox";
 // e use apenas a parte após "v=" (antes do primeiro & se houver)
 const YOUTUBE_VIDEO_ID = "UPY_DfdiGK4"; // ID do vídeo (apenas a parte após v=)
 
+/* Texto da bibliografia — edite só aqui; vale para mobile e desktop */
+const strong = (s: string) => <strong className="text-red-400">{s}</strong>;
+const BIO = {
+  p1: <>A {strong("THouse Rec")} é o estúdio independente criado por Victor Pereira Ramos — o {strong("Tremv")} — produtor musical, artista e compositor nascido em Botafogo, no Rio de Janeiro.</>,
+  p2: <>Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria.</>,
+  p3: <>Além da vivência prática, Victor está cursando {strong("Produção Fonográfica (bacharelado) na Estácio")}, atualmente no {strong("6º período")}, com previsão de formatura para {strong("dezembro de 2026")}.</>,
+  p4: <>Essa formação acadêmica se soma à experiência de estúdio, trazendo uma base técnica sólida para cada projeto que passa pela THouse Rec.</>,
+  p5: <>Com o tempo, Tremv passou a produzir artistas, realizando captações, mixagens, masterizações e criando beats do zero, além de participar de diversos projetos envolvendo sonoplastia. Dessa forma, ele desenvolveu uma visão completa de projeto: {strong("do beat à música finalizada")}, desde a ideia até o lançamento oficial.</>,
+  p6: <>O estúdio nasceu para ser um espaço criativo, acessível e profissional, onde cada artista é tratado com atenção e cuidado.</>,
+  p7: <>Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify e SoundCloud, direção de shows, trabalhos como mestre de cerimônia e consultorias musicais.</>,
+  p8: <>A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.</>,
+  p9: <>Seja bem-vindo(a), conheça a plataforma, explore nossos serviços e agende sua sessão. Estamos à disposição para que você transforme seu projeto em música com identidade e qualidade profissional.</>,
+};
+
 /* =========================
    SERVICO CARD
 ========================= */
@@ -62,30 +76,31 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 197.00,
-    anual: 1970.00,
+    mensal: 249.99,
+    anual: 2499.90,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "1 Mix & Master", included: true },
+      { label: "1 Mix por mês", included: true },
       { label: "10% de desconto em serviços avulsos", included: true },
       { label: "Sem beats personalizados", included: false },
       { label: "Sem acesso a descontos promocionais", included: false },
-      { label: "Não possui acompanhamento artístico", included: false },
+      { label: "Não tem acompanhamento artístico", included: false },
     ],
   },
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 347.00,
-    anual: 3470.00,
+    mensal: 449.99,
+    anual: 4499.90,
     descricao: "Para artistas que gravam com regularidade e já possuem músicas próprias.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "2 Mix & Master por mês", included: true },
+      { label: "1 Mix & Master por mês", included: true },
       { label: "1 Beat por mês", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
-      { label: "Prioridade intermediária", included: true, useTilde: true },
       { label: "Não tem desconto em serviços ou beats", included: false },
       { label: "Não tem acompanhamento artístico", included: false },
     ],
@@ -93,13 +108,14 @@ const PLANOS: Plano[] = [
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 547.00,
-    anual: 5470.00,
+    mensal: 799.99,
+    anual: 7999.90,
     descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
     beneficios: [
-      { label: "4 horas de captação por mês", included: true },
-      { label: "2 mix & master por mês", included: true },
-      { label: "2 Beat", included: true },
+      { label: "2 sessões por mês", included: true },
+      { label: "4h de captação por mês", included: true },
+      { label: "2 Mix & Master por mês", included: true },
+      { label: "2 Beats por mês", included: true },
       { label: "Desconto de 10% em serviços avulsos", included: true },
       { label: "Desconto de 10% em beats", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
@@ -113,8 +129,20 @@ export default function Home() {
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
+        {/* Imagem de fundo da home — cover preenche a tela; posição ajustada para enquadrar melhor */}
+        <div
+          className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+          style={{
+            backgroundImage: "url(/home-bg.png.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+          }}
+          aria-hidden
+        />
 
+        {/* Conteúdo acima da imagem */}
+        <div className="relative z-10">
         {/* =========================================================
             INTRODUÇÃO / HERO
         ========================================================== */}
@@ -154,54 +182,24 @@ export default function Home() {
         {/* INTRODUÇÃO EM CAIXA */}
         <section className="mt-6 md:mt-16 flex justify-center px-4">
           <ProfessionalBox contentAlign="inherit">
-            {/* Versão Mobile: 8 parágrafos separados */}
+            {/* Versão Mobile: 9 parágrafos (usa BIO acima) */}
             <div className="space-y-4 md:hidden text-xs leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
-              <p>
-                A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro.
-              </p>
-
-              <p>
-                Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria.
-              </p>
-
-              <p>
-                Além da vivência prática, Victor está cursando <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>, atualmente no <strong className="text-red-400">5º período</strong>, com previsão de formatura para <strong className="text-red-400">dezembro de 2026</strong>.
-              </p>
-
-              <p>
-                Essa formação acadêmica se soma à experiência de estúdio, trazendo uma base técnica sólida para cada projeto que passa pela THouse Rec.
-              </p>
-
-              <p>
-                Com o tempo, Tremv passou a produzir artistas, mixar, masterizar, trabalhar com sonoplastia e desenvolver uma visão completa de projeto: do beat a música finalizada.
-              </p>
-
-              <p>
-                O estúdio nasceu para ser um espaço criativo, acessível e profissional, onde cada artista é tratado com atenção e cuidado.
-              </p>
-
-              <p>
-                Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify e SoundCloud, direção de shows, trabalhos como mestre de cerimônia e consultorias musicais.
-              </p>
-
-              <p>
-                A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.
-              </p>
+              <p>{BIO.p1}</p>
+              <p>{BIO.p2}</p>
+              <p>{BIO.p3}</p>
+              <p>{BIO.p4}</p>
+              <p>{BIO.p5}</p>
+              <p>{BIO.p6}</p>
+              <p>{BIO.p7}</p>
+              <p>{BIO.p8}</p>
+              <p>{BIO.p9}</p>
             </div>
 
-            {/* Versão Desktop: 3 parágrafos agrupados */}
+            {/* Versão Desktop: 3 blocos (mesmo texto BIO) */}
             <div className="hidden md:block space-y-5 text-sm leading-relaxed text-white text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
-              <p>
-                A THouse Rec é o estúdio independente criado por Victor Pereira Ramos — o <strong className="text-red-400">Tremv</strong> — produtor musical, artista e engenheiro de áudio nascido em Botafogo, no Rio de Janeiro. Sua trajetória começou nas batalhas de rima, rodas de freestyle e na cena independente, explorando o FL Studio e construindo uma estética própria. Além da vivência prática, Victor está cursando <strong className="text-red-400">Produção Fonográfica (bacharelado) na Estácio</strong>, atualmente no <strong className="text-red-400">5º período</strong>, com previsão de formatura para <strong className="text-red-400">dezembro de 2026</strong>.
-              </p>
-
-              <p>
-                Essa formação acadêmica se soma à experiência de estúdio, trazendo uma base técnica sólida para cada projeto que passa pela THouse Rec. Com o tempo, Tremv passou a produzir artistas, mixar, masterizar, trabalhar com sonoplastia e desenvolver uma visão completa de projeto: do beat a música finalizada. O estúdio nasceu para ser um espaço criativo, acessível e profissional, onde cada artista é tratado com atenção e cuidado.
-              </p>
-
-              <p>
-                Hoje, a THouse Rec reúne produções lançadas no YouTube, Spotify e SoundCloud, direção de shows, trabalhos como mestre de cerimônia e consultorias musicais. A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.
-              </p>
+              <p>{BIO.p1} {BIO.p2} {BIO.p3}</p>
+              <p>{BIO.p4} {BIO.p5} {BIO.p6}</p>
+              <p>{BIO.p7} {BIO.p8} {BIO.p9}</p>
             </div>
           </ProfessionalBox>
         </section>
@@ -211,7 +209,7 @@ export default function Home() {
           ========================================================== */}
         <section className="mt-10 flex justify-center px-4">
           <div className="flex flex-col items-center space-y-4 w-full max-w-5xl">
-            <h2 className="text-base md:text-lg font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
+            <h2 className="w-full text-left text-base md:text-lg font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
               Reprogramação — Dizzy (Prod. Tremv)
             </h2>
 
@@ -288,7 +286,7 @@ export default function Home() {
 
               <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
                 <p className="text-xs md:text-sm font-medium text-white">Captação</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 50 / h</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 65 / h</p>
               </Link>
 
               <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
@@ -301,18 +299,18 @@ export default function Home() {
             <div className="grid grid-cols-3 gap-3 md:gap-6">
               <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
                 <p className="text-xs md:text-sm font-medium text-white">Masterização</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 60</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 80</p>
               </Link>
 
               <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
                 <p className="text-xs md:text-sm font-medium text-white">Mix + Master</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 160</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 170</p>
               </Link>
 
               <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
                 <p className="text-xs md:text-sm font-medium text-white">Sonoplastia</p>
                 <p className="text-[10px] md:text-xs text-zinc-300">(a partir de)</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 320</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 350</p>
               </Link>
             </div>
             </div>
@@ -372,7 +370,7 @@ export default function Home() {
                 <p className="text-xs md:text-sm font-medium text-white">
                   Beat + Mix + Master
                 </p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 280</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 320</p>
               </Link>
 
               {/* produção completa */}
@@ -380,7 +378,7 @@ export default function Home() {
                 <p className="text-xs md:text-sm font-medium text-white">
                   Produção Completa
                 </p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 400</p>
+                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 450</p>
                 <p className="mt-1 text-[10px] md:text-xs text-zinc-300">
                   4h captação + beat + mix + master
                 </p>
@@ -405,7 +403,7 @@ export default function Home() {
               }}
             >
               <p className="text-xs md:text-sm leading-relaxed text-yellow-100 md:text-base text-justify md:text-left px-2 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                <strong className="text-yellow-300">Lembrete importante:</strong> o agendamento só é liberado após o pagamento da sessão ou da captação. Para serviços de beats, mix e master, você terá acesso a uma área do usuário (em desenvolvimento) para acompanhar prazos, pagamentos, andamento do projeto e download dos arquivos finalizados.
+                <strong className="text-yellow-300">Lembrete importante:</strong> o agendamento só é liberado após o pagamento da sessão ou da captação. Para serviços de beats, mix e master, você terá acesso a uma área do usuário para acompanhar prazos, pagamentos e andamentos dos projetos e serviços.
             </p>
             </div>
           </div>
@@ -590,7 +588,7 @@ export default function Home() {
 
               <div className="space-y-4">
                 <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Em breve você poderá adquirir camisetas, moletons, bonés e outros itens personalizados exclusivos da THouse Rec.
+              Em breve você poderá adquirir roupas estilizadas, beats originais , promoções sazonais e ingressos para eventos exclusivos da Thouse Rec.
             </p>
 
                 <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
@@ -704,6 +702,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+        </div>
       </main>
     );
 }

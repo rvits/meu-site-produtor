@@ -26,11 +26,11 @@ type Plano = {
 
 const SERVICOS_ESTUDIO: Servico[] = [
   { id: "sessao", nome: "Sessão", preco: 40 },
-  { id: "captacao", nome: "Captação", preco: 50 },
-  { id: "sonoplastia", nome: "Sonoplastia (a partir de)", preco: 320 },
+  { id: "captacao", nome: "Captação", preco: 65 },
+  { id: "sonoplastia", nome: "Sonoplastia (a partir de)", preco: 350 },
   { id: "mix", nome: "Mixagem", preco: 110 },
-  { id: "master", nome: "Masterização", preco: 60 },
-  { id: "mix_master", nome: "Mix + Master", preco: 160 },
+  { id: "master", nome: "Masterização", preco: 80 },
+  { id: "mix_master", nome: "Mix + Master", preco: 170 },
 ];
 
 const BEATS_PACOTES: Servico[] = [
@@ -38,11 +38,11 @@ const BEATS_PACOTES: Servico[] = [
   { id: "beat2", nome: "2 Beats", preco: 250 },
   { id: "beat3", nome: "3 Beats", preco: 350 },
   { id: "beat4", nome: "4 Beats", preco: 400 },
-  { id: "beat_mix_master", nome: "Beat + Mix + Master", preco: 280 },
+  { id: "beat_mix_master", nome: "Beat + Mix + Master", preco: 320 },
   {
     id: "producao_completa",
     nome: "Produção Completa (4h + beat + mix + master)",
-    preco: 400,
+    preco: 450,
   },
 ];
 
@@ -50,44 +50,46 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 147.00,
-    anual: 1470.00,
+    mensal: 249.99,
+    anual: 2499.90,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "1 mix por mês", included: true },
-      { label: "1 master por mês", included: true },
+      { label: "1 Mix por mês", included: true },
+      { label: "10% de desconto em serviços avulsos", included: true },
       { label: "Sem Beats personalizados", included: false },
       { label: "Sem acesso a descontos promocionais", included: false },
-      { label: "Não possui acompanhamento artístico", included: false },
+      { label: "Não tem acompanhamento artístico", included: false },
     ],
   },
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 347.00,
-    anual: 3470.00,
+    mensal: 449.99,
+    anual: 4499.90,
     descricao: "Para artistas que lançam com regularidade e já possuem músicas próprias.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "2 mix & master por mês", included: true },
+      { label: "1 Mix & Master por mês", included: true },
       { label: "1 beat por mês", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
-      { label: "Prioridade intermediária na agenda", included: true, useTilde: true },
       { label: "Não tem desconto em Serviços ou Beats", included: false },
-      { label: "Não tem acompanhemtno artístico", included: false },
+      { label: "Não tem acompanhamento artístico", included: false },
     ],
   },
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 547.00,
-    anual: 5470.00,
+    mensal: 799.99,
+    anual: 7999.90,
     descricao: "Acompanhamento artístico contínuo com o Tremv e 1 Produção completa por mês.",
     beneficios: [
+      { label: "2 sessões por mês", included: true },
       { label: "4h de captação por mês", included: true },
-      { label: "2 produções completas por mês", included: true },
-      { label: "2 beats por mês", included: true },
+      { label: "2 Mix & Master por mês", included: true },
+      { label: "2 Beats por mês", included: true },
       { label: "Desconto de 10% em serviços avulsos", included: true },
       { label: "Desconto de 10% em Beats", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
@@ -515,26 +517,21 @@ export default function AgendamentoPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
-      {/* =========================================================
-          TÍTULO / INTRODUÇÃO
-      ========================================================== */}
-      <section className="mt-12 mb-8 sm:mb-12 flex flex-col items-center justify-center w-full min-h-[60vh] sm:min-h-[70vh]">
-        {/* Título: duas linhas no mobile, uma linha no desktop */}
-        <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-4 sm:mb-5 md:mb-6 mt-4 sm:mt-8">
-          <h1 className="text-center md:text-left text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-            Crie sua própria música
-          </h1>
-          <h2 className="text-center md:text-left text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-            na <span className="text-red-500">T</span>House Rec
-          </h2>
-        </div>
-        
-        {/* TEXTO DESCRITIVO SEM BOX */}
-        <p className="mb-4 sm:mb-6 md:mb-8 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-          Aqui você monta sua sessão de estúdio do seu jeito: selecionando serviços avulsos, pacotes de beats, datas e horários desejados. A ideia é deixar o agendamento o mais claro e direto possível, para que você foque na parte mais importante: a música.
-        </p>
-      </section>
+    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página de agendamento */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/agendamento-bg.png.png?v=6)",
+          backgroundSize: "cover",
+          backgroundPosition: "center -20%",
+        }}
+        aria-hidden
+      />
+
+      <div className="relative z-10">
+      {/* Área de entrada: mesmo espaço para a imagem de fundo aparecer como “título” de entrada (sem texto) */}
+      <section className="mt-12 mb-8 sm:mb-12 w-full min-h-[60vh] sm:min-h-[70vh]" aria-hidden />
 
       {/* =========================================================
           SERVIÇOS DE ESTÚDIO
@@ -560,63 +557,27 @@ export default function AgendamentoPage() {
             momento.
           </p>
 
-             {/* GRID FIXO — ORDEM CONTROLADA */}
+             {/* GRID FIXO — ORDEM CONTROLADA (preços vêm de SERVICOS_ESTUDIO) */}
             <div className="grid gap-4 md:grid-cols-2">
-              
-              {/* LINHA 1 */}
-              <ServicoItem
-                id="sessao"
-                nome="Sessão"
-                preco={40}
-                porHora
-                quantidade={quantidadesServicos["sessao"] || 0}
-                onChange={(d) => handleQuantServico("sessao", d, "estudio")}
-              />
-
-              <ServicoItem
-                id="captacao"
-                nome="Captação"
-                preco={50}
-                porHora
-                quantidade={quantidadesServicos["captacao"] || 0}
-                onChange={(d) => handleQuantServico("captacao", d, "estudio")}
-              />
-
-              {/* LINHA 2 */}
-              <ServicoItem
-                id="mix"
-                nome="Mixagem"
-                preco={110}
-                quantidade={quantidadesServicos["mix"] || 0}
-                onChange={(d) => handleQuantServico("mix", d, "estudio")}
-              />
-
-              <ServicoItem
-                id="master"
-                nome="Masterização"
-                preco={60}
-                quantidade={quantidadesServicos["master"] || 0}
-                onChange={(d) => handleQuantServico("master", d, "estudio")}
-              />
-
-              {/* LINHA 3 */}
-              <ServicoItem
-                id="mix_master"
-                nome="Mix + Master"
-                preco={160}
-                quantidade={quantidadesServicos["mix_master"] || 0}
-                onChange={(d) => handleQuantServico("mix_master", d, "estudio")}
-              />
-
-              <ServicoItem
-                id="sonoplastia"
-                nome="Sonoplastia"
-                preco={320}
-                subtitulo="(a partir de)"
-                quantidade={quantidadesServicos["sonoplastia"] || 0}
-                onChange={(d) => handleQuantServico("sonoplastia", d, "estudio")}
-              />
-
+              {(["sessao", "captacao", "mix", "master", "mix_master", "sonoplastia"] as const).map((id) => {
+                const s = SERVICOS_ESTUDIO.find((x) => x.id === id);
+                if (!s) return null;
+                const isPorHora = id === "sessao" || id === "captacao";
+                const nome = id === "sonoplastia" ? "Sonoplastia" : s.nome;
+                const subtitulo = id === "sonoplastia" ? "(a partir de)" : undefined;
+                return (
+                  <ServicoItem
+                    key={s.id}
+                    id={s.id}
+                    nome={nome}
+                    preco={s.preco}
+                    subtitulo={subtitulo}
+                    porHora={isPorHora}
+                    quantidade={quantidadesServicos[s.id] || 0}
+                    onChange={(d) => handleQuantServico(s.id, d, "estudio")}
+                  />
+                );
+              })}
             </div>
           </div>
           
@@ -662,13 +623,13 @@ export default function AgendamentoPage() {
                   key={s.id}
                   className="flex items-center justify-between rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-sm"
                 >
-                  <div>
+                  <div className="flex flex-wrap items-baseline gap-2">
                     <p className="font-semibold text-zinc-100">
                       {s.nome}
                     </p>
-                     <p className="text-xs text-red-300">
+                    <span className="text-xs text-red-300">
                       R$ {s.preco.toFixed(2).replace(".", ",")}
-                    </p>
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1689,6 +1650,7 @@ export default function AgendamentoPage() {
           DÚVIDAS / SUPORTE
       ========================================================== */}
       <DuvidasBox />
+      </div>
     </main>
   );
 }
@@ -1717,15 +1679,15 @@ function ServicoItem({
 }: ServicoItemProps) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-sm">
-      <div>
+      <div className="flex flex-wrap items-baseline gap-2">
         <p className="font-semibold text-zinc-100">{nome}</p>
         {subtitulo && (
-          <p className="text-xs text-zinc-400">{subtitulo}</p>
+          <span className="text-xs text-zinc-400">{subtitulo}</span>
         )}
-        <p className="text-xs text-red-300">
+        <span className="text-xs text-red-300">
           R$ {preco.toFixed(2).replace(".", ",")}
           {porHora && " / hora"}
-        </p>
+        </span>
       </div>
 
       <div className="flex items-center gap-2">

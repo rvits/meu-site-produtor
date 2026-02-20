@@ -24,27 +24,29 @@ const PLANOS: Plano[] = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 197.00,
-    anual: 1970.00,
+    mensal: 249.99,
+    anual: 2499.90,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "1 Mix & Master", included: true },
+      { label: "1 Mix por mês", included: true },
       { label: "10% de desconto em serviços avulsos", included: true },
       { label: "Sem beats personalizados", included: false },
       { label: "Sem acesso a descontos promocionais", included: false },
-      { label: "Não possui acompanhamento artístico", included: false },
+      { label: "Não tem acompanhamento artístico", included: false },
     ],
   },
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 347.00,
-    anual: 3470.00,
+    mensal: 449.99,
+    anual: 4499.90,
     descricao: "Para artistas que gravam com regularidade e já possuem músicas próprias.",
     beneficios: [
+      { label: "1 sessão por mês", included: true },
       { label: "2h de captação por mês", included: true },
-      { label: "2 Mix & Master por mês", included: true },
+      { label: "1 Mix & Master por mês", included: true },
       { label: "1 Beat por mês", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
       { label: "Não tem desconto em serviços ou beats", included: false },
@@ -54,13 +56,14 @@ const PLANOS: Plano[] = [
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 547.00,
-    anual: 5470.00,
+    mensal: 799.99,
+    anual: 7999.90,
     descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
     beneficios: [
-      { label: "4 horas de captação por mês", included: true },
-      { label: "2 mix & master por mês", included: true },
-      { label: "2 Beat", included: true },
+      { label: "2 sessões por mês", included: true },
+      { label: "4h de captação por mês", included: true },
+      { label: "2 Mix & Master por mês", included: true },
+      { label: "2 Beats por mês", included: true },
       { label: "Desconto de 10% em serviços avulsos", included: true },
       { label: "Desconto de 10% em beats", included: true },
       { label: "Acesso a descontos promocionais do site", included: true },
@@ -113,7 +116,18 @@ export default function PlanosPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-12 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-12 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página de Planos */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/planos-bg.png.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center -8%",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-10">
       {/* TÍTULO */}
       <section className="mb-8 flex flex-col items-center justify-center w-full">
         <h1 className="mb-3 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
@@ -368,6 +382,7 @@ export default function PlanosPage() {
 
       {/* BOX DE DÚVIDAS */}
       <DuvidasBox />
+      </div>
     </main>
   );
 }

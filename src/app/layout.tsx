@@ -50,7 +50,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-zinc-100`}
-        style={{ backgroundColor: "#606060" }}
+        style={{ backgroundColor: "#0a0a0a" }}
       >
         <AuthProvider>
           <ConditionalHeader />

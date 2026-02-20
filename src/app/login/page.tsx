@@ -131,8 +131,18 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-      <div className="w-full max-w-md">
+    <main className="relative flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página de Login */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/login-bg.png.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-10 w-full max-w-md">
         <h1 className="mb-2 text-2xl text-center font-semibold">
           Entrar na THouse Rec
         </h1>

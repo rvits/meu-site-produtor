@@ -33,7 +33,21 @@ export default function ContatoPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página Contato */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 bg-center"
+        style={{
+          backgroundImage: "url(/contato-bg.png.jpeg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-10">
+      {/* Área de entrada: espaço no topo para visualizar o fundo ao entrar */}
+      <section className="w-full min-h-[50vh] sm:min-h-[55vh]" aria-hidden />
+
       {/* TÍTULO PRINCIPAL */}
       <section className="mb-8 text-center">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
@@ -183,6 +197,7 @@ export default function ContatoPage() {
 
       {/* BOX DE DÚVIDAS */}
       <DuvidasBox />
+      </div>
     </main>
   );
 }

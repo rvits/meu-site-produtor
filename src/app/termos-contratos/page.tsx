@@ -496,7 +496,20 @@ export default function TermosContratosPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6 text-zinc-100">
+    <main className="relative mx-auto max-w-5xl px-4 py-6 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página Termos */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/termos-bg.png.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden
+      />
+      {/* Overlay preto bem leve para facilitar a leitura */}
+      <div className="fixed inset-0 z-0 bg-black/25 pointer-events-none" aria-hidden />
+      <div className="relative z-10">
       {/* TÍTULO GERAL */}
       <section className="mb-6 text-center">
         <h1 className="text-3xl md:text-4xl font-bold">
@@ -1843,6 +1856,7 @@ export default function TermosContratosPage() {
 
       {/* BOX DE DÚVIDAS */}
       <DuvidasBox />
+      </div>
     </main>
   );
 }

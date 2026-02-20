@@ -317,7 +317,19 @@ export default function FAQPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 text-zinc-100">
+    <main className="relative mx-auto max-w-6xl px-6 py-10 text-zinc-100 overflow-x-hidden">
+      {/* Imagem de fundo da página FAQ */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        style={{
+          backgroundImage: "url(/faq-bg.png.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center 15%",
+        }}
+        aria-hidden
+      />
+
+      <div className="relative z-10">
       {/* TÍTULO + TEXTO INTRODUTÓRIO */}
       <section className="mb-7">
         <h1 className="text-4xl text-center md:text-5xl font-bold text-zinc-100">
@@ -635,6 +647,7 @@ export default function FAQPage() {
           </form>
         )}
       </section>
+      </div>
     </main>
   );
 }
