@@ -520,11 +520,11 @@ export default function AgendamentoPage() {
     <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de agendamento */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/agendamento-bg.png.png?v=6)",
-          backgroundSize: "cover",
-          backgroundPosition: "center -20%",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center -20%",
         }}
         aria-hidden
       />

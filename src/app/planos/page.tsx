@@ -119,11 +119,11 @@ export default function PlanosPage() {
     <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-12 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de Planos */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/planos-bg.png.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center -8%",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center -8%",
         }}
         aria-hidden
       />

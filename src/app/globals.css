@@ -129,3 +129,20 @@ input[type="password"]::placeholder {
   scrollbar-width: thin;
   scrollbar-color: rgba(239, 68, 68, 0.3) transparent;
 }
+
+/* =========================
+   IMAGENS DE FUNDO RESPONSIVAS
+   Desktop: mantém posição definida por cada página
+   Mobile: centraliza e ajusta para melhor encaixe
+========================= */
+.page-bg-image {
+  background-size: var(--page-bg-size, cover);
+  background-position: var(--page-bg-position, center center);
+}
+@media (max-width: 767px) {
+  .page-bg-image {
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+  }
+}

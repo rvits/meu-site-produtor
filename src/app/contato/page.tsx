@@ -36,11 +36,11 @@ export default function ContatoPage() {
     <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página Contato */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 bg-center"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/contato-bg.png.jpeg)",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
         }}
         aria-hidden
       />

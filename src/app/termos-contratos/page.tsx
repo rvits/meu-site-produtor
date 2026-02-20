@@ -499,11 +499,11 @@ export default function TermosContratosPage() {
     <main className="relative mx-auto max-w-5xl px-4 py-6 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página Termos */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/termos-bg.png.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
         }}
         aria-hidden
       />

@@ -132,11 +132,11 @@ export default function Home() {
     <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
         {/* Imagem de fundo da home — cover preenche a tela; posição ajustada para enquadrar melhor */}
         <div
-          className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+          className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
           style={{
             backgroundImage: "url(/home-bg.png.png)",
-            backgroundSize: "cover",
-            backgroundPosition: "center top",
+            ["--page-bg-size" as string]: "cover",
+            ["--page-bg-position" as string]: "center top",
           }}
           aria-hidden
         />

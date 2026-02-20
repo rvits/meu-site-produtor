@@ -484,11 +484,11 @@ export default function ChatPage() {
     <main className="relative mx-auto max-w-7xl px-4 py-10 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página Chat */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/chat-bg.png.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
         }}
         aria-hidden
       />

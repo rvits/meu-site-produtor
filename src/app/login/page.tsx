@@ -134,11 +134,11 @@ export default function LoginPage() {
     <main className="relative flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de Login */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/login-bg.png.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
         }}
         aria-hidden
       />

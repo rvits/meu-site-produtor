@@ -107,11 +107,11 @@ export default function RegistroPage() {
     <main className="relative mx-auto max-w-xl px-6 py-12 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de Registro */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
           backgroundImage: "url(/registro-bg.png.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
         }}
         aria-hidden
       />
