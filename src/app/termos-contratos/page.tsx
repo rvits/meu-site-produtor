@@ -523,17 +523,19 @@ export default function TermosContratosPage() {
         </p>
       </section>
 
-      {/* BOTÕES DE DOCUMENTOS */}
+      {/* BOTÕES DE DOCUMENTOS - Mobile: 1 por linha, ordenados do maior pro menor; Desktop: wrap como antes */}
       <section className="mb-6">
-        <div className="flex flex-wrap gap-2 justify-center">
-          {DOCS.map((doc) => {
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-2 justify-center items-stretch md:items-center">
+          {[...DOCS]
+            .sort((a, b) => b.title.length - a.title.length)
+            .map((doc) => {
             const isActive = activeDoc === doc.key;
             return (
               <button
                 key={doc.key}
                 type="button"
                 onClick={() => handleDocClick(doc.key)}
-                className={`rounded-lg border px-3 py-1.5 text-xs transition whitespace-nowrap ${
+                className={`w-full md:w-auto rounded-lg border px-3 py-1.5 text-xs transition md:whitespace-nowrap ${
                   isActive
                     ? "border-red-500 bg-red-600 text-white"
                     : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-red-500/60 hover:bg-zinc-800"
