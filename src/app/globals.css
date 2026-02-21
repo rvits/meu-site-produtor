@@ -145,4 +145,8 @@ input[type="password"]::placeholder {
     background-position: center center;
     background-repeat: no-repeat;
   }
+  /* FAQ mobile: desloca imagem para esquerda para enquadrar lupa com interrogação */
+  .page-bg-image-faq {
+    background-position: 25% center;
+  }
 }

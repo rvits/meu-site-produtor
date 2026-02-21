@@ -320,7 +320,7 @@ export default function FAQPage() {
     <main className="relative mx-auto max-w-6xl px-6 py-10 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página FAQ */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image page-bg-image-faq"
         style={{
           backgroundImage: "url(/faq-bg.png.png)",
           ["--page-bg-size" as string]: "cover",
