@@ -87,8 +87,8 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Botões de Ação Desktop - Direita */}
-        <div className="hidden md:flex items-center gap-2 sm:gap-2.5 text-xs flex-shrink-0">
+        {/* Botões de Ação Desktop - Direita (lg+ para manter hamburger em mobile landscape) */}
+        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs flex-shrink-0">
           {user ? (
             <>
               <span className="hidden xl:inline text-zinc-300 text-xs whitespace-nowrap">
@@ -140,8 +140,8 @@ export default function Header() {
           )}
         </div>
 
-        {/* Menu Mobile - Links visíveis em telas médias */}
-        <nav className="hidden md:flex lg:hidden gap-3 text-xs items-center flex-1 justify-center px-2">
+        {/* (Removido: nav intermediário - mobile e landscape usam hamburger até lg) */}
+        <nav className="hidden gap-3 text-xs items-center flex-1 justify-center px-2">
           {navLinks.slice(0, 4).map((link) => (
             <Link
               key={link.href}
@@ -158,8 +158,8 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Botão Hambúrguer Mobile */}
-        <div className="flex md:hidden items-center gap-2">
+        {/* Botão Hambúrguer Mobile (lg: mantém em landscape onde width pode passar md) */}
+        <div className="flex lg:hidden items-center gap-2">
           {isAdmin && (
             <Link
               href="/admin"
@@ -193,9 +193,9 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Menu Mobile */}
+      {/* Menu Mobile (lg: mantém em landscape) */}
       {menuOpen && (
-        <div className="md:hidden border-t border-red-700/40 bg-zinc-950/95 backdrop-blur">
+        <div className="lg:hidden border-t border-red-700/40 bg-zinc-950/95 backdrop-blur">
           <nav className="px-4 py-4 space-y-2">
             {navLinks.map((link) => (
               <Link
