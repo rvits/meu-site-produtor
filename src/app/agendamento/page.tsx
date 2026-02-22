@@ -522,7 +522,7 @@ export default function AgendamentoPage() {
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
-          backgroundImage: "url(/agendamento-bg.png.png?v=7)",
+          backgroundImage: "url(/agendamento-bg.png.jpeg)",
           ["--page-bg-size" as string]: "cover",
           ["--page-bg-position" as string]: "center -20%",
         }}
