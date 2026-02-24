@@ -359,6 +359,16 @@ function PagamentosContent() {
           poderá escolher <strong>Pix, cartão de crédito, cartão de débito, boleto</strong> ou
           outras formas disponíveis.
         </p>
+        {resumoPagamento?.tipo === "agendamento" && (
+          <p className="text-center mt-3">
+            <Link
+              href="/agendamento?restore=1"
+              className="text-sm text-red-400 hover:text-red-300 underline"
+            >
+              ← Voltar ao agendamento para alterar algo
+            </Link>
+          </p>
+        )}
       </section>
 
       {/* RESUMO DO PAGAMENTO */}
@@ -385,6 +395,9 @@ function PagamentosContent() {
 
           {resumoPagamento.tipo === "agendamento" && (
             <>
+              <p className="text-lg font-semibold text-yellow-300">
+                Total: R$ {(Number(resumoPagamento.total) || 0).toFixed(2).replace(".", ",")}
+              </p>
               <p className="text-zinc-300">
                 <strong>Data:</strong>{" "}
                 {resumoPagamento.data
@@ -396,9 +409,6 @@ function PagamentosContent() {
               </p>
               <p className="text-zinc-300">
                 <strong>Serviços:</strong> {resumoPagamento.servicos?.length || 0} serviço(s)
-              </p>
-              <p className="text-lg font-semibold text-yellow-300">
-                Total: R$ {resumoPagamento.total?.toFixed(2).replace(".", ",") || "0,00"}
               </p>
             </>
           )}

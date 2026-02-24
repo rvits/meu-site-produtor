@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import DuvidasBox from "../components/DuvidasBox";
 import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
@@ -103,10 +103,13 @@ const HORARIOS_PADRAO = [
   "16:00","17:00","18:00","19:00","20:00","21:00","22:00",
 ];
 
+const AGENDAMENTO_DRAFT_KEY = "agendamento_draft";
+
 // ================== PAGE ==================
 
 export default function AgendamentoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [quantidadesServicos, setQuantidadesServicos] = useState<Record<string, number>>({});
   const [quantidadesBeats, setQuantidadesBeats] = useState<Record<string, number>>({});
@@ -217,6 +220,32 @@ export default function AgendamentoPage() {
   useEffect(() => {
     carregarHorarios();
   }, [dataBase, carregarHorarios]); // Recarregar quando mudar o mês
+
+  // Restaurar rascunho ao voltar da página de pagamentos (restore=1 ou referrer pagamentos)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const restore = searchParams.get("restore") === "1";
+    const fromPagamentos = typeof document !== "undefined" && document.referrer?.includes("pagamentos");
+    const raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
+    const draft = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
+
+    if ((restore || fromPagamentos) && draft) {
+      if (draft.quantidadesServicos) setQuantidadesServicos(draft.quantidadesServicos);
+      if (draft.quantidadesBeats) setQuantidadesBeats(draft.quantidadesBeats);
+      if (draft.comentarios != null) setComentarios(draft.comentarios);
+      if (draft.dataSelecionada != null) setDataSelecionada(draft.dataSelecionada);
+      if (draft.horaSelecionada != null) setHoraSelecionada(draft.horaSelecionada);
+      if (draft.dataBase) setDataBase(new Date(draft.dataBase));
+      if (draft.aceiteTermos != null) setAceiteTermos(draft.aceiteTermos);
+      if (draft.cupomCode != null) setCupomCode(draft.cupomCode);
+      if (draft.cupomAplicado != null) setCupomAplicado(draft.cupomAplicado);
+      if (restore && typeof window !== "undefined") {
+        window.history.replaceState({}, "", "/agendamento");
+      }
+    } else if (!restore && !fromPagamentos) {
+      sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+    }
+  }, [searchParams]);
 
   // Usar hook de atualização inteligente (atualiza a cada 5 min, mas garante atualização no início de cada hora)
   useIntelligentRefresh(carregarHorarios, [dataBase]);
@@ -486,6 +515,23 @@ export default function AgendamentoPage() {
       observacoes: comentarios,
       cupomCode: cupomAplicado?.code || undefined, // Incluir código do cupom se aplicado
     };
+
+    // Salvar rascunho para restaurar se o usuário voltar da página de pagamento
+    try {
+      sessionStorage.setItem(AGENDAMENTO_DRAFT_KEY, JSON.stringify({
+        quantidadesServicos,
+        quantidadesBeats,
+        comentarios,
+        dataSelecionada,
+        horaSelecionada,
+        dataBase: dataBase.toISOString(),
+        aceiteTermos,
+        cupomCode,
+        cupomAplicado,
+      }));
+    } catch (e) {
+      console.warn("[Agendamento] Não foi possível salvar rascunho:", e);
+    }
 
     // Redirecionar para página de pagamentos com os dados
     const queryParams = new URLSearchParams({
