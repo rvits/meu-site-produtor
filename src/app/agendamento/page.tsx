@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import DuvidasBox from "../components/DuvidasBox";
@@ -107,7 +107,7 @@ const AGENDAMENTO_DRAFT_KEY = "agendamento_draft";
 
 // ================== PAGE ==================
 
-export default function AgendamentoPage() {
+function AgendamentoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -1801,3 +1801,16 @@ function ServicoItem({
   );
 }
 
+export default function AgendamentoPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center text-zinc-400 bg-zinc-950">
+          Carregando...
+        </main>
+      }
+    >
+      <AgendamentoContent />
+    </Suspense>
+  );
+}
