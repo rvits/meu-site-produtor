@@ -11,27 +11,7 @@ const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
 
-// Planos básicos (mesmos do Mercado Pago para compatibilidade)
-const PLANOS = [
-  {
-    id: "bronze",
-    nome: "Plano Bronze",
-    mensal: 197.00,
-    anual: 1970.00,
-  },
-  {
-    id: "prata",
-    nome: "Plano Prata",
-    mensal: 347.00,
-    anual: 3470.00,
-  },
-  {
-    id: "ouro",
-    nome: "Plano Ouro",
-    mensal: 547.00,
-    anual: 5470.00,
-  },
-] as const;
+import { PLAN_PRICES } from "@/app/lib/plan-prices";
 
 type ModoPlano = "mensal" | "anual";
 
@@ -69,13 +49,21 @@ export async function POST(req: Request) {
     const userName = user.nomeArtistico;
     const userEmail = user.email;
     
-    // Buscar CPF do usuário
+    // Buscar CPF do usuário (obrigatório para Asaas)
     const userWithCpf = await prisma.user.findUnique({
       where: { id: user.id },
       select: { cpf: true },
     });
 
-    const plano = PLANOS.find((p) => p.id === planoId);
+    const cpfLimpo = userWithCpf?.cpf?.replace(/\D/g, "");
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return NextResponse.json(
+        { error: "CPF é obrigatório para pagamentos. Preencha seu CPF na página de pagamentos antes de continuar." },
+        { status: 400 }
+      );
+    }
+
+    const plano = PLAN_PRICES.find((p) => p.id === planoId);
     if (!plano) {
       return NextResponse.json(
         { error: "Plano inválido." },
@@ -149,7 +137,7 @@ export async function POST(req: Request) {
       payer: {
         name: userName,
         email: userEmail,
-        cpf: userWithCpf?.cpf || undefined,
+        cpf: cpfLimpo,
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {

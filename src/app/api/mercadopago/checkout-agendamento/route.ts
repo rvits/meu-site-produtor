@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 
 const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 const INTEGRATOR_ID = process.env.MP_INTEGRATOR_ID;
@@ -28,6 +29,7 @@ const agendamentoCheckoutSchema = z.object({
   observacoes: z.string().optional(),
   total: z.number(),
   paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
+  cupomCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -63,11 +65,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const { servicos = [], beats = [], data, hora, total, paymentMethod } = validation.data;
+    let { servicos = [], beats = [], data, hora, total, paymentMethod, cupomCode } = validation.data;
+
+    // Validar cupom e recalcular total quando aplicável
+    if (cupomCode && cupomCode.trim()) {
+      const totalRaw =
+        servicos.reduce((a, s) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
+        beats.reduce((a, b) => a + (b.preco || 0) * (b.quantidade || 1), 0);
+      const result = await validateCouponAndGetTotal(
+        cupomCode.trim(),
+        totalRaw,
+        servicos,
+        beats
+      );
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      total = result.finalTotal;
+    }
 
     // Criar itens para o Mercado Pago
     const items: any[] = [];
 
+    // Com cupom: usar um único item com total descontado. Sem cupom: itens individuais
+    const usarItemUnico = cupomCode && cupomCode.trim();
+
+    if (!usarItemUnico) {
     servicos.forEach((s) => {
       items.push({
         id: s.id,
@@ -87,9 +110,11 @@ export async function POST(req: Request) {
         currency_id: "BRL",
       });
     });
+    }
 
-    // Se não houver itens, criar um item genérico
-    if (items.length === 0) {
+    // Se não houver itens (ou cupom aplicado), criar um item genérico
+    if (items.length === 0 || usarItemUnico) {
+      items.length = 0; // Limpar para cupom
       items.push({
         id: "agendamento",
         title: `Agendamento - ${new Date(data).toLocaleDateString("pt-BR")} às ${hora}`,
@@ -135,6 +160,10 @@ export async function POST(req: Request) {
         data: data || null,
         hora: hora || null,
         paymentMethod: paymentMethod || null,
+        cupomCode: cupomCode?.trim() || undefined,
+        servicos: JSON.stringify(servicos),
+        beats: JSON.stringify(beats),
+        total: total.toString(),
       };
     }
 

@@ -1187,10 +1187,31 @@ export default function AgendamentoPage() {
                     }
                     setValidandoCupom(true);
                     try {
+                      const servicosParaValidar = SERVICOS_ESTUDIO
+                        .filter((s) => (quantidadesServicos[s.id] || 0) > 0)
+                        .map((s) => ({
+                          id: s.id,
+                          nome: s.nome,
+                          quantidade: quantidadesServicos[s.id] || 0,
+                          preco: s.preco,
+                        }));
+                      const beatsParaValidar = BEATS_PACOTES
+                        .filter((b) => (quantidadesBeats[b.id] || 0) > 0)
+                        .map((b) => ({
+                          id: b.id,
+                          nome: b.nome,
+                          quantidade: quantidadesBeats[b.id] || 0,
+                          preco: b.preco,
+                        }));
                       const res = await fetch("/api/coupons/validate", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ code: cupomCode, total: totalGeral }),
+                        body: JSON.stringify({
+                          code: cupomCode,
+                          total: totalGeral,
+                          servicos: servicosParaValidar,
+                          beats: beatsParaValidar,
+                        }),
                       });
                       const data = await res.json();
                       if (data.valid) {
@@ -1476,10 +1497,31 @@ export default function AgendamentoPage() {
                           }
                           setValidandoCupom(true);
                           try {
+                            const servicosParaValidar = SERVICOS_ESTUDIO
+                              .filter((s) => (quantidadesServicos[s.id] || 0) > 0)
+                              .map((s) => ({
+                                id: s.id,
+                                nome: s.nome,
+                                quantidade: quantidadesServicos[s.id] || 0,
+                                preco: s.preco,
+                              }));
+                            const beatsParaValidar = BEATS_PACOTES
+                              .filter((b) => (quantidadesBeats[b.id] || 0) > 0)
+                              .map((b) => ({
+                                id: b.id,
+                                nome: b.nome,
+                                quantidade: quantidadesBeats[b.id] || 0,
+                                preco: b.preco,
+                              }));
                             const res = await fetch("/api/coupons/validate", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ code: cupomCode, total: totalGeral }),
+                              body: JSON.stringify({
+                                code: cupomCode,
+                                total: totalGeral,
+                                servicos: servicosParaValidar,
+                                beats: beatsParaValidar,
+                              }),
                             });
                             const data = await res.json();
                             if (data.valid) {

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/app/lib/auth";
+import { requireAdmin } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 export async function GET() {
   try {
-    const user = await requireAuth();
+    const admin = await requireAdmin();
+    const user = admin; // Admin pode ver seus próprios cupons; para ver de outro usuário, precisaria de param
 
     // Buscar todos os cupons do usuário
     const todosCupons = await prisma.coupon.findMany({

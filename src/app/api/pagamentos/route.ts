@@ -6,26 +6,7 @@ import { checkoutSchema } from "@/app/lib/validations";
 
 export const runtime = "nodejs";
 
-const PLANOS = [
-  {
-    id: "bronze",
-    nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
-  },
-  {
-    id: "prata",
-    nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3799.99,
-  },
-  {
-    id: "ouro",
-    nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
-  },
-];
+import { PLAN_PRICES } from "@/app/lib/plan-prices";
 
 const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 // const INTEGRATOR_ID = process.env.MP_INTEGRATOR_ID;
@@ -87,7 +68,7 @@ export async function POST(req: Request) {
     const email = user.email;
     const userId = user.id;
 
-    const plano = PLANOS.find((p) => p.id === planoId);
+    const plano = PLAN_PRICES.find((p) => p.id === planoId);
     if (!plano) {
       return NextResponse.json(
         { error: "Plano inválido." },

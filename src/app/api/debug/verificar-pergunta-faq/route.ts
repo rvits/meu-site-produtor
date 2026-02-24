@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/app/lib/auth";
+import { requireAdmin } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 /**
  * Endpoint de debug para verificar se uma pergunta específica está associada ao usuário logado
- * Uso: GET /api/debug/verificar-pergunta-faq?id=QUESTION_ID
+ * Uso: GET /api/debug/verificar-pergunta-faq?id=QUESTION_ID (apenas admin)
  */
 export async function GET(req: Request) {
   try {
-    const user = await requireAuth();
+    const user = await requireAdmin();
     const { searchParams } = new URL(req.url);
     const questionId = searchParams.get("id");
 

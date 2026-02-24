@@ -9,9 +9,14 @@ export async function GET(req: Request) {
   try {
     // Verificar autenticação via header (cron secret)
     const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET || "default-secret-change-in-production";
+    const cronSecret = process.env.CRON_SECRET;
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (process.env.NODE_ENV === "production" && !cronSecret) {
+      console.error("[Cron] CRON_SECRET não configurado em produção");
+      return NextResponse.json({ error: "CRON_SECRET não configurado" }, { status: 500 });
+    }
+    const expectedSecret = cronSecret || "default-secret-change-in-production";
+    if (authHeader !== `Bearer ${expectedSecret}`) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

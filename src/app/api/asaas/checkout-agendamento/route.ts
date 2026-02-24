@@ -4,6 +4,7 @@ import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 
 import { getAsaasApiKey } from "@/app/lib/env";
 
@@ -62,15 +63,40 @@ export async function POST(req: Request) {
       );
     }
 
-    const { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, total, paymentMethod, cupomCode } = validation.data;
+    let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, total, paymentMethod, cupomCode } = validation.data;
     const userName = user.nomeArtistico;
+
+    // Validar cupom e recalcular total quando aplicável
+    if (cupomCode && cupomCode.trim()) {
+      const totalRaw =
+        (servicos || []).reduce((a: number, s: any) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
+        (beats || []).reduce((a: number, b: any) => a + (b.preco || 0) * (b.quantidade || 1), 0);
+      const result = await validateCouponAndGetTotal(
+        cupomCode.trim(),
+        totalRaw,
+        servicos || [],
+        beats || []
+      );
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      total = result.finalTotal;
+    }
     const userEmail = user.email;
     
-    // Buscar CPF do usuário
+    // Buscar CPF do usuário (obrigatório para Asaas)
     const userWithCpf = await prisma.user.findUnique({
       where: { id: user.id },
       select: { cpf: true },
     });
+
+    const cpfLimpo = userWithCpf?.cpf?.replace(/\D/g, "");
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return NextResponse.json(
+        { error: "CPF é obrigatório para pagamentos. Preencha seu CPF na página de pagamentos antes de continuar." },
+        { status: 400 }
+      );
+    }
 
     // 🗓️ NÃO criar agendamento antes do pagamento
     // Os dados serão armazenados no metadata e o agendamento será criado apenas após pagamento confirmado no webhook
@@ -139,7 +165,7 @@ export async function POST(req: Request) {
       payer: {
         name: userName,
         email: userEmail,
-        cpf: userWithCpf?.cpf || undefined,
+        cpf: cpfLimpo,
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {

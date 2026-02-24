@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { requireAdmin } from "@/app/lib/auth";
 
 export async function GET() {
   try {
+    await requireAdmin();
     const user = process.env.SUPPORT_EMAIL;
     const pass = process.env.SUPPORT_EMAIL_PASSWORD;
 
@@ -78,6 +80,9 @@ export async function GET() {
       },
     });
   } catch (error: any) {
+    if (error.message === "Acesso negado" || error.message === "Não autenticado") {
+      return NextResponse.json({ error: "Acesso negado. Apenas administradores podem testar o email." }, { status: 403 });
+    }
     console.error("❌ [TESTE] Erro ao testar email:");
     console.error("❌ [TESTE] Tipo:", error.constructor.name);
     console.error("❌ [TESTE] Mensagem:", error.message);

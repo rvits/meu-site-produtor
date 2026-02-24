@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/app/lib/auth";
+import { requireAdmin } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 export async function GET() {
   try {
-    const user = await requireAuth();
+    const user = await requireAdmin();
 
     // Buscar plano mais recente do usuário
     const plano = await prisma.userPlan.findFirst({

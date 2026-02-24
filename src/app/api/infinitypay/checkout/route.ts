@@ -8,27 +8,7 @@ const INFINITYPAY_API_KEY = process.env.INFINITYPAY_API_KEY;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
 
-// Planos básicos (mesmos do Mercado Pago para compatibilidade)
-const PLANOS = [
-  {
-    id: "bronze",
-    nome: "Plano Bronze",
-    mensal: 29.90,
-    anual: 299.00,
-  },
-  {
-    id: "prata",
-    nome: "Plano Prata",
-    mensal: 49.90,
-    anual: 499.00,
-  },
-  {
-    id: "ouro",
-    nome: "Plano Ouro",
-    mensal: 79.90,
-    anual: 799.00,
-  },
-] as const;
+import { PLAN_PRICES } from "@/app/lib/plan-prices";
 
 type ModoPlano = "mensal" | "anual";
 
@@ -60,7 +40,7 @@ export async function POST(req: Request) {
     const userName = user.nomeArtistico;
     const userEmail = user.email;
 
-    const plano = PLANOS.find((p) => p.id === planoId);
+    const plano = PLAN_PRICES.find((p) => p.id === planoId);
     if (!plano) {
       return NextResponse.json(
         { error: "Plano inválido." },

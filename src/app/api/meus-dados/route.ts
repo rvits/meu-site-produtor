@@ -86,8 +86,8 @@ export async function GET() {
           status = "expirado";
         }
         
-        // Verificar regra especial: cupons de plano expiram 1 mês após expiração do plano
-        if (cupom.userPlanId && cupom.discountType === "service") {
+        // Verificar regra especial: cupons de plano (serviço ou percent) expiram 1 mês após expiração do plano
+        if (cupom.userPlanId && (cupom.discountType === "service" || cupom.discountType === "percent")) {
           const userPlan = userPlansMap.get(cupom.userPlanId);
           if (userPlan && userPlan.endDate) {
             const umMesAposPlano = new Date(userPlan.endDate);

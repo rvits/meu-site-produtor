@@ -37,8 +37,8 @@ const PLANOS = [
   {
     id: "bronze",
     nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
+    mensal: 249.99,
+    anual: 2499.9,
     descricao: "Para quem está começando a gravar com frequência.",
     beneficios: [
       "2h de captação por mês",
@@ -54,8 +54,8 @@ const PLANOS = [
   {
     id: "prata",
     nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3499.99,
+    mensal: 449.99,
+    anual: 4499.9,
     descricao: "Para artistas que gravam com regularidade e já possuem músicas próprias.",
     beneficios: [
       "2h de captação por mês",
@@ -72,8 +72,8 @@ const PLANOS = [
   {
     id: "ouro",
     nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
+    mensal: 799.99,
+    anual: 7999.9,
     descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
     beneficios: [
       "4 horas de captação por mês",
@@ -184,7 +184,7 @@ export function buildKnowledgeBase(): KnowledgeItem[] {
   items.push({
     id: "planos-1",
     category: "planos",
-    content: `Existem três planos disponíveis: Bronze (R$ 149,99/mês ou R$ 1.499,99/ano), Prata (R$ 349,99/mês ou R$ 3.499,99/ano) e Ouro (R$ 549,99/mês ou R$ 5.499,99/ano). Todos os planos oferecem benefícios mensais.`,
+    content: `Existem três planos disponíveis: Bronze (R$ 249,99/mês ou R$ 2.499,90/ano), Prata (R$ 449,99/mês ou R$ 4.499,90/ano) e Ouro (R$ 799,99/mês ou R$ 7.999,90/ano). Todos os planos oferecem benefícios mensais.`,
   });
 
   items.push({

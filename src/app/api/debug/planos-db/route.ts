@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
+import { requireAdmin } from "@/app/lib/auth";
 
-// Endpoint de debug - SEM autenticação (apenas para desenvolvimento local)
+// Endpoint de debug - apenas admin (para testes em produção)
 export async function GET() {
   try {
-    // Verificar se está em desenvolvimento
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Não disponível em produção" }, { status: 403 });
-    }
+    await requireAdmin();
 
     // Buscar todos os planos
     const todosPlanos = await prisma.userPlan.findMany({

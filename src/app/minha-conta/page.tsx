@@ -231,6 +231,8 @@ export default function MinhaContaPage() {
       beat4: "4 Beats",
       beat_mix_master: "Beat + Mix + Master",
       producao_completa: "Produção Completa",
+      percent_servicos: "10% em serviços avulsos",
+      percent_beats: "10% em beats",
     };
     return names[serviceType] || serviceType;
   }

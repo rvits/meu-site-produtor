@@ -1,12 +1,16 @@
 // src/app/api/pagamentos/processar-direto/route.ts
-// Rota para processar pagamento diretamente sem autenticação (apenas para debug local)
+// Rota para processar pagamento diretamente - apenas admin ou com chave secreta
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
+import { getSessionUser } from "@/app/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    // Apenas permitir em desenvolvimento ou com chave secreta
+    // Proteção: admin logado OU secretKey válida no body
+    const sessionUser = await getSessionUser();
+    const isAdmin = sessionUser && (sessionUser.role === "ADMIN" || sessionUser.email === "thouse.rec.tremv@gmail.com");
+
     let body;
     try {
       body = await req.json();
@@ -24,11 +28,12 @@ export async function POST(req: Request) {
     
     const { numeroFatura, valor, descricao, secretKey } = body;
 
-    // Verificar chave secreta (apenas em produção ou se configurada)
-    const expectedSecret = process.env.PAYMENT_PROCESS_SECRET || "debug-local-only";
-    if (secretKey !== expectedSecret && process.env.NODE_ENV === "production") {
+    // Verificar acesso: admin logado OU secretKey válida
+    const expectedSecret = process.env.PAYMENT_PROCESS_SECRET;
+    const hasValidSecret = expectedSecret && secretKey === expectedSecret;
+    if (!isAdmin && !hasValidSecret) {
       return NextResponse.json(
-        { error: "Acesso negado" },
+        { error: "Acesso negado. Faça login como admin ou informe a chave secreta." },
         { status: 403 }
       );
     }

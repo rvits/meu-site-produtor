@@ -124,6 +124,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // Cupom 10% serviços: NÃO permite uso em beats
+    if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
+      return NextResponse.json(
+        { error: "Este cupom de 10% é válido apenas para serviços avulsos. Não pode ser usado em beats." },
+        { status: 400 }
+      );
+    }
+
+    // Cupom 10% beats: NÃO permite uso em outros serviços
+    if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
+      return NextResponse.json(
+        { error: "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos." },
+        { status: 400 }
+      );
+    }
+
     // Calcular desconto
     let discount = 0;
     let finalTotal = total;

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
+import { requireAdmin } from "@/app/lib/auth";
 
-// Endpoint para corrigir o endDate do plano (apenas desenvolvimento)
+// Endpoint para corrigir o endDate do plano (apenas admin)
 export async function POST() {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Não disponível em produção" }, { status: 403 });
-    }
+    await requireAdmin();
 
     // Buscar o plano mais recente
     const plano = await prisma.userPlan.findFirst({

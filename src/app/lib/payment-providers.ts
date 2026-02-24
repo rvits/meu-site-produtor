@@ -204,6 +204,9 @@ export class AsaasProvider implements PaymentProvider {
       if (!customerId && params.payer) {
         paymentPayload.name = params.payer.name;
         paymentPayload.email = params.payer.email;
+        if (params.payer.cpf) {
+          paymentPayload.cpfCnpj = params.payer.cpf.replace(/\D/g, "");
+        }
       }
 
       // Adicionar callback URLs se disponíveis

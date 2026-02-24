@@ -211,11 +211,11 @@ function PagamentosContent() {
     try {
       setCarregando(true);
 
-      // Primeiro, salvar/atualizar dados do usuário
+      // Primeiro, salvar/atualizar dados do usuário (incluindo CPF obrigatório para Asaas)
       const cpfFormatado = formatarCPF(formData.cpf);
       const cepFormatado = formatarCEP(formData.cep);
 
-      await fetch("/api/conta/update", {
+      const updateRes = await fetch("/api/conta/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,6 +228,12 @@ function PagamentosContent() {
           cep: cepFormatado,
         }),
       });
+      if (!updateRes.ok) {
+        const updateData = await updateRes.json();
+        alert(updateData.error || "Erro ao salvar dados. Verifique os campos e tente novamente.");
+        setCarregando(false);
+        return;
+      }
 
       // Usar o provedor detectado
       const providerPrefix = paymentProvider;

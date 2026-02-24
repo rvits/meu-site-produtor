@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
 import { InfinityPayProvider } from "@/app/lib/payment-providers";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 
 const INFINITYPAY_API_KEY = process.env.INFINITYPAY_API_KEY;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -28,6 +29,7 @@ const agendamentoCheckoutSchema = z.object({
   observacoes: z.string().optional(),
   total: z.number(),
   paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
+  cupomCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -54,11 +56,30 @@ export async function POST(req: Request) {
       );
     }
 
-    const { servicos = [], beats = [], data, hora, total, paymentMethod } = validation.data;
+    let { servicos = [], beats = [], data, hora, total, paymentMethod, cupomCode } = validation.data;
+
+    // Validar cupom e recalcular total quando aplicável
+    if (cupomCode && cupomCode.trim()) {
+      const totalRaw =
+        servicos.reduce((a, s) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
+        beats.reduce((a, b) => a + (b.preco || 0) * (b.quantidade || 1), 0);
+      const result = await validateCouponAndGetTotal(
+        cupomCode.trim(),
+        totalRaw,
+        servicos,
+        beats
+      );
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      total = result.finalTotal;
+    }
 
     // Criar itens para o Infinity Pay
     const items: any[] = [];
+    const usarItemUnico = cupomCode && cupomCode.trim();
 
+    if (!usarItemUnico) {
     servicos.forEach((s) => {
       const unitPrice = Number(s.preco.toFixed(2));
       if (unitPrice <= 0 || isNaN(unitPrice)) {
@@ -86,11 +107,13 @@ export async function POST(req: Request) {
         currency_id: "BRL",
       });
     });
+    }
 
-    // Se não houver itens, criar um item genérico
-    if (items.length === 0) {
+    // Se não houver itens (ou cupom aplicado), criar um item genérico
+    if (items.length === 0 || usarItemUnico) {
+      items.length = 0;
       const unitPrice = Number(total.toFixed(2));
-      if (unitPrice <= 0 || isNaN(unitPrice)) {
+      if (unitPrice < 0 || isNaN(unitPrice)) {
         throw new Error(`Total inválido: ${total}`);
       }
       items.push({
@@ -125,6 +148,10 @@ export async function POST(req: Request) {
         data: data || null,
         hora: hora || null,
         paymentMethod: paymentMethod || null,
+        cupomCode: cupomCode?.trim() || undefined,
+        servicos: JSON.stringify(servicos),
+        beats: JSON.stringify(beats),
+        total: total.toString(),
       },
       backUrls: {
         success: `${SITE_URL}/pagamentos/sucesso`,

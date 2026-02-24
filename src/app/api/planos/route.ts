@@ -1,26 +1,5 @@
 import { NextResponse } from "next/server";
-
-// Planos básicos (mesmos valores do checkout)
-const PLANOS = [
-  {
-    id: "bronze",
-    nome: "Plano Bronze",
-    mensal: 149.99,
-    anual: 1499.99,
-  },
-  {
-    id: "prata",
-    nome: "Plano Prata",
-    mensal: 349.99,
-    anual: 3799.99,
-  },
-  {
-    id: "ouro",
-    nome: "Plano Ouro",
-    mensal: 549.99,
-    anual: 5499.99,
-  },
-] as const;
+import { PLAN_PRICES } from "@/app/lib/plan-prices";
 
 export async function GET(req: Request) {
   try {
@@ -35,7 +14,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const plano = PLANOS.find((p) => p.id === planId);
+    const plano = PLAN_PRICES.find((p) => p.id === planId);
     if (!plano) {
       return NextResponse.json(
         { error: "Plano não encontrado" },
@@ -45,11 +24,18 @@ export async function GET(req: Request) {
 
     const valor = modo === "mensal" ? plano.mensal : plano.anual;
 
-    return NextResponse.json({
-      nome: plano.nome,
-      valor,
-      modo,
-    });
+    return NextResponse.json(
+      {
+        nome: plano.nome,
+        valor,
+        modo,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("Erro ao buscar plano:", err);
     return NextResponse.json(

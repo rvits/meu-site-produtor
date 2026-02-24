@@ -79,12 +79,13 @@ export async function POST(req: Request) {
       },
     });
 
-    // 🍪 COOKIE HTTPONLY
+    // 🍪 COOKIE HTTPONLY (secure em produção para HTTPS)
     const cookieStore = await cookies();
     cookieStore.set("session_id", session.id, {
       httpOnly: true,
       path: "/",
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
     });
 
     return NextResponse.json({

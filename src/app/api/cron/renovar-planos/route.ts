@@ -7,11 +7,16 @@ import { prisma } from "@/app/lib/prisma";
  */
 export async function GET(req: Request) {
   try {
-    // Verificar se é uma chamada autorizada (adicionar secret no futuro)
+    // Verificar autenticação via header (cron secret)
     const authHeader = req.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET || "default-secret-change-in-production";
-    
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (process.env.NODE_ENV === "production" && !cronSecret) {
+      console.error("[Cron] CRON_SECRET não configurado em produção");
+      return NextResponse.json({ error: "CRON_SECRET não configurado" }, { status: 500 });
+    }
+    const expectedSecret = cronSecret || "default-secret-change-in-production";
+    if (authHeader !== `Bearer ${expectedSecret}`) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
 import { processPaymentWebhook } from "@/app/lib/process-payment-webhook";
+import { requireAdmin } from "@/app/lib/auth";
 
-// Endpoint para processar o último pagamento não processado (apenas desenvolvimento)
+// Endpoint para processar o último pagamento não processado (apenas admin)
 export async function POST() {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Não disponível em produção" }, { status: 403 });
-    }
+    await requireAdmin();
 
     const apiKey = getAsaasApiKey();
     if (!apiKey) {

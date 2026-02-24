@@ -186,6 +186,8 @@ export default function AdminPlanosPage() {
       beat3: "3 Beats",
       beat4: "4 Beats",
       producao_completa: "Produção Completa",
+      percent_servicos: "10% em serviços avulsos",
+      percent_beats: "10% em beats",
     };
     return names[serviceType] || serviceType;
   }

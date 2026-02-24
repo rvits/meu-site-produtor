@@ -4,7 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { code, total } = body;
+    const { code, total, servicos = [], beats = [] } = body;
 
     if (!code || typeof code !== "string") {
       return NextResponse.json(
@@ -19,6 +19,13 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const totalServicos = Array.isArray(servicos)
+      ? servicos.reduce((acc: number, s: any) => acc + ((s.preco || 0) * (s.quantidade || 0)), 0)
+      : 0;
+    const totalBeats = Array.isArray(beats)
+      ? beats.reduce((acc: number, b: any) => acc + ((b.preco || 0) * (b.quantidade || 0)), 0)
+      : 0;
 
     // Buscar cupom
     const coupon = await prisma.coupon.findUnique({
@@ -63,8 +70,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar regra especial: cupons de plano expiram 1 mês após expiração do plano
-    if (coupon.userPlanId && coupon.discountType === "service") {
+    // Verificar regra especial: cupons de plano (serviço ou percent) expiram 1 mês após expiração do plano
+    if (coupon.userPlanId && (coupon.discountType === "service" || coupon.discountType === "percent")) {
       const userPlan = await prisma.userPlan.findUnique({
         where: { id: coupon.userPlanId },
       });
@@ -91,6 +98,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // Cupom 10% serviços avulsos: NÃO permite uso em beats
+    if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
+      return NextResponse.json(
+        { error: "Este cupom de 10% é válido apenas para serviços avulsos (captação, mix, master, etc.). Não pode ser usado em beats. Para beats, use o cupom de desconto específico para beats." },
+        { status: 400 }
+      );
+    }
+
+    // Cupom 10% beats: NÃO permite uso em outros serviços
+    if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
+      return NextResponse.json(
+        { error: "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos (captação, mix, master, etc.). Para serviços, use o cupom de desconto específico para serviços." },
+        { status: 400 }
+      );
+    }
+
     // Calcular desconto baseado no tipo de cupom
     let discount = 0;
     let finalTotal = total;
@@ -104,7 +127,11 @@ export async function POST(req: Request) {
       discount = total;
       finalTotal = 0;
     } else if (coupon.discountType === "percent") {
-      discount = (total * coupon.discountValue) / 100;
+      const baseParaDesconto =
+        coupon.serviceType === "percent_servicos" ? totalServicos :
+        coupon.serviceType === "percent_beats" ? totalBeats :
+        total;
+      discount = (baseParaDesconto * coupon.discountValue) / 100;
       if (coupon.maxDiscount && discount > coupon.maxDiscount) {
         discount = coupon.maxDiscount;
       }

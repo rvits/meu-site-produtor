@@ -69,7 +69,7 @@ O agendamento é confirmado após o pagamento.`,
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🥉 PLANO BRONZE
-R$ 149,99/mês ou R$ 1.499,99/ano
+R$ 249,99/mês ou R$ 2.499,90/ano
 
 ✓ 2h de captação por mês
 ✓ 1 Mix & Master por mês
@@ -80,7 +80,7 @@ Ideal para quem está começando.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🥈 PLANO PRATA
-R$ 349,99/mês ou R$ 3.499,99/ano
+R$ 449,99/mês ou R$ 4.499,90/ano
 
 ✓ 2h de captação por mês
 ✓ 2 Mix & Master por mês
@@ -93,7 +93,7 @@ Para artistas que gravam regularmente.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🥇 PLANO OURO
-R$ 549,99/mês ou R$ 5.499,99/ano
+R$ 799,99/mês ou R$ 7.999,90/ano
 
 ✓ 4 horas de captação por mês
 ✓ 2 mix & master por mês

@@ -14,6 +14,27 @@ import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse, se
  */
 export async function POST(req: Request) {
   try {
+    // Validar token do webhook (asaas-access-token)
+    // Em produção, o token é OBRIGATÓRIO. Configure no Asaas (Integrações > Webhooks) e em ASAAS_WEBHOOK_ACCESS_TOKEN
+    const webhookToken = process.env.ASAAS_WEBHOOK_ACCESS_TOKEN;
+    const receivedToken = req.headers.get("asaas-access-token");
+
+    if (process.env.NODE_ENV === "production" && !webhookToken) {
+      console.error("[Asaas Webhook] ASAAS_WEBHOOK_ACCESS_TOKEN não configurado em produção - configure para segurança");
+      return NextResponse.json(
+        { received: false, error: "Webhook não configurado" },
+        { status: 500 }
+      );
+    }
+
+    if (webhookToken && receivedToken !== webhookToken) {
+      console.warn("[Asaas Webhook] Token inválido ou ausente - rejeitando requisição");
+      return NextResponse.json(
+        { received: false, error: "Token inválido" },
+        { status: 401 }
+      );
+    }
+
     // Ler como texto primeiro para debug
     const bodyText = await req.text();
     console.log("[Asaas Webhook] Body recebido (primeiros 500 chars):", bodyText.substring(0, 500));
