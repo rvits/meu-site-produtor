@@ -244,12 +244,15 @@ export class AsaasProvider implements PaymentProvider {
 
       console.log("[Asaas] Criando cobrança:", JSON.stringify(paymentPayload, null, 2));
 
+      const asaasHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "access_token": this.apiKey,
+        "User-Agent": "THouseRec/1.0",
+      };
+
       const response = await fetch(`${this.apiUrl}/payments`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "access_token": this.apiKey,
-        },
+        headers: asaasHeaders,
         body: JSON.stringify(paymentPayload),
       });
 
@@ -319,12 +322,15 @@ export class AsaasProvider implements PaymentProvider {
   async getOrCreateCustomer(payer: { name: string; email: string; cpf?: string }): Promise<string | null> {
     try {
       // Primeiro, tentar buscar cliente existente por email
+      const asaasHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "access_token": this.apiKey,
+        "User-Agent": "THouseRec/1.0",
+      };
+
       const searchResponse = await fetch(`${this.apiUrl}/customers?email=${encodeURIComponent(payer.email)}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "access_token": this.apiKey,
-        },
+        headers: asaasHeaders,
       });
 
       if (searchResponse.ok) {
@@ -336,10 +342,7 @@ export class AsaasProvider implements PaymentProvider {
           if (payer.cpf && !existingCustomer.cpfCnpj) {
             const updateResponse = await fetch(`${this.apiUrl}/customers/${existingCustomer.id}`, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "access_token": this.apiKey,
-              },
+              headers: asaasHeaders,
               body: JSON.stringify({
                 cpfCnpj: payer.cpf.replace(/\D/g, ''), // Remove formatação
               }),
@@ -371,10 +374,7 @@ export class AsaasProvider implements PaymentProvider {
 
       const createResponse = await fetch(`${this.apiUrl}/customers`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "access_token": this.apiKey,
-        },
+        headers: asaasHeaders,
         body: JSON.stringify(customerPayload),
       });
 

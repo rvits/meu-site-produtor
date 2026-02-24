@@ -113,7 +113,11 @@ export async function POST(req: Request) {
               const apiUrl = isProduction ? "https://www.asaas.com/api/v3" : "https://sandbox.asaas.com/api/v3";
               
               const customerRes = await fetch(`${apiUrl}/customers/${customerId}`, {
-                headers: { "access_token": apiKey },
+                headers: {
+                  "Content-Type": "application/json",
+                  "access_token": apiKey,
+                  "User-Agent": "THouseRec/1.0",
+                },
               });
               
               if (customerRes.ok) {
