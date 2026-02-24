@@ -335,7 +335,18 @@ function PagamentosContent() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10 text-zinc-100">
+    <main className="relative mx-auto max-w-5xl px-6 py-10 text-zinc-100 overflow-x-hidden min-h-screen">
+      {/* Imagem de fundo em tela cheia para não cortar à direita */}
+      <div
+        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
+        style={{
+          backgroundImage: "url(/planos-bg.png.png)",
+          ["--page-bg-size" as string]: "cover",
+          ["--page-bg-position" as string]: "center center",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-10">
       <section className="mb-8 space-y-4">
         <h1 className="text-2xl font-semibold md:text-3xl text-center">
           Finalizar Pagamento{" "}
@@ -633,6 +644,7 @@ function PagamentosContent() {
             : "Pagar com Asaas (Pix, cartão, boleto)"}
         </button>
       </section>
+      </div>
     </main>
   );
 }

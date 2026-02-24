@@ -157,19 +157,9 @@ export class AsaasProvider implements PaymentProvider {
       }
 
       // Criar cobrança no Asaas
-      // Mapear método de pagamento do nosso formato para o formato do Asaas
-      // Opções válidas: CREDIT_CARD, DEBIT_CARD, PIX, BOLETO, UNDEFINED (usuário escolhe)
-      const billingTypeMap: Record<string, string> = {
-        "cartao_credito": "CREDIT_CARD",
-        "cartao_debito": "DEBIT_CARD",
-        "pix": "PIX",
-        "boleto": "BOLETO",
-      };
-      
-      // Se não especificar método, usar UNDEFINED para permitir que o usuário escolha
-      const billingType = params.paymentMethod 
-        ? billingTypeMap[params.paymentMethod] || "UNDEFINED"
-        : "UNDEFINED"; // UNDEFINED permite que o usuário escolha no checkout do Asaas
+      // Usar UNDEFINED para que o Asaas exiba apenas as formas de pagamento
+      // permitidas na conta (evita erro 400 "A forma de pagamento não é permitida para cobranças")
+      const billingType = "UNDEFINED";
       
       // IMPORTANTE: Asaas limita externalReference a 100 caracteres
       // Usar APENAS userId no externalReference (máximo 36 caracteres para UUID)
