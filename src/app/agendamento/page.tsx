@@ -529,9 +529,10 @@ function AgendamentoContent() {
       tipo: "sessao",
       servicos,
       beats,
-      total: totalComDesconto, // Usar total com desconto se cupom foi aplicado
+      total: totalComDesconto,
       observacoes: comentarios,
-      cupomCode: cupomAplicado?.code || undefined, // Incluir código do cupom se aplicado
+      cupomCode: cupomAplicado?.code || undefined,
+      cupomAplicado: cupomAplicado || undefined, // Para restaurar no botão "Voltar ao agendamento"
     };
 
     // Salvar rascunho para restaurar ao voltar (sessionStorage + localStorage)
@@ -561,7 +562,7 @@ function AgendamentoContent() {
       localStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
     } catch (_) {}
     const params = new URLSearchParams({ tipo: "agendamento" });
-    if (payloadStr.length < 1200) params.set("agendamento", payloadStr);
+    if (payloadStr.length < 2500) params.set("agendamento", payloadStr);
     router.push("/pagamentos?" + params.toString());
   };
 

@@ -30,16 +30,18 @@ function PagamentosContent() {
   const [resumoPagamento, setResumoPagamento] = useState<any>(null);
   const [paymentProvider, setPaymentProvider] = useState<"asaas" | "infinitypay" | "mercadopago">("asaas");
 
-  // Carregar dados do agendamento imediatamente - URL tem prioridade (mais confiável)
+  // Carregar dados do agendamento - storage primeiro (definido antes do redirect), depois URL
   useEffect(() => {
     const load = () => {
       try {
         if (typeof window === "undefined") return;
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("tipo") !== "agendamento") return;
-        let raw = urlParams.get("agendamento");
-        if (raw) raw = raw.startsWith("{") ? raw : decodeURIComponent(raw);
-        if (!raw) raw = sessionStorage.getItem("agendamento_checkout") || localStorage.getItem("agendamento_checkout");
+        let raw = sessionStorage.getItem("agendamento_checkout") || localStorage.getItem("agendamento_checkout");
+        if (!raw) {
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get("tipo") !== "agendamento") return;
+          raw = urlParams.get("agendamento");
+          if (raw) try { raw = decodeURIComponent(raw); } catch { /* ok */ }
+        }
         if (!raw?.length) return;
         const data = JSON.parse(raw);
         if (data) {
@@ -49,9 +51,11 @@ function PagamentosContent() {
       } catch (_) {}
     };
     load();
-    const t = setTimeout(load, 100);
-    const t2 = setTimeout(load, 400);
-    return () => { clearTimeout(t); clearTimeout(t2); };
+    const t1 = setTimeout(load, 50);
+    const t2 = setTimeout(load, 200);
+    const t3 = setTimeout(load, 500);
+    const t4 = setTimeout(load, 1200);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [searchParams]);
 
   // Detectar qual provedor de pagamento usar
@@ -104,11 +108,13 @@ function PagamentosContent() {
       const loadAgendamento = () => {
         try {
           if (typeof window === "undefined") return;
-          const urlParams = new URLSearchParams(window.location.search);
-          let raw = urlParams.get("agendamento");
-          if (raw) raw = raw.startsWith("{") ? raw : decodeURIComponent(raw);
-          if (!raw) raw = sessionStorage.getItem("agendamento_checkout") || localStorage.getItem("agendamento_checkout");
-          if (!raw && agendamentoData) raw = agendamentoData.startsWith("{") ? agendamentoData : decodeURIComponent(agendamentoData);
+          let raw = sessionStorage.getItem("agendamento_checkout") || localStorage.getItem("agendamento_checkout");
+          if (!raw) {
+            const urlParams = new URLSearchParams(window.location.search);
+            raw = urlParams.get("agendamento");
+            if (raw) try { raw = decodeURIComponent(raw); } catch { /* ok */ }
+            if (!raw && agendamentoData) raw = agendamentoData.startsWith("{") ? agendamentoData : decodeURIComponent(agendamentoData);
+          }
           if (!raw?.length) return;
           const agendamento = JSON.parse(raw);
           if (agendamento) setResumoPagamento({ tipo: "agendamento", ...agendamento });
@@ -117,8 +123,8 @@ function PagamentosContent() {
         }
       };
       loadAgendamento();
-      const t1 = setTimeout(loadAgendamento, 200);
-      const t2 = setTimeout(loadAgendamento, 600);
+      const t1 = setTimeout(loadAgendamento, 150);
+      const t2 = setTimeout(loadAgendamento, 500);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
 
@@ -158,6 +164,38 @@ function PagamentosContent() {
         });
     }
   }, [user, authLoading, router, searchParams]);
+
+  const handleVoltarAoAgendamento = () => {
+    const r = resumoPagamento;
+    if (!r || r.tipo !== "agendamento") return;
+    const quantidadesServicos: Record<string, number> = {};
+    (r.servicos || []).forEach((s: { id: string; quantidade?: number }) => {
+      quantidadesServicos[s.id] = s.quantidade ?? 1;
+    });
+    const quantidadesBeats: Record<string, number> = {};
+    (r.beats || []).forEach((b: { id: string; quantidade?: number }) => {
+      quantidadesBeats[b.id] = b.quantidade ?? 1;
+    });
+    const dataStr = r.data || "";
+    const dataBase = dataStr ? new Date(dataStr.substring(0, 7) + "-01") : new Date();
+    const draftData = {
+      quantidadesServicos,
+      quantidadesBeats,
+      comentarios: r.observacoes || "",
+      dataSelecionada: dataStr,
+      horaSelecionada: r.hora || null,
+      dataBase: dataBase.toISOString(),
+      aceiteTermos: true,
+      cupomCode: r.cupomCode || "",
+      cupomAplicado: r.cupomAplicado || null,
+    };
+    try {
+      const draftStr = JSON.stringify(draftData);
+      sessionStorage.setItem("agendamento_draft", draftStr);
+      localStorage.setItem("agendamento_draft", draftStr);
+    } catch (_) {}
+    router.push("/agendamento?restore=1");
+  };
 
   const handleChange = (campo: string, valor: string | boolean) => {
     setFormData((prev) => ({ ...prev, [campo]: valor }));
@@ -394,16 +432,6 @@ function PagamentosContent() {
           poderá escolher <strong>Pix, cartão de crédito, cartão de débito, boleto</strong> ou
           outras formas disponíveis.
         </p>
-        {resumoPagamento?.tipo === "agendamento" && (
-          <p className="text-center mt-3">
-            <Link
-              href="/agendamento?restore=1"
-              className="text-sm text-red-400 hover:text-red-300 underline"
-            >
-              ← Voltar ao agendamento para alterar algo
-            </Link>
-          </p>
-        )}
       </section>
 
       {/* RESUMO DO PAGAMENTO */}
@@ -442,9 +470,36 @@ function PagamentosContent() {
               <p className="text-zinc-300">
                 <strong>Hora:</strong> {resumoPagamento.hora || "-"}
               </p>
-              <p className="text-zinc-300">
-                <strong>Serviços:</strong> {resumoPagamento.servicos?.length || 0} serviço(s)
-              </p>
+              <div className="text-zinc-300">
+                <strong>Serviços selecionados:</strong>
+                <ul className="mt-1 list-disc list-inside space-y-0.5">
+                  {[...(resumoPagamento.servicos || []), ...(resumoPagamento.beats || [])].map((s: { id?: string; nome?: string; quantidade?: number }, i: number) => (
+                    <li key={i}>{s.nome || s.id}{(s.quantidade ?? 1) > 1 ? ` x${s.quantidade ?? 1}` : ""}</li>
+                  ))}
+                  {((resumoPagamento.servicos?.length || 0) + (resumoPagamento.beats?.length || 0)) === 0 && (
+                    <li className="text-zinc-500">Nenhum serviço</li>
+                  )}
+                </ul>
+              </div>
+              {resumoPagamento.observacoes && (
+                <p className="text-zinc-300">
+                  <strong>Observações:</strong> {resumoPagamento.observacoes}
+                </p>
+              )}
+              {resumoPagamento.cupomCode && (
+                <p className="text-zinc-300">
+                  <strong>Cupom:</strong> {resumoPagamento.cupomCode}
+                </p>
+              )}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleVoltarAoAgendamento}
+                  className="rounded-full border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  ← Voltar ao agendamento selecionado
+                </button>
+              </div>
             </>
           )}
 
