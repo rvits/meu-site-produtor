@@ -222,25 +222,18 @@ function AgendamentoContent() {
     carregarHorarios();
   }, [dataBase, carregarHorarios]); // Recarregar quando mudar o mês
 
-  // Restaurar rascunho ao voltar da página de pagamentos (link ou botão Voltar do navegador)
-  useEffect(() => {
+  // Restaurar rascunho ao voltar da página de pagamentos
+  const aplicarRestore = useCallback(() => {
     if (typeof window === "undefined") return;
-    const restore = searchParams.get("restore") === "1";
     const ref = document.referrer || "";
-    const fromPagamentos = ref.includes("pagamentos");
-    // Limpar só quando vier de Home/Planos/Login (não de pagamentos)
     const veioDePaginaInicial = ref.length > 0 && (ref.includes(window.location.host) || ref.includes("localhost"))
       && (ref.endsWith("/") || ref.includes("/planos") || ref.includes("/login"));
     const deveLimparRascunho = veioDePaginaInicial && !ref.includes("pagamentos");
 
-    let raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
-    if (!raw || raw.length === 0) raw = localStorage.getItem(AGENDAMENTO_DRAFT_KEY);
+    let raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY) || localStorage.getItem(AGENDAMENTO_DRAFT_KEY);
     const draft = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
 
-    // Restaurar sempre que houver draft, exceto se veio explicitamente de Home/Planos
-    const deveRestaurar = draft && !deveLimparRascunho;
-
-    if (deveRestaurar) {
+    if (draft && !deveLimparRascunho) {
       if (draft.quantidadesServicos) setQuantidadesServicos(draft.quantidadesServicos);
       if (draft.quantidadesBeats) setQuantidadesBeats(draft.quantidadesBeats);
       if (draft.comentarios != null) setComentarios(draft.comentarios);
@@ -250,12 +243,27 @@ function AgendamentoContent() {
       if (draft.aceiteTermos != null) setAceiteTermos(draft.aceiteTermos);
       if (draft.cupomCode != null) setCupomCode(draft.cupomCode);
       if (draft.cupomAplicado != null) setCupomAplicado(draft.cupomAplicado);
-      if (restore) window.history.replaceState({}, "", "/agendamento");
     } else if (deveLimparRascunho) {
       sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
       localStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
     }
-  }, [searchParams]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const restore = searchParams.get("restore") === "1";
+    aplicarRestore();
+    if (restore) window.history.replaceState({}, "", "/agendamento");
+  }, [searchParams, aplicarRestore]);
+
+  // pageshow: restaura ao usar botão Voltar do navegador (incl. bfcache)
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || document.visibilityState === "visible") aplicarRestore();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [aplicarRestore]);
 
   // Usar hook de atualização inteligente (atualiza a cada 5 min, mas garante atualização no início de cada hora)
   useIntelligentRefresh(carregarHorarios, [dataBase]);
@@ -546,17 +554,15 @@ function AgendamentoContent() {
       console.warn("[Agendamento] Não foi possível salvar rascunho:", e);
     }
 
-    // Salvar payload completo em sessionStorage E localStorage (fallback para Edge/Bing)
+    // Salvar payload em storage E na URL (URL garante que funciona mesmo se storage falhar)
     const payloadStr = JSON.stringify(agendamentoData);
     try {
       sessionStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
       localStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
-    } catch (e) {
-      console.warn("[Agendamento] Não foi possível salvar payload para pagamento:", e);
-    }
-
-    // Redirecionar para página de pagamentos (dados vêm do storage)
-    router.push("/pagamentos?tipo=agendamento");
+    } catch (_) {}
+    const params = new URLSearchParams({ tipo: "agendamento" });
+    if (payloadStr.length < 1200) params.set("agendamento", payloadStr);
+    router.push("/pagamentos?" + params.toString());
   };
 
   const handleMesAnterior = () => {
