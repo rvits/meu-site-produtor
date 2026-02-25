@@ -74,16 +74,25 @@ function PagamentosContent() {
             ...data,
           });
         });
-    } else if (tipo === "agendamento" && agendamentoData) {
+    } else if (tipo === "agendamento") {
       setTipoPagamento("agendamento");
+      // Preferir sessionStorage (evita URL truncada e garante total/serviços)
       try {
-        const agendamento = JSON.parse(decodeURIComponent(agendamentoData));
-        setResumoPagamento({
-          tipo: "agendamento",
-          ...agendamento,
-        });
+        const fromStorage = typeof window !== "undefined" && sessionStorage.getItem("agendamento_checkout");
+        let agendamento: Record<string, unknown> | null = null;
+        if (fromStorage) {
+          agendamento = JSON.parse(fromStorage);
+        } else if (agendamentoData) {
+          agendamento = JSON.parse(decodeURIComponent(agendamentoData));
+        }
+        if (agendamento) {
+          setResumoPagamento({
+            tipo: "agendamento",
+            ...agendamento,
+          });
+        }
       } catch (e) {
-        console.error("Erro ao parsear dados do agendamento:", e);
+        console.error("Erro ao carregar dados do agendamento:", e);
       }
     }
 

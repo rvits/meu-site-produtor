@@ -84,7 +84,7 @@ const PLANOS: Plano[] = [
     nome: "Plano Ouro",
     mensal: 799.99,
     anual: 7999.90,
-    descricao: "Acompanhamento artístico contínuo com o Tremv e 1 Produção completa por mês.",
+    descricao: "Acompanhamento artístico contínuo com o Tremv e 2 Produções completas por mês.",
     beneficios: [
       { label: "2 sessões por mês", included: true },
       { label: "4h de captação por mês", included: true },
@@ -104,6 +104,7 @@ const HORARIOS_PADRAO = [
 ];
 
 const AGENDAMENTO_DRAFT_KEY = "agendamento_draft";
+const AGENDAMENTO_CHECKOUT_KEY = "agendamento_checkout";
 
 // ================== PAGE ==================
 
@@ -225,7 +226,12 @@ function AgendamentoContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const restore = searchParams.get("restore") === "1";
-    const fromPagamentos = typeof document !== "undefined" && document.referrer?.includes("pagamentos");
+    const ref = document.referrer || "";
+    const fromPagamentos = ref.includes("pagamentos");
+    // Só limpar o rascunho quando vier de outra página do site que NÃO seja pagamentos (ex: Home -> Agendamento)
+    const veioDeOutraPaginaDoSite = ref.length > 0 && (ref.includes(window.location.host) || ref.includes("localhost"));
+    const deveLimparRascunho = veioDeOutraPaginaDoSite && !ref.includes("pagamentos");
+
     const raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
     const draft = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
 
@@ -239,10 +245,10 @@ function AgendamentoContent() {
       if (draft.aceiteTermos != null) setAceiteTermos(draft.aceiteTermos);
       if (draft.cupomCode != null) setCupomCode(draft.cupomCode);
       if (draft.cupomAplicado != null) setCupomAplicado(draft.cupomAplicado);
-      if (restore && typeof window !== "undefined") {
+      if (restore) {
         window.history.replaceState({}, "", "/agendamento");
       }
-    } else if (!restore && !fromPagamentos) {
+    } else if (deveLimparRascunho) {
       sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
     }
   }, [searchParams]);
@@ -533,13 +539,15 @@ function AgendamentoContent() {
       console.warn("[Agendamento] Não foi possível salvar rascunho:", e);
     }
 
-    // Redirecionar para página de pagamentos com os dados
-    const queryParams = new URLSearchParams({
-      tipo: "agendamento",
-      agendamento: encodeURIComponent(JSON.stringify(agendamentoData)),
-    });
+    // Salvar payload completo em sessionStorage para a página de pagamento (evita URL truncada)
+    try {
+      sessionStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, JSON.stringify(agendamentoData));
+    } catch (e) {
+      console.warn("[Agendamento] Não foi possível salvar payload para pagamento:", e);
+    }
 
-    router.push(`/pagamentos?${queryParams.toString()}`);
+    // Redirecionar para página de pagamentos (dados completos vêm do sessionStorage)
+    router.push("/pagamentos?tipo=agendamento");
   };
 
   const handleMesAnterior = () => {

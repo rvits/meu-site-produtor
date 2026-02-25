@@ -110,7 +110,7 @@ const PLANOS: Plano[] = [
     nome: "Plano Ouro",
     mensal: 799.99,
     anual: 7999.90,
-    descricao: "Acompanhamento profissional contínuo com TremV e 1 Produção completa por mês.",
+    descricao: "Acompanhamento profissional contínuo com TremV e 2 Produções completas por mês.",
     beneficios: [
       { label: "2 sessões por mês", included: true },
       { label: "4h de captação por mês", included: true },
