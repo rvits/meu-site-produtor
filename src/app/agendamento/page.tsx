@@ -222,20 +222,23 @@ function AgendamentoContent() {
     carregarHorarios();
   }, [dataBase, carregarHorarios]); // Recarregar quando mudar o mês
 
-  // Restaurar rascunho ao voltar da página de pagamentos (restore=1 ou referrer pagamentos)
+  // Restaurar rascunho ao voltar da página de pagamentos (link Voltar ou botão Voltar do navegador)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const restore = searchParams.get("restore") === "1";
     const ref = document.referrer || "";
     const fromPagamentos = ref.includes("pagamentos");
-    // Só limpar o rascunho quando vier de outra página do site que NÃO seja pagamentos (ex: Home -> Agendamento)
+    // Só limpar quando vier explicitamente de outra página do site que NÃO seja pagamentos
     const veioDeOutraPaginaDoSite = ref.length > 0 && (ref.includes(window.location.host) || ref.includes("localhost"));
     const deveLimparRascunho = veioDeOutraPaginaDoSite && !ref.includes("pagamentos");
 
     const raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
     const draft = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
 
-    if ((restore || fromPagamentos) && draft) {
+    // Restaurar: (1) link com restore=1, (2) veio de pagamentos, (3) tem draft e referrer vazio (botão Voltar do navegador)
+    const deveRestaurar = draft && (restore || fromPagamentos || (ref.length === 0 && raw));
+
+    if (deveRestaurar) {
       if (draft.quantidadesServicos) setQuantidadesServicos(draft.quantidadesServicos);
       if (draft.quantidadesBeats) setQuantidadesBeats(draft.quantidadesBeats);
       if (draft.comentarios != null) setComentarios(draft.comentarios);

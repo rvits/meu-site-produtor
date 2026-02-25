@@ -51,7 +51,8 @@ function PagamentosContent() {
     if (authLoading) return;
 
     if (!user) {
-      router.push("/login?redirect=/pagamentos");
+      const redirect = "/pagamentos" + (typeof window !== "undefined" && window.location.search ? window.location.search : "");
+      router.push("/login?redirect=" + encodeURIComponent(redirect));
       return;
     }
 
@@ -76,24 +77,28 @@ function PagamentosContent() {
         });
     } else if (tipo === "agendamento") {
       setTipoPagamento("agendamento");
-      // Preferir sessionStorage (evita URL truncada e garante total/serviços)
-      try {
-        const fromStorage = typeof window !== "undefined" && sessionStorage.getItem("agendamento_checkout");
-        let agendamento: Record<string, unknown> | null = null;
-        if (fromStorage) {
-          agendamento = JSON.parse(fromStorage);
-        } else if (agendamentoData) {
-          agendamento = JSON.parse(decodeURIComponent(agendamentoData));
+      // Carregar do sessionStorage (dados completos com total); retry se vazio (timing)
+      const loadAgendamento = () => {
+        try {
+          if (typeof window === "undefined") return;
+          const raw = sessionStorage.getItem("agendamento_checkout");
+          let agendamento: Record<string, unknown> | null = null;
+          if (raw && raw.length > 0) {
+            agendamento = JSON.parse(raw);
+          } else if (agendamentoData) {
+            agendamento = JSON.parse(decodeURIComponent(agendamentoData));
+          }
+          if (agendamento) {
+            setResumoPagamento({ tipo: "agendamento", ...agendamento });
+          }
+        } catch (e) {
+          console.error("Erro ao carregar dados do agendamento:", e);
         }
-        if (agendamento) {
-          setResumoPagamento({
-            tipo: "agendamento",
-            ...agendamento,
-          });
-        }
-      } catch (e) {
-        console.error("Erro ao carregar dados do agendamento:", e);
-      }
+      };
+      loadAgendamento();
+      // Retry após 150ms (resolve race quando a navegação é muito rápida)
+      const t = setTimeout(loadAgendamento, 150);
+      return () => clearTimeout(t);
     }
 
     // Carregar dados completos do usuário da API
