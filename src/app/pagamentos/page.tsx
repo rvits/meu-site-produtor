@@ -30,6 +30,28 @@ function PagamentosContent() {
   const [resumoPagamento, setResumoPagamento] = useState<any>(null);
   const [paymentProvider, setPaymentProvider] = useState<"asaas" | "infinitypay" | "mercadopago">("asaas");
 
+  // Carregar dados do agendamento imediatamente (não esperar auth) para exibir total
+  useEffect(() => {
+    if (searchParams.get("tipo") !== "agendamento") return;
+    const load = () => {
+      try {
+        if (typeof window === "undefined") return;
+        let raw = sessionStorage.getItem("agendamento_checkout") || localStorage.getItem("agendamento_checkout");
+        const urlData = searchParams.get("agendamento");
+        if (!raw && urlData) raw = urlData.startsWith("{") ? urlData : decodeURIComponent(urlData);
+        if (!raw?.length) return;
+        const data = JSON.parse(raw);
+        if (data && (data.total != null || data.servicos)) {
+          setResumoPagamento({ tipo: "agendamento", ...data });
+          setTipoPagamento("agendamento");
+        }
+      } catch (_) {}
+    };
+    load();
+    const t = setTimeout(load, 50);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
   // Detectar qual provedor de pagamento usar
   useEffect(() => {
     fetch("/api/payment-provider")
@@ -77,18 +99,15 @@ function PagamentosContent() {
         });
     } else if (tipo === "agendamento") {
       setTipoPagamento("agendamento");
-      // Carregar do sessionStorage (dados completos com total); retry se vazio (timing)
       const loadAgendamento = () => {
         try {
           if (typeof window === "undefined") return;
-          const raw = sessionStorage.getItem("agendamento_checkout");
-          let agendamento: Record<string, unknown> | null = null;
-          if (raw && raw.length > 0) {
-            agendamento = JSON.parse(raw);
-          } else if (agendamentoData) {
-            agendamento = JSON.parse(decodeURIComponent(agendamentoData));
-          }
-          if (agendamento) {
+          let raw = sessionStorage.getItem("agendamento_checkout");
+          if (!raw || raw.length === 0) raw = localStorage.getItem("agendamento_checkout");
+          if (!raw && agendamentoData) raw = agendamentoData.startsWith("{") ? agendamentoData : decodeURIComponent(agendamentoData);
+          if (!raw || raw.length === 0) return;
+          const agendamento = JSON.parse(raw);
+          if (agendamento && (agendamento.total != null || agendamento.servicos)) {
             setResumoPagamento({ tipo: "agendamento", ...agendamento });
           }
         } catch (e) {
@@ -96,9 +115,10 @@ function PagamentosContent() {
         }
       };
       loadAgendamento();
-      // Retry após 150ms (resolve race quando a navegação é muito rápida)
-      const t = setTimeout(loadAgendamento, 150);
-      return () => clearTimeout(t);
+      const t1 = setTimeout(loadAgendamento, 100);
+      const t2 = setTimeout(loadAgendamento, 350);
+      const t3 = setTimeout(loadAgendamento, 700);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
 
     // Carregar dados completos do usuário da API

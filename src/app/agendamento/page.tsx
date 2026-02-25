@@ -222,21 +222,23 @@ function AgendamentoContent() {
     carregarHorarios();
   }, [dataBase, carregarHorarios]); // Recarregar quando mudar o mês
 
-  // Restaurar rascunho ao voltar da página de pagamentos (link Voltar ou botão Voltar do navegador)
+  // Restaurar rascunho ao voltar da página de pagamentos (link ou botão Voltar do navegador)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const restore = searchParams.get("restore") === "1";
     const ref = document.referrer || "";
     const fromPagamentos = ref.includes("pagamentos");
-    // Só limpar quando vier explicitamente de outra página do site que NÃO seja pagamentos
-    const veioDeOutraPaginaDoSite = ref.length > 0 && (ref.includes(window.location.host) || ref.includes("localhost"));
-    const deveLimparRascunho = veioDeOutraPaginaDoSite && !ref.includes("pagamentos");
+    // Limpar só quando vier de Home/Planos/Login (não de pagamentos)
+    const veioDePaginaInicial = ref.length > 0 && (ref.includes(window.location.host) || ref.includes("localhost"))
+      && (ref.endsWith("/") || ref.includes("/planos") || ref.includes("/login"));
+    const deveLimparRascunho = veioDePaginaInicial && !ref.includes("pagamentos");
 
-    const raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
+    let raw = sessionStorage.getItem(AGENDAMENTO_DRAFT_KEY);
+    if (!raw || raw.length === 0) raw = localStorage.getItem(AGENDAMENTO_DRAFT_KEY);
     const draft = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
 
-    // Restaurar: (1) link com restore=1, (2) veio de pagamentos, (3) tem draft e referrer vazio (botão Voltar do navegador)
-    const deveRestaurar = draft && (restore || fromPagamentos || (ref.length === 0 && raw));
+    // Restaurar sempre que houver draft, exceto se veio explicitamente de Home/Planos
+    const deveRestaurar = draft && !deveLimparRascunho;
 
     if (deveRestaurar) {
       if (draft.quantidadesServicos) setQuantidadesServicos(draft.quantidadesServicos);
@@ -248,11 +250,10 @@ function AgendamentoContent() {
       if (draft.aceiteTermos != null) setAceiteTermos(draft.aceiteTermos);
       if (draft.cupomCode != null) setCupomCode(draft.cupomCode);
       if (draft.cupomAplicado != null) setCupomAplicado(draft.cupomAplicado);
-      if (restore) {
-        window.history.replaceState({}, "", "/agendamento");
-      }
+      if (restore) window.history.replaceState({}, "", "/agendamento");
     } else if (deveLimparRascunho) {
       sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+      localStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
     }
   }, [searchParams]);
 
@@ -525,31 +526,36 @@ function AgendamentoContent() {
       cupomCode: cupomAplicado?.code || undefined, // Incluir código do cupom se aplicado
     };
 
-    // Salvar rascunho para restaurar se o usuário voltar da página de pagamento
+    // Salvar rascunho para restaurar ao voltar (sessionStorage + localStorage)
+    const draftData = {
+      quantidadesServicos,
+      quantidadesBeats,
+      comentarios,
+      dataSelecionada,
+      horaSelecionada,
+      dataBase: dataBase.toISOString(),
+      aceiteTermos,
+      cupomCode,
+      cupomAplicado,
+    };
     try {
-      sessionStorage.setItem(AGENDAMENTO_DRAFT_KEY, JSON.stringify({
-        quantidadesServicos,
-        quantidadesBeats,
-        comentarios,
-        dataSelecionada,
-        horaSelecionada,
-        dataBase: dataBase.toISOString(),
-        aceiteTermos,
-        cupomCode,
-        cupomAplicado,
-      }));
+      const draftStr = JSON.stringify(draftData);
+      sessionStorage.setItem(AGENDAMENTO_DRAFT_KEY, draftStr);
+      localStorage.setItem(AGENDAMENTO_DRAFT_KEY, draftStr);
     } catch (e) {
       console.warn("[Agendamento] Não foi possível salvar rascunho:", e);
     }
 
-    // Salvar payload completo em sessionStorage para a página de pagamento (evita URL truncada)
+    // Salvar payload completo em sessionStorage E localStorage (fallback para Edge/Bing)
+    const payloadStr = JSON.stringify(agendamentoData);
     try {
-      sessionStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, JSON.stringify(agendamentoData));
+      sessionStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
+      localStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
     } catch (e) {
       console.warn("[Agendamento] Não foi possível salvar payload para pagamento:", e);
     }
 
-    // Redirecionar para página de pagamentos (dados completos vêm do sessionStorage)
+    // Redirecionar para página de pagamentos (dados vêm do storage)
     router.push("/pagamentos?tipo=agendamento");
   };
 
