@@ -57,7 +57,7 @@ export async function GET() {
           if (p.appointmentIds == null) return false;
           const ids = Array.isArray(p.appointmentIds) ? p.appointmentIds : (typeof p.appointmentIds === "string" ? JSON.parse(p.appointmentIds) : []);
           return Array.isArray(ids) && ids.includes(agendamento.id);
-        }) ?? null;
+        });
       }
       const cupom = cuponsMap.get(agendamento.id) ?? null;
       return {
