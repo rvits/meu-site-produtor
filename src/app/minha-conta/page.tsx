@@ -11,6 +11,10 @@ interface Agendamento {
   tipo: string;
   observacoes?: string;
   status: string;
+  cancelReason?: string | null;
+  cancelRefundOption?: string | null;
+  refundProcessedAt?: string | null;
+  cancelCouponCode?: string | null;
   pagamento: {
     id: string;
     amount: number;
