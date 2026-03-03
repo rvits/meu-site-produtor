@@ -40,6 +40,7 @@ interface Estatisticas {
 export default function AdminEstatisticasPage() {
   const [stats, setStats] = useState<Estatisticas | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     carregarEstatisticas();
@@ -47,13 +48,19 @@ export default function AdminEstatisticasPage() {
 
   async function carregarEstatisticas() {
     try {
-      const res = await fetch("/api/admin/stats/detalhadas");
+      setErro(null);
+      const res = await fetch("/api/admin/stats/detalhadas", { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setStats(data);
+      } else {
+        setStats(null);
+        setErro(data.error || `Erro ${res.status} ao carregar estatísticas`);
       }
     } catch (err) {
       console.error("Erro ao carregar estatísticas", err);
+      setStats(null);
+      setErro("Falha ao conectar. Verifique se está logado como admin.");
     } finally {
       setLoading(false);
     }
@@ -63,8 +70,20 @@ export default function AdminEstatisticasPage() {
     return <p className="text-zinc-400">Carregando estatísticas...</p>;
   }
 
-  if (!stats) {
-    return <p className="text-zinc-400">Erro ao carregar estatísticas</p>;
+  if (erro || !stats) {
+    return (
+      <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-6 text-center text-red-300 max-w-md mx-auto">
+        <p className="font-semibold mb-2">Erro ao carregar estatísticas</p>
+        <p className="text-sm mb-4">{erro || "Dados não disponíveis."}</p>
+        <button
+          type="button"
+          onClick={() => { setErro(null); setLoading(true); carregarEstatisticas(); }}
+          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
   }
 
   return (

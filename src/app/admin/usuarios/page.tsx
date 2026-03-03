@@ -89,6 +89,7 @@ export default function AdminUsuariosPage() {
   const [usuariosFiltrados, setUsuariosFiltrados] = useState<Usuario[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [erroUsuarios, setErroUsuarios] = useState<string | null>(null);
 
   useEffect(() => {
     carregarUsuarios();
@@ -112,14 +113,22 @@ export default function AdminUsuariosPage() {
 
   async function carregarUsuarios() {
     try {
-      const res = await fetch("/api/admin/usuarios");
+      const res = await fetch("/api/admin/usuarios", { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setUsuarios(data.usuarios || []);
         setUsuariosFiltrados(data.usuarios || []);
+        setErroUsuarios(null);
+      } else {
+        setErroUsuarios(data.error || `Erro ${res.status} ao carregar usuários`);
+        setUsuarios([]);
+        setUsuariosFiltrados([]);
       }
     } catch (err) {
       console.error("Erro ao carregar usuários", err);
+      setErroUsuarios("Falha ao conectar. Verifique se está logado como admin.");
+      setUsuarios([]);
+      setUsuariosFiltrados([]);
     } finally {
       setLoading(false);
     }
@@ -129,6 +138,7 @@ export default function AdminUsuariosPage() {
     try {
       const res = await fetch(`/api/admin/usuarios?id=${id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
@@ -149,6 +159,7 @@ export default function AdminUsuariosPage() {
     try {
       const res = await fetch("/api/admin/usuarios", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, action: "reset-password" }),
       });
@@ -202,7 +213,19 @@ export default function AdminUsuariosPage() {
         )}
       </div>
 
-      {usuariosFiltrados.length === 0 ? (
+      {erroUsuarios ? (
+        <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-6 text-center text-red-300">
+          <p className="font-semibold mb-2">Erro ao carregar usuários</p>
+          <p className="text-sm">{erroUsuarios}</p>
+          <button
+            type="button"
+            onClick={() => { setErroUsuarios(null); carregarUsuarios(); }}
+            className="mt-4 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : usuariosFiltrados.length === 0 ? (
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
           Nenhum usuário encontrado.
         </div>

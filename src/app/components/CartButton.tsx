@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 export default function CartButton() {
   const pathname = usePathname();
 
-  // Não mostrar no perfil (minha-conta), admin nem manutenção
-  if (pathname?.startsWith("/minha-conta") || pathname?.startsWith("/admin") || pathname === "/manutencao") {
+  // Não mostrar em perfil, minha-conta, admin nem manutenção
+  if (pathname === "/conta" || pathname?.startsWith("/minha-conta") || pathname?.startsWith("/admin") || pathname === "/manutencao") {
     return null;
   }
 
