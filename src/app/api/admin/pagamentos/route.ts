@@ -42,3 +42,28 @@ export async function GET() {
     return NextResponse.json({ error: "Erro ao buscar pagamentos" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    await requireAdmin();
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID do pagamento é obrigatório" }, { status: 400 });
+    }
+
+    await prisma.payment.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true, message: "Pagamento excluído com sucesso." });
+  } catch (err: any) {
+    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+    console.error("Erro ao excluir pagamento:", err);
+    return NextResponse.json({ error: "Erro ao excluir pagamento" }, { status: 500 });
+  }
+}

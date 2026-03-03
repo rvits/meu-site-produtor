@@ -105,6 +105,7 @@ const HORARIOS_PADRAO = [
 
 const AGENDAMENTO_DRAFT_KEY = "agendamento_draft";
 const AGENDAMENTO_CHECKOUT_KEY = "agendamento_checkout";
+const CARRINHO_KEY = "agendamento_carrinho";
 
 // ================== PAGE ==================
 
@@ -138,6 +139,7 @@ function AgendamentoContent() {
   const [cupomCode, setCupomCode] = useState("");
   const [cupomAplicado, setCupomAplicado] = useState<{ code: string; discount: number; couponType: string } | null>(null);
   const [validandoCupom, setValidandoCupom] = useState(false);
+  const [adicionadoAoCart, setAdicionadoAoCart] = useState(false);
 
   // Função helper para verificar se uma data já passou (comparando apenas dia/mês/ano)
   const isDataPassada = (isoDate: string): boolean => {
@@ -521,8 +523,9 @@ function AgendamentoContent() {
       }
     }
 
-    // Se não for cupom de serviço ou se ainda há valor a pagar, seguir fluxo normal de pagamento
-    const agendamentoData = {
+    // Se não for cupom de serviço ou se ainda há valor a pagar: adicionar ao carrinho e ir para o carrinho
+    const item = {
+      cartId: Date.now(),
       data: dataSelecionada,
       hora: horaSelecionada,
       duracaoMinutos,
@@ -532,38 +535,129 @@ function AgendamentoContent() {
       total: totalComDesconto,
       observacoes: comentarios,
       cupomCode: cupomAplicado?.code || undefined,
-      cupomAplicado: cupomAplicado || undefined, // Para restaurar no botão "Voltar ao agendamento"
-    };
-
-    // Salvar rascunho para restaurar ao voltar (sessionStorage + localStorage)
-    const draftData = {
-      quantidadesServicos,
-      quantidadesBeats,
-      comentarios,
-      dataSelecionada,
-      horaSelecionada,
-      dataBase: dataBase.toISOString(),
-      aceiteTermos,
-      cupomCode,
-      cupomAplicado,
+      cupomAplicado: cupomAplicado || undefined,
     };
     try {
-      const draftStr = JSON.stringify(draftData);
-      sessionStorage.setItem(AGENDAMENTO_DRAFT_KEY, draftStr);
-      localStorage.setItem(AGENDAMENTO_DRAFT_KEY, draftStr);
+      const raw = sessionStorage.getItem(CARRINHO_KEY) || localStorage.getItem(CARRINHO_KEY) || "[]";
+      const cart = JSON.parse(raw);
+      if (!Array.isArray(cart)) throw new Error("Cart invalid");
+      cart.push(item);
+      const str = JSON.stringify(cart);
+      sessionStorage.setItem(CARRINHO_KEY, str);
+      localStorage.setItem(CARRINHO_KEY, str);
+      // Limpar formulário e rascunho
+      setQuantidadesServicos({});
+      setQuantidadesBeats({});
+      setComentarios("");
+      setDataSelecionada(null);
+      setHoraSelecionada(null);
+      setCupomAplicado(null);
+      setCupomCode("");
+      setAceiteTermos(false);
+      setDataBase(() => {
+        const hoje = new Date();
+        return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      });
+      try {
+        sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+        localStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+      } catch (_) {}
+      window.location.href = "/carrinho";
     } catch (e) {
-      console.warn("[Agendamento] Não foi possível salvar rascunho:", e);
+      console.warn("[Agendamento] Erro ao ir para carrinho:", e);
+      alert("Não foi possível continuar. Tente novamente.");
     }
+  };
 
-    // Salvar payload em storage E na URL (URL garante que funciona mesmo se storage falhar)
-    const payloadStr = JSON.stringify(agendamentoData);
+  const handleAdicionarAoCarrinho = () => {
+    if (!user) {
+      alert("Você precisa estar logado para adicionar ao carrinho.");
+      router.push("/login?redirect=/agendamento");
+      return;
+    }
+    if (totalGeral <= 0) {
+      alert("Nenhum serviço selecionado");
+      return;
+    }
+    if (!dataSelecionada) {
+      alert("O dia não foi selecionado");
+      return;
+    }
+    if (!horaSelecionada) {
+      alert("A hora não foi selecionada");
+      return;
+    }
+    if (!aceiteTermos) {
+      alert("É preciso marcar a declaração dos Termos de Contrato antes de adicionar ao carrinho.");
+      return;
+    }
+    const servicos = SERVICOS_ESTUDIO
+      .filter(s => quantidadesServicos[s.id] > 0)
+      .map(s => ({
+        id: s.id,
+        nome: s.nome,
+        quantidade: quantidadesServicos[s.id],
+        preco: s.preco,
+      }));
+    const beats = BEATS_PACOTES
+      .filter(b => quantidadesBeats[b.id] > 0)
+      .map(b => ({
+        id: b.id,
+        nome: b.nome,
+        quantidade: quantidadesBeats[b.id],
+        preco: b.preco,
+      }));
+    let duracaoMinutos = 60;
+    if (servicos.length > 0) {
+      const captacaoQtd = quantidadesServicos["captacao"] || 0;
+      const sessaoQtd = quantidadesServicos["sessao"] || 0;
+      if (captacaoQtd > 0 || sessaoQtd > 0) {
+        duracaoMinutos = Math.max(60, (captacaoQtd + sessaoQtd) * 60);
+      }
+    }
+    const item = {
+      cartId: Date.now(),
+      data: dataSelecionada,
+      hora: horaSelecionada,
+      duracaoMinutos,
+      tipo: "sessao",
+      servicos,
+      beats,
+      total: totalComDesconto,
+      observacoes: comentarios,
+      cupomCode: cupomAplicado?.code || undefined,
+      cupomAplicado: cupomAplicado || undefined,
+    };
     try {
-      sessionStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
-      localStorage.setItem(AGENDAMENTO_CHECKOUT_KEY, payloadStr);
-    } catch (_) {}
-    const params = new URLSearchParams({ tipo: "agendamento" });
-    if (payloadStr.length < 2500) params.set("agendamento", payloadStr);
-    router.push("/pagamentos?" + params.toString());
+      const raw = sessionStorage.getItem(CARRINHO_KEY) || localStorage.getItem(CARRINHO_KEY) || "[]";
+      const cart = JSON.parse(raw);
+      if (!Array.isArray(cart)) throw new Error("Cart invalid");
+      cart.push(item);
+      const str = JSON.stringify(cart);
+      sessionStorage.setItem(CARRINHO_KEY, str);
+      localStorage.setItem(CARRINHO_KEY, str);
+      setAdicionadoAoCart(true);
+      // Limpar formulário e rascunho para deixar a página limpa
+      setQuantidadesServicos({});
+      setQuantidadesBeats({});
+      setComentarios("");
+      setDataSelecionada(null);
+      setHoraSelecionada(null);
+      setCupomAplicado(null);
+      setCupomCode("");
+      setAceiteTermos(false);
+      setDataBase(() => {
+        const hoje = new Date();
+        return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      });
+      try {
+        sessionStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+        localStorage.removeItem(AGENDAMENTO_DRAFT_KEY);
+      } catch (_) {}
+    } catch (e) {
+      console.warn("[Agendamento] Erro ao salvar carrinho:", e);
+      alert("Não foi possível adicionar ao carrinho. Tente novamente.");
+    }
   };
 
   const handleMesAnterior = () => {
@@ -747,7 +841,7 @@ function AgendamentoContent() {
           COMENTÁRIOS ADICIONAIS
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
             style={{
@@ -1007,7 +1101,7 @@ function AgendamentoContent() {
           TRABALHOS EXTERNOS
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative p-6 md:p-8"
             style={{
@@ -1330,7 +1424,7 @@ function AgendamentoContent() {
           RESUMO / VALOR TOTAL
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative p-6 md:p-8"
             style={{
@@ -1463,16 +1557,46 @@ function AgendamentoContent() {
               </label>
             </div>
 
-            <div className="mt-8 flex justify-center">
-              <button
-                type="button"
-                onClick={handleConfirmar}
-                className="w-full max-w-6xl rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-              >
-                Confirmar agendamento e ir para pagamentos
-              </button>
-            </div>
+            {adicionadoAoCart ? (
+              <div className="mt-8 space-y-3 flex flex-col items-center">
+                <p className="text-green-400 font-medium">Agendamento adicionado ao carrinho!</p>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setAdicionadoAoCart(false)}
+                    className="rounded-full border border-zinc-500 bg-zinc-700/50 px-5 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-600/50 transition-colors"
+                  >
+                    Continuar agendando
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/carrinho")}
+                    className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                  >
+                    Ir ao carrinho e finalizar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <button
+                  type="button"
+                  onClick={handleAdicionarAoCarrinho}
+                  className="w-full sm:w-auto max-w-6xl rounded-full border-2 border-red-500 bg-transparent px-6 py-3 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+                >
+                  Adicionar ao carrinho
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmar}
+                  className="w-full sm:w-auto max-w-6xl rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-all"
+                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+                >
+                  Confirmar e ir ao carrinho
+                </button>
+              </div>
+            )}
 
             <p className="text-xs text-zinc-300 text-justify md:text-center px-2 md:px-0">
               A confirmação implica concordância com os{" "}
@@ -1494,9 +1618,25 @@ function AgendamentoContent() {
                 🧪 Pagamento de Teste - Agendamento (Apenas Admin)
               </h3>
               <p className="text-sm text-yellow-200 text-center">
-                Use esta opção para testar o fluxo de pagamento. Preencha apenas data, horário e comentário. 
-                O agendamento será criado apenas após o pagamento ser confirmado (R$ 5,00).
+                Use esta opção para testar o fluxo de pagamento. Selecione os serviços acima (na seção SERVIÇOS DE ESTÚDIO), 
+                preencha data, horário e comentário. Os serviços selecionados aparecerão em &quot;Serviços Solicitados&quot; no admin após o pagamento (R$ 5,00).
               </p>
+              
+              {/* Serviços selecionados (resumo) - usa o mesmo estado do formulário principal */}
+              <div className="rounded-lg border border-yellow-600/50 bg-yellow-950/30 p-4 mt-4">
+                <p className="text-sm font-medium text-yellow-300 mb-2">Serviços para este teste (selecione acima):</p>
+                {SERVICOS_ESTUDIO.some((s) => (quantidadesServicos[s.id] || 0) > 0) ? (
+                  <ul className="text-sm text-yellow-200 space-y-1">
+                    {SERVICOS_ESTUDIO.filter((s) => (quantidadesServicos[s.id] || 0) > 0).map((s) => (
+                      <li key={s.id}>
+                        {s.nome} x{quantidadesServicos[s.id]} — R$ {((quantidadesServicos[s.id] || 0) * s.preco).toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-yellow-500/90 text-sm">Nenhum serviço selecionado. Selecione ao menos um na seção de serviços para testar a aba &quot;Serviços Solicitados&quot; no admin.</p>
+                )}
+              </div>
               
               {/* Formulário de Teste Simplificado */}
               <div className="space-y-4 mt-6">
@@ -1696,12 +1836,28 @@ function AgendamentoContent() {
                       return;
                     }
 
+                    // Para testar "Serviços Solicitados" no admin, exige pelo menos um serviço
+                    const servicosTeste = SERVICOS_ESTUDIO
+                      .filter((s) => (quantidadesServicos[s.id] || 0) > 0)
+                      .map((s) => ({ id: s.id, nome: s.nome, quantidade: quantidadesServicos[s.id], preco: s.preco }));
+                    const beatsTeste = BEATS_PACOTES
+                      .filter((b) => (quantidadesBeats[b.id] || 0) > 0)
+                      .map((b) => ({ id: b.id, nome: b.nome, quantidade: quantidadesBeats[b.id], preco: b.preco }));
+                    if (servicosTeste.length === 0 && beatsTeste.length === 0) {
+                      alert("Selecione pelo menos um serviço ou beat acima para testar a aba \"Serviços Solicitados\" no admin.");
+                      return;
+                    }
+
                     // Verificar se a data/hora não passou
                     const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
                     if (dataHoraISO < new Date()) {
                       alert("Não é possível agendar para uma data/hora que já passou.");
                       return;
                     }
+
+                    const duracaoTeste = servicosTeste.length > 0
+                      ? Math.max(60, ((quantidadesServicos["captacao"] || 0) + (quantidadesServicos["sessao"] || 0)) * 60)
+                      : 60;
 
                     try {
                       const res = await fetch("/api/test-payment", {
@@ -1712,7 +1868,9 @@ function AgendamentoContent() {
                           data: dataSelecionada,
                           hora: horaSelecionada,
                           observacoes: comentarios,
-                          duracaoMinutos: 60,
+                          duracaoMinutos: duracaoTeste,
+                          servicos: servicosTeste,
+                          beats: beatsTeste,
                         }),
                       });
 

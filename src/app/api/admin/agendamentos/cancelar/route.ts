@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
 import { sendAppointmentCancelledEmail } from "@/app/lib/sendEmail";
-import { generateCouponCode } from "@/app/lib/coupons";
 
 export async function POST(req: Request) {
   try {
@@ -15,18 +14,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
     }
 
-    // Ler body de forma segura (pode estar vazio)
+    // Justificativa é obrigatória para cancelamento pelo admin
     let cancellationComment: string | undefined;
     try {
       const bodyText = await req.text();
       if (bodyText && bodyText.trim()) {
         const body = JSON.parse(bodyText);
-        cancellationComment = body.cancellationComment;
+        cancellationComment = (body.cancellationComment || "").trim();
       }
     } catch (parseError: any) {
-      // Se não conseguir parsear, usar valor padrão
-      console.warn("[Admin] Erro ao parsear body do cancelamento (usando padrão):", parseError);
-      cancellationComment = undefined;
+      console.warn("[Admin] Erro ao parsear body do cancelamento:", parseError);
+    }
+    if (!cancellationComment || cancellationComment.length < 3) {
+      return NextResponse.json(
+        { error: "Justificativa do cancelamento é obrigatória (mínimo 3 caracteres)." },
+        { status: 400 }
+      );
     }
 
     const agendamento = await prisma.appointment.findUnique({
@@ -118,55 +121,63 @@ export async function POST(req: Request) {
       console.log(`[Admin] ℹ️ Nenhum cupom associado ao agendamento ${id}`);
     }
 
-    // Buscar pagamento associado para gerar cupom (se houver pagamento)
-    const payment = await prisma.payment.findFirst({
-      where: { appointmentId: parseInt(id) },
-    });
+    const cancelledAt = new Date();
+    const updatePayload = {
+      status: "cancelado" as const,
+      cancelReason: cancellationComment,
+      cancelledAt,
+    };
 
-    // Atualizar status para cancelado
-    // O horário será automaticamente liberado porque a API de disponibilidade só considera status "aceito" ou "confirmado"
-    await prisma.appointment.update({
-      where: { id: parseInt(id) },
-      data: {
-        status: "cancelado",
-      },
-    });
-
-    console.log(`[Admin] Agendamento ${id} cancelado. Horário liberado.`);
-
-    // Gerar cupom de desconto e enviar email
     try {
-      let couponCode: string | undefined;
-      if (payment) {
+      await prisma.appointment.update({
+        where: { id: parseInt(id) },
+        data: updatePayload,
+      });
+      // Atualizar serviços vinculados ao agendamento para "cancelado" (Serviços gerais)
+      await prisma.service.updateMany({
+        where: { appointmentId: parseInt(id) },
+        data: { status: "cancelado" },
+      });
+    } catch (updateErr: any) {
+      // Se falhar por coluna inexistente (banco desatualizado), tentar só status
+      const msg = String(updateErr?.message || "").toLowerCase();
+      if (msg.includes("invalid") || msg.includes("unknown column") || msg.includes("does not exist")) {
         try {
-          const coupon = await prisma.coupon.create({
-            data: {
-              code: generateCouponCode(),
-              couponType: "reembolso", // Cupom de reembolso
-              discountType: "fixed",
-              discountValue: payment.amount,
-              appointmentId: parseInt(id),
-              expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 dias
-            },
+          await prisma.appointment.update({
+            where: { id: parseInt(id) },
+            data: { status: "cancelado" },
           });
-          couponCode = coupon.code;
-          console.log(`[Admin] Cupom gerado para agendamento cancelado: ${couponCode}`);
-        } catch (couponError: any) {
-          console.error("[Admin] Erro ao gerar cupom (não crítico):", couponError);
+          console.warn("[Admin] Cancelamento salvo só com status (colunas cancelReason/cancelledAt podem não existir no banco). Rode: npx prisma db push");
+        } catch (fallbackErr: any) {
+          console.error("[Admin] Erro no update (fallback):", fallbackErr);
+          return NextResponse.json(
+            { error: "Erro ao salvar cancelamento. Atualize o banco: no terminal rode 'npx prisma db push' e reinicie o servidor." },
+            { status: 500 }
+          );
         }
+      } else {
+        console.error("[Admin] Erro no update:", updateErr);
+        return NextResponse.json(
+          { error: "Erro ao salvar cancelamento. Tente novamente." },
+          { status: 500 }
+        );
       }
+    }
 
+    console.log(`[Admin] Agendamento ${id} cancelado. Justificativa salva. Usuário pode escolher reembolso ou cupom na Minha Conta.`);
+
+    // Email informando cancelamento e que o usuário deve escolher reembolso ou cupom na Minha Conta
+    try {
       await sendAppointmentCancelledEmail(
         agendamento.user.email,
         agendamento.user.nomeArtistico,
         agendamento.data,
-        cancellationComment || "Agendamento cancelado.",
-        couponCode
+        cancellationComment,
+        undefined // sem cupom aqui; usuário escolhe na conta
       );
       console.log(`[Admin] Email de cancelamento enviado para ${agendamento.user.email}`);
     } catch (emailError: any) {
       console.error("[Admin] Erro ao enviar email (não crítico):", emailError);
-      // Não falhar o cancelamento por erro de email
     }
 
     return NextResponse.json({ 
@@ -181,10 +192,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
     console.error("[Admin] Erro ao cancelar agendamento:", err);
-    console.error("[Admin] Stack trace:", err.stack);
-    return NextResponse.json({ 
-      error: err.message || "Erro ao cancelar agendamento",
-      details: process.env.NODE_ENV === "development" ? err.stack : undefined
-    }, { status: 500 });
+    const mensagem = err?.message && !String(err.message).includes("Invalid `prisma") 
+      ? err.message 
+      : "Erro ao cancelar agendamento. Se persistir, rode no terminal: npx prisma db push";
+    return NextResponse.json({ error: mensagem }, { status: 500 });
   }
 }

@@ -64,19 +64,26 @@ model Session {
 }
 
 model Appointment {
-  id             Int       @id @default(autoincrement())
-  userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data           DateTime
-  duracaoMinutos Int
-  tipo           String
-  observacoes    String?
-  status         String    @default("pendente")
-  blocked        Boolean   @default(false)
-  blockedAt      DateTime?
-  blockedReason  String?
-  readAt         DateTime? // Quando o usuário visualizou o agendamento confirmado
-  createdAt      DateTime  @default(now())
+  id                 Int       @id @default(autoincrement())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data               DateTime
+  duracaoMinutos     Int
+  tipo               String
+  observacoes        String?
+  status             String    @default("pendente")
+  blocked            Boolean   @default(false)
+  blockedAt          DateTime?
+  blockedReason      String?
+  readAt             DateTime? // Quando o usuário visualizou o agendamento confirmado
+  cancelReason       String?   // Justificativa do cancelamento (admin)
+  cancelledAt       DateTime? // Data do cancelamento
+  cancelRefundOption String?   // "reembolso" | "cupom" após usuário escolher
+  refundProcessedAt DateTime?  // Quando reembolso direto foi processado
+  refundCouponId    String?    // ID do cupom gerado se opção cupom
+  createdAt         DateTime  @default(now())
+
+  services          Service[]
 
   @@index([userId])
   @@index([data])
@@ -150,7 +157,8 @@ model Payment {
   paymentMethod String? // Método de pagamento selecionado pelo usuário
   planId        String?
   serviceId     String?
-  appointmentId Int? // ID do agendamento associado (para prevenir fraudes)
+  appointmentId Int? // ID do agendamento associado (para prevenir fraudes); em compras com carrinho, primeiro agendamento
+  appointmentIds Json? // IDs de todos os agendamentos (carrinho); array de inteiros
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -177,21 +185,22 @@ model PaymentMetadata {
 }
 
 model UserPlan {
-  id           String        @id @default(uuid())
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId       String
-  planName     String
-  modo         String
-  amount       Float
-  status       String        @default("active")
-  startDate    DateTime      @default(now())
-  endDate      DateTime?
-  readAt       DateTime?     // Quando o usuário visualizou o plano confirmado
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  subscription Subscription? // Assinatura recorrente associada
-  coupons      Coupon[] // Cupons gerados por este plano
+  id                 String        @id @default(uuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  planName           String
+  modo               String
+  amount             Float
+  status             String        @default("active")
+  startDate          DateTime      @default(now())
+  endDate            DateTime?
+  readAt             DateTime?     // Quando o usuário visualizou o plano confirmado
+  refundProcessedAt  DateTime?    // Quando o usuário solicitou reembolso do plano cancelado (Asaas)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  subscription       Subscription? // Assinatura recorrente associada
+  coupons            Coupon[]     // Cupons gerados por este plano
 
   @@index([userId])
   @@index([status])
@@ -220,19 +229,22 @@ model Subscription {
 }
 
 model Service {
-  id          String    @id @default(uuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tipo        String
-  description String?
-  status      String    @default("pendente")
-  acceptedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentId Int?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  tipo          String
+  description   String?
+  status        String      @default("pendente") // pendente | aceito | recusado | cancelado | concluido
+  acceptedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([userId])
   @@index([status])
   @@index([tipo])
+  @@index([appointmentId])
 }
 
 model ChatSession {

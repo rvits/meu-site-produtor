@@ -12,8 +12,8 @@ const MENU = [
   { label: "Controle Agendamento", href: "/admin/controle-agendamento" },
   { label: "Planos e Cupons", href: "/admin/planos" },
   { label: "FAQ", href: "/admin/faq" },
-  { label: "Serviços Solicitados", href: "/admin/servicos-solicitados" },
-  { label: "Serviços Aceitos", href: "/admin/servicos-aceitos" },
+  { label: "Serviços Selecionados", href: "/admin/servicos-solicitados" },
+  { label: "Serviços Gerais", href: "/admin/servicos-aceitos" },
   { label: "Pagamentos", href: "/admin/pagamentos" },
   { label: "Estatísticas", href: "/admin/estatisticas" },
   { label: "Chats Pendentes", href: "/admin/chats-pendentes" },
@@ -51,7 +51,7 @@ export default function AdminLayout({
     <div className="min-h-screen bg-zinc-900 text-zinc-100">
       {/* HEADER ADMIN */}
       <header className="sticky top-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <span className="text-xl font-bold text-red-500">
@@ -105,7 +105,7 @@ export default function AdminLayout({
       </header>
 
       {/* CONTEÚDO */}
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
     </div>

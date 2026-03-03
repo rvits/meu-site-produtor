@@ -63,8 +63,8 @@ const MENU_ITEMS = [
   },
   {
     id: "servicos-solicitados",
-    title: "Serviços Solicitados",
-    description: "Solicitações pendentes e recusadas",
+    title: "Serviços Selecionados",
+    description: "Por agendamento: a fazer e feitos (registrar como feito)",
     icon: "📋",
     href: "/admin/servicos-solicitados",
     color: "from-pink-500/20 to-pink-600/20 border-pink-500/30",
@@ -72,8 +72,8 @@ const MENU_ITEMS = [
   },
   {
     id: "servicos-aceitos",
-    title: "Serviços Aceitos",
-    description: "Serviços em andamento e concluídos",
+    title: "Serviços Gerais",
+    description: "Solicitados, aceitos e negados (vinculados ao agendamento)",
     icon: "✅",
     href: "/admin/servicos-aceitos",
     color: "from-green-500/20 to-green-600/20 border-green-500/30",

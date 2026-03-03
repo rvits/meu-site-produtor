@@ -38,16 +38,17 @@ export async function GET() {
     });
     console.log("[API /meus-dados] Planos encontrados:", planos.length, planos.map(p => ({ id: p.id, planId: p.planId, status: p.status })));
 
-    // Buscar TODOS os cupons do usuário (disponíveis, usados e expirados)
-    const planosIds = planos.length > 0 ? planos.map(p => p.id) : [];
-    const agendamentosIds = agendamentos.length > 0 ? agendamentos.map(a => a.id) : [];
-    
+    // Buscar cupons do usuário (apenas de planos ativos; cupons de planos cancelados não aparecem na conta)
+    const planosAtivosIds = planos.filter((p) => p.status !== "cancelled").map((p) => p.id);
+    const planosIds = planos.length > 0 ? planos.map((p) => p.id) : [];
+    const agendamentosIds = agendamentos.length > 0 ? agendamentos.map((a) => a.id) : [];
+
     const todosCupons = await prisma.coupon.findMany({
       where: {
         OR: [
-          { usedBy: user.id }, // Cupons gerados para este usuário
-          ...(planosIds.length > 0 ? [{ userPlanId: { in: planosIds } }] : []), // Cupons gerados pelos planos do usuário
-          ...(agendamentosIds.length > 0 ? [{ appointmentId: { in: agendamentosIds } }] : []), // Cupons de reembolso dos agendamentos do usuário
+          { usedBy: user.id },
+          ...(planosAtivosIds.length > 0 ? [{ userPlanId: { in: planosAtivosIds } }] : []), // Só cupons de planos não cancelados
+          ...(agendamentosIds.length > 0 ? [{ appointmentId: { in: agendamentosIds } }] : []),
         ],
       },
       orderBy: { createdAt: "desc" },
@@ -116,25 +117,58 @@ export async function GET() {
       };
     });
 
-    // Buscar pagamentos associados aos agendamentos
-    const agendamentosComPagamento = await Promise.all(
-      agendamentos.map(async (agendamento) => {
-        const pagamento = await prisma.payment.findFirst({
-          where: { appointmentId: agendamento.id },
-        });
-
-        return {
-          ...agendamento,
-          pagamento: pagamento ? {
-            id: pagamento.id,
-            amount: pagamento.amount,
-            status: pagamento.status,
-            paymentMethod: pagamento.paymentMethod,
-            createdAt: pagamento.createdAt,
-          } : null,
-        };
-      })
+    // Buscar pagamentos associados aos agendamentos (inclui carrinho: payment.appointmentId ou payment.appointmentIds)
+    const pagamentosUsuario = await prisma.payment.findMany({
+      where: { userId: user.id, type: "agendamento", status: "approved" },
+      orderBy: { createdAt: "desc" },
+    });
+    const refundCouponIds = agendamentos.map((a) => a.refundCouponId).filter(Boolean) as string[];
+    const refundCouponsMap = new Map<string, { code: string }>();
+    if (refundCouponIds.length > 0) {
+      const refundCoupons = await prisma.coupon.findMany({
+        where: { id: { in: refundCouponIds } },
+        select: { id: true, code: true },
+      });
+      refundCoupons.forEach((c) => refundCouponsMap.set(c.id, { code: c.code }));
+    }
+    // Cupons de plano vinculados a agendamentos (para saber se o agendamento foi feito com cupom do plano)
+    const cuponsPlanoPorAgendamento = await prisma.coupon.findMany({
+      where: {
+        appointmentId: { in: agendamentosIds.length > 0 ? agendamentosIds : [-1] },
+        userPlanId: { not: null },
+      },
+      select: { appointmentId: true },
+    });
+    const agendamentosIdsComCupomPlano = new Set(
+      cuponsPlanoPorAgendamento.map((c) => c.appointmentId).filter((id): id is number => id != null)
     );
+    const agendamentosComPagamento = agendamentos.map((agendamento) => {
+      let pagamento = pagamentosUsuario.find((p) => p.appointmentId === agendamento.id);
+      if (!pagamento && agendamento.id != null) {
+        pagamento = pagamentosUsuario.find((p) => {
+          if (p.appointmentIds == null) return false;
+          const ids = Array.isArray(p.appointmentIds) ? p.appointmentIds : (typeof p.appointmentIds === "string" ? JSON.parse(p.appointmentIds) : []);
+          return Array.isArray(ids) && ids.includes(agendamento.id);
+        }) ?? undefined;
+      }
+      const cancelCouponCode = agendamento.refundCouponId ? refundCouponsMap.get(agendamento.refundCouponId)?.code : null;
+      // Cupom de plano: cupom ainda vinculado OU cancelado sem pagamento (cupom foi liberado ao cancelar)
+      const foiComCupomPlano =
+        agendamentosIdsComCupomPlano.has(agendamento.id) ||
+        (agendamento.status === "cancelado" && !pagamento);
+      return {
+        ...agendamento,
+        pagamento: pagamento ? {
+          id: pagamento.id,
+          amount: pagamento.amount,
+          status: pagamento.status,
+          paymentMethod: pagamento.paymentMethod,
+          createdAt: pagamento.createdAt,
+        } : null,
+        cancelCouponCode: cancelCouponCode ?? undefined,
+        foiComCupomPlano: !!foiComCupomPlano,
+      };
+    });
 
     // Buscar perguntas do FAQ do usuário
     // Buscar por userId OU userEmail (pode ter sido enviado sem estar logado ou com email diferente)
@@ -211,6 +245,28 @@ export async function GET() {
       console.log(`[API /meus-dados] DEBUG - Buscando por userId=${user.id}, userEmail=${user.email}`);
     }
 
+    // Verificar quais planos têm pagamento com Asaas (podem solicitar reembolso) — janela 48h como na API de reembolso (inclui plano teste)
+    const planosComPagamentoAsaas = await prisma.payment.findMany({
+      where: {
+        userId: user.id,
+        type: "plano",
+        status: "approved",
+        asaasId: { not: null },
+      },
+      select: { createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const janelaMs = 48 * 60 * 60 * 1000;
+    const planosIdsComReembolsoDisponivel = new Set<string>();
+    for (const plano of planos) {
+      const planCreated = new Date(plano.createdAt).getTime();
+      const temPayment = planosComPagamentoAsaas.some((p) => {
+        const payCreated = new Date(p.createdAt).getTime();
+        return Math.abs(payCreated - planCreated) <= janelaMs;
+      });
+      if (temPayment) planosIdsComReembolsoDisponivel.add(plano.id);
+    }
+
     // Serializar planos e buscar readAt
     const planosFormatados = await Promise.all(
       planos.map(async (plano) => {
@@ -246,6 +302,11 @@ export async function GET() {
           ativo: plano.status === "active" && (!plano.endDate || new Date(plano.endDate) > new Date()),
           expiraEm: plano.endDate instanceof Date ? plano.endDate.toISOString() : plano.endDate,
           readAt: readAt,
+          refundProcessedAt: (() => {
+            const r = (plano as { refundProcessedAt?: Date | null }).refundProcessedAt;
+            return r instanceof Date ? r.toISOString() : r ?? null;
+          })(),
+          podeSolicitarReembolso: planosIdsComReembolsoDisponivel.has(plano.id),
         };
       })
     );

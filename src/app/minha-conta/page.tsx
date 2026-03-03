@@ -18,6 +18,8 @@ interface Agendamento {
     paymentMethod: string | null;
     createdAt: string;
   } | null;
+  /** true quando o agendamento foi feito com cupom de plano (ao cancelar, só oferece cupom para remarcar) */
+  foiComCupomPlano?: boolean;
 }
 
 interface Plano {
@@ -31,6 +33,10 @@ interface Plano {
   endDate: string | null;
   ativo: boolean;
   expiraEm: string | null;
+  /** Preenchido quando o usuário já solicitou reembolso do plano cancelado */
+  refundProcessedAt?: string | null;
+  /** false para plano de teste ou sem pagamento Asaas: não mostra "Solicitar reembolso" */
+  podeSolicitarReembolso?: boolean;
 }
 
 interface Cupom {
@@ -78,6 +84,8 @@ export default function MinhaContaPage() {
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [cupons, setCupons] = useState<Cupom[]>([]);
   const [faqQuestions, setFaqQuestions] = useState<FAQQuestion[]>([]);
+  const [processandoPlano, setProcessandoPlano] = useState(false);
+  const [erroProcessarPlano, setErroProcessarPlano] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -248,10 +256,10 @@ export default function MinhaContaPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-zinc-100 mb-2">Minha Conta</h1>
-            <p className="text-zinc-400">Gerencie seus agendamentos, planos e cupons</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 mb-2">Minha Conta</h1>
+            <p className="text-zinc-400 text-sm sm:text-base">Gerencie seus agendamentos, planos e cupons</p>
           </div>
           <button
             onClick={() => {
@@ -272,7 +280,41 @@ export default function MinhaContaPage() {
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
           <h2 className="text-xl font-bold text-zinc-100 mb-4">📦 Meus Planos</h2>
           {planos.length === 0 ? (
-            <p className="text-zinc-400">Você não possui planos ativos.</p>
+            <div className="space-y-3">
+              <p className="text-zinc-400">Você não possui planos. Assine um plano na página Planos ou faça um pagamento teste.</p>
+              <div className="p-4 rounded-lg border border-amber-500/40 bg-amber-500/10">
+                <p className="text-amber-200 text-sm mb-2">Já pagou um plano (incl. plano teste) e não aparece aqui?</p>
+                <button
+                  type="button"
+                  disabled={processandoPlano}
+                  onClick={async () => {
+                    setErroProcessarPlano(null);
+                    setProcessandoPlano(true);
+                    try {
+                      const res = await fetch("/api/pagamentos/processar-plano-apos-pagamento", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        await carregarDados();
+                      } else {
+                        setErroProcessarPlano(data.message || data.error || "Nenhum pagamento de plano pendente para processar.");
+                      }
+                    } catch (e: any) {
+                      setErroProcessarPlano(e.message || "Erro ao processar. Tente de novo.");
+                    } finally {
+                      setProcessandoPlano(false);
+                    }
+                  }}
+                  className="rounded-lg px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium text-sm"
+                >
+                  {processandoPlano ? "Processando..." : "Gerar meu plano e cupons a partir do pagamento"}
+                </button>
+                {erroProcessarPlano && <p className="text-red-400 text-sm mt-2">{erroProcessarPlano}</p>}
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {planos.map((plano) => (
@@ -282,7 +324,7 @@ export default function MinhaContaPage() {
                     plano.ativo ? "border-green-500/50 bg-green-500/10" : "border-zinc-600 bg-zinc-900/50"
                   }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-zinc-100">{plano.planName}</h3>
                       <p className="text-sm text-zinc-400">
@@ -297,43 +339,22 @@ export default function MinhaContaPage() {
                         </p>
                       )}
                     </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:ml-4">
                     {plano.ativo && (
                       <button
                         onClick={async () => {
-                          if (!confirm("Tem certeza que deseja cancelar este plano? Os cupons de serviços não utilizados serão removidos.")) {
+                          if (!confirm("Tem certeza que deseja cancelar este plano? Os cupons vinculados a este plano deixarão de ser visíveis e utilizáveis na sua conta.")) {
                             return;
                           }
-                          
-                          // Perguntar tipo de reembolso
-                          const refundChoice = confirm(
-                            "Escolha o tipo de reembolso:\n\n" +
-                            "OK = Reembolso direto na conta bancária (via Asaas)\n" +
-                            "Cancelar = Cupom de reembolso para usar em futuros agendamentos"
-                          );
-                          
-                          const refundType = refundChoice ? "direct" : "coupon";
-                          
                           try {
                             const res = await fetch("/api/planos/cancelar", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ 
-                                userPlanId: plano.id,
-                                refundType: refundType,
-                              }),
+                              body: JSON.stringify({ userPlanId: plano.id }),
                             });
-
                             const data = await res.json();
-
                             if (res.ok) {
-                              let message = "Seu plano foi cancelado com sucesso!";
-                              if (data.refundType === "direct") {
-                                message += `\n\nReembolso direto de R$ ${data.refundAmount?.toFixed(2).replace(".", ",") || "0,00"} será processado em até 5 dias úteis na sua conta bancária.`;
-                              } else if (data.couponCode) {
-                                message += `\n\nCupom de reembolso: ${data.couponCode}\nValor: R$ ${data.refundAmount?.toFixed(2).replace(".", ",") || "0,00"}`;
-                              }
-                              alert(message);
-                              // Recarregar dados sem recarregar a página
+                              alert("Seu plano foi cancelado com sucesso.");
                               await carregarDados();
                             } else {
                               alert(data.error || "Erro ao cancelar plano");
@@ -342,11 +363,72 @@ export default function MinhaContaPage() {
                             alert("Erro ao cancelar plano");
                           }
                         }}
-                        className="ml-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
                       >
                         Cancelar Plano
                       </button>
                     )}
+                    {!plano.ativo && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!plano.refundProcessedAt && plano.podeSolicitarReembolso !== false ? (
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Solicitar reembolso do plano? O valor será proporcional aos cupons que ainda não foram utilizados (cupons já usados não são reembolsáveis). O valor será creditado em até 5 dias úteis na conta vinculada ao pagamento.")) return;
+                              try {
+                                const res = await fetch("/api/planos/solicitar-reembolso", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ userPlanId: plano.id }),
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  alert(`Reembolso solicitado com sucesso!\n\nValor: R$ ${(data.refundAmount ?? 0).toFixed(2).replace(".", ",")}\nO valor será creditado em até 5 dias úteis.`);
+                                  await carregarDados();
+                                } else {
+                                  alert(data.error || "Erro ao solicitar reembolso.");
+                                }
+                              } catch (e) {
+                                console.error(e);
+                                alert("Erro ao solicitar reembolso.");
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                          >
+                            Solicitar reembolso do plano
+                          </button>
+                        ) : !plano.refundProcessedAt && plano.podeSolicitarReembolso === false ? (
+                          <span className="text-xs text-zinc-500">Reembolso automático não disponível para este plano (ex.: plano de teste).</span>
+                        ) : null}
+                        {plano.refundProcessedAt ? (
+                          <span className="text-sm text-blue-300">
+                            Reembolso solicitado em {new Date(plano.refundProcessedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })}. Valor será creditado em até 5 dias úteis.
+                          </span>
+                        ) : null}
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Excluir este plano inativo da sua lista? Os cupons vinculados a ele também serão removidos.")) return;
+                            try {
+                              const res = await fetch(`/api/planos/excluir?userPlanId=${encodeURIComponent(plano.id)}`, { method: "DELETE" });
+                              const data = await res.json();
+                              if (res.ok) {
+                                await carregarDados();
+                                window.dispatchEvent(new CustomEvent("appointment-updated"));
+                              } else {
+                                alert(data.error || "Erro ao excluir plano.");
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              alert("Erro ao excluir plano.");
+                            }
+                          }}
+                          className="px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                          title="Remover da lista para poder testar novamente"
+                        >
+                          Excluir da lista
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   </div>
                 </div>
               ))}
@@ -439,6 +521,31 @@ export default function MinhaContaPage() {
                         <p className="text-xs text-green-400 mt-2">
                           💡 Este cupom zera o valor do serviço específico. Agende quando quiser!
                         </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm("Excluir este cupom da sua lista? Você não poderá usá-lo depois.")) return;
+                            try {
+                              const res = await fetch("/api/cupons/renunciar", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ couponId: cupom.id }),
+                              });
+                              const data = await res.json();
+                              if (res.ok) {
+                                await carregarDados();
+                              } else {
+                                alert(data.error || "Erro ao excluir cupom.");
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              alert("Erro ao excluir cupom.");
+                            }
+                          }}
+                          className="mt-3 w-full py-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-zinc-600 rounded hover:bg-zinc-700/50 transition-colors"
+                        >
+                          Excluir da minha lista
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -653,10 +760,10 @@ export default function MinhaContaPage() {
                   key={agendamento.id}
                   className="rounded-lg border border-zinc-600 bg-zinc-900/50 p-4"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(agendamento.status)}`}></div>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(agendamento.status)}`}></div>
                         <h3 className="text-lg font-bold text-zinc-100">{agendamento.tipo}</h3>
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
                           agendamento.status === "pendente"
@@ -693,13 +800,129 @@ export default function MinhaContaPage() {
                             </div>
                           </div>
                         )}
+                        {/* Cancelado pelo admin: justificativa e opção reembolso/cupom */}
+                        {agendamento.status === "cancelado" && (
+                          <div className="mt-3 pt-3 border-t border-zinc-700">
+                            {agendamento.cancelReason && (
+                              <div className="mb-2">
+                                <strong className="text-zinc-300">Justificativa do cancelamento:</strong>
+                                <p className="text-zinc-400 text-sm mt-1">{agendamento.cancelReason}</p>
+                              </div>
+                            )}
+                            {!agendamento.cancelRefundOption && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {agendamento.foiComCupomPlano ? (
+                                  <>
+                                    <span className="text-zinc-400 text-sm w-full">
+                                      Este agendamento foi feito com cupom do plano. Gere um novo cupom para remarcar sua sessão.
+                                    </span>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const res = await fetch("/api/agendamentos/escolher-reembolso", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ appointmentId: agendamento.id, opcao: "cupom" }),
+                                          });
+                                          const data = await res.json();
+                                          if (res.ok) {
+                                            alert(`Cupom gerado: ${data.couponCode}\nUse ao remarcar seu serviço (mesmo tipo do cupom do plano).`);
+                                            await carregarDados();
+                                            window.dispatchEvent(new CustomEvent("appointment-updated"));
+                                          } else alert(data.error || "Erro ao gerar cupom.");
+                                        } catch (e) {
+                                          console.error(e);
+                                          alert("Erro ao gerar cupom.");
+                                        }
+                                      }}
+                                      className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-lg"
+                                    >
+                                      Cupom para remarcar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-zinc-400 text-sm w-full">Escolha como deseja ser reembolsado:</span>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const res = await fetch("/api/agendamentos/escolher-reembolso", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ appointmentId: agendamento.id, opcao: "reembolso" }),
+                                          });
+                                          const data = await res.json();
+                                          if (res.ok) {
+                                            alert(`Reembolso direto solicitado. Valor será processado em até 5 dias úteis na sua conta.`);
+                                            await carregarDados();
+                                            window.dispatchEvent(new CustomEvent("appointment-updated"));
+                                          } else alert(data.error || "Erro ao solicitar reembolso.");
+                                        } catch (e) {
+                                          console.error(e);
+                                          alert("Erro ao solicitar reembolso.");
+                                        }
+                                      }}
+                                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg"
+                                    >
+                                      Reembolso direto (Asaas)
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const res = await fetch("/api/agendamentos/escolher-reembolso", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ appointmentId: agendamento.id, opcao: "cupom" }),
+                                          });
+                                          const data = await res.json();
+                                          if (res.ok) {
+                                            alert(`Cupom gerado: ${data.couponCode}\nUse ao remarcar seu serviço.`);
+                                            await carregarDados();
+                                            window.dispatchEvent(new CustomEvent("appointment-updated"));
+                                          } else alert(data.error || "Erro ao gerar cupom.");
+                                        } catch (e) {
+                                          console.error(e);
+                                          alert("Erro ao gerar cupom.");
+                                        }
+                                      }}
+                                      className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-lg"
+                                    >
+                                      Cupom para remarcar
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            {agendamento.cancelRefundOption === "reembolso" && (
+                              <p className="text-sm text-blue-300 mt-1">
+                                Reembolso direto solicitado em {agendamento.refundProcessedAt ? new Date(agendamento.refundProcessedAt).toLocaleString("pt-BR") : ""}. O valor será creditado na sua conta em até 5 dias úteis.
+                              </p>
+                            )}
+                            {agendamento.cancelRefundOption === "cupom" && agendamento.cancelCouponCode && (
+                              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                <span className="text-sm text-amber-300">Cupom gerado:</span>
+                                <code className="px-2 py-1 bg-zinc-800 rounded text-amber-200 font-mono">{agendamento.cancelCouponCode}</code>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(agendamento.cancelCouponCode || "");
+                                    alert("Cupom copiado!");
+                                  }}
+                                  className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded"
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {/* Botão de cancelamento para agendamentos confirmados e pagos */}
                     {(agendamento.status === "aceito" || agendamento.status === "confirmado") && 
                      agendamento.pagamento && 
                      agendamento.pagamento.status === "approved" && (
-                      <div className="ml-4">
+                      <div className="sm:ml-4 flex-shrink-0">
                         <button
                           onClick={async () => {
                             if (!confirm("Tem certeza que deseja cancelar este agendamento? O horário ficará disponível novamente.")) {

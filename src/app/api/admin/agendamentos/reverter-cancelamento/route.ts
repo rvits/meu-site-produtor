@@ -59,12 +59,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Reverter cancelamento: voltar para status "aceito"
-    // O horário será reservado novamente porque o status volta a ser "aceito"
+    // Reverter cancelamento: voltar para status "aceito" e limpar campos de cancelamento
     await prisma.appointment.update({
       where: { id: parseInt(id) },
       data: {
         status: "aceito",
+        cancelReason: null,
+        cancelledAt: null,
+        cancelRefundOption: null,
+        refundProcessedAt: null,
+        refundCouponId: null,
       },
     });
 

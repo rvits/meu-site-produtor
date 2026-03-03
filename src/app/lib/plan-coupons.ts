@@ -19,10 +19,13 @@ export async function generatePlanServiceCoupons(
   // - Ouro: 2 sessão, 4x 1h captação, 2 mix_master, 2 beat, 1 cupom 10% serviços, 1 cupom 10% beats
   // percent_servicos: 10% só em serviços avulsos (NÃO em beats)
   // percent_beats: 10% só em beats (NÃO em outros serviços)
+  // Plano teste usa os mesmos cupons do plano bronze para testes
   const planServices: Record<string, Array<{ type: string; quantity: number; discountType?: string; discountValue?: number }>> = {
     teste: [
-      { type: "captacao", quantity: 1 },
+      { type: "sessao", quantity: 1 },
+      { type: "captacao", quantity: 2 },
       { type: "mix", quantity: 1 },
+      { type: "percent_servicos", quantity: 1, discountType: "percent", discountValue: 10 },
     ],
     bronze: [
       { type: "sessao", quantity: 1 },

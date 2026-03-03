@@ -43,6 +43,7 @@ export default function AdminPagamentosPage() {
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [pagamentoExpandido, setPagamentoExpandido] = useState<string | null>(null);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarPagamentos();
@@ -107,6 +108,29 @@ export default function AdminPagamentosPage() {
     if (!telefone) return "-";
     return telefone;
   };
+
+  async function excluirPagamento(id: string) {
+    if (!confirm("Excluir este pagamento aprovado do banco de dados? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+    try {
+      setExcluindoId(id);
+      const res = await fetch(`/api/admin/pagamentos?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await carregarPagamentos();
+      } else {
+        alert(data.error || "Erro ao excluir pagamento.");
+      }
+    } catch (err) {
+      console.error("Erro ao excluir pagamento", err);
+      alert("Erro ao excluir pagamento.");
+    } finally {
+      setExcluindoId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -198,9 +222,27 @@ export default function AdminPagamentosPage() {
                         </p>
                       </div>
 
-                      <button className="text-zinc-400 hover:text-zinc-200 transition-colors">
-                        {isExpandido ? "▼" : "▶"}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {p.status === "approved" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              excluirPagamento(p.id);
+                            }}
+                            disabled={excluindoId === p.id}
+                            className="text-xs bg-red-600/80 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors disabled:opacity-50"
+                          >
+                            {excluindoId === p.id ? "Excluindo..." : "Excluir"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                        >
+                          {isExpandido ? "▼" : "▶"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

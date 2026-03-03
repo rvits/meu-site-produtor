@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tipo, data, hora, observacoes, duracaoMinutos } = body; // "plano" ou "agendamento"
+    const { tipo, data, hora, observacoes, duracaoMinutos, servicos, beats } = body; // "plano" ou "agendamento"
 
     let metadata: any = {
       tipo: tipo || "teste",
@@ -117,7 +117,12 @@ export async function POST(req: Request) {
       metadata.duracaoMinutos = duracao.toString();
       metadata.tipoAgendamento = "sessao";
       metadata.observacoes = observacoes || "Agendamento de teste - Pagamento R$ 5,00";
-      
+      if (servicos && Array.isArray(servicos) && servicos.length > 0) {
+        metadata.servicos = JSON.stringify(servicos);
+      }
+      if (beats && Array.isArray(beats) && beats.length > 0) {
+        metadata.beats = JSON.stringify(beats);
+      }
       console.log("[Test Payment] Agendamento temporário criado:", agendamentoTemp.id);
     }
 

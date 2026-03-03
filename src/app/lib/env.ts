@@ -8,6 +8,18 @@ let asaasApiKeyCache: string | undefined = undefined;
 /**
  * Lê o arquivo .env diretamente para evitar problemas com Next.js interpretando $ como variável
  */
+function parseEnvContent(content: string): string | undefined {
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    if (line.trim().startsWith('ASAAS_API_KEY=')) {
+      const value = line.split('=').slice(1).join('='); // Juntar caso tenha = no token
+      const trimmed = value.replace(/^["']|["']$/g, '').trim();
+      return trimmed || undefined;
+    }
+  }
+  return undefined;
+}
+
 function readEnvFile(): string | undefined {
   if (typeof window !== 'undefined') return undefined; // Não funciona no cliente
   
@@ -15,27 +27,20 @@ function readEnvFile(): string | undefined {
     const fs = require('fs');
     const path = require('path');
     
-    // Tentar .env.local primeiro (prioridade do Next.js)
     const envLocalPath = path.join(process.cwd(), '.env.local');
     const envPath = path.join(process.cwd(), '.env');
     
-    let content = '';
+    // Prioridade: .env.local primeiro, depois .env (igual ao Next.js)
+    // Se a chave existir em .env.local, usa; senão busca em .env
     if (fs.existsSync(envLocalPath)) {
-      content = fs.readFileSync(envLocalPath, 'utf8');
-    } else if (fs.existsSync(envPath)) {
-      content = fs.readFileSync(envPath, 'utf8');
-    } else {
-      return undefined;
+      const localContent = fs.readFileSync(envLocalPath, 'utf8');
+      const key = parseEnvContent(localContent);
+      if (key) return key;
     }
-    
-    // Procurar por ASAAS_API_KEY no conteúdo
-    const lines = content.split(/\r?\n/);
-    for (const line of lines) {
-      if (line.trim().startsWith('ASAAS_API_KEY=')) {
-        const value = line.split('=').slice(1).join('='); // Juntar caso tenha = no token
-        // Remover aspas se presentes
-        return value.replace(/^["']|["']$/g, '').trim() || undefined;
-      }
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const key = parseEnvContent(envContent);
+      if (key) return key;
     }
   } catch (error) {
     console.warn('[env.ts] Erro ao ler arquivo .env:', error);

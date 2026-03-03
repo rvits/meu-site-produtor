@@ -34,50 +34,50 @@ export async function GET() {
       },
     });
 
-    // Buscar pagamentos confirmados e cupons para cada agendamento
-    const agendamentosComPagamento = await Promise.all(
-      agendamentos.map(async (agendamento) => {
-        // Buscar pagamento confirmado associado a este agendamento
-        const pagamento = await prisma.payment.findFirst({
-          where: {
-            OR: [
-              { appointmentId: agendamento.id }, // Pagamento associado diretamente
-              {
-                // Fallback: buscar por userId, tipo e status (para agendamentos antigos sem appointmentId)
-                userId: agendamento.userId,
-                type: "agendamento",
-                status: "approved",
-                asaasId: { not: null }, // Deve ter sido confirmado pelo webhook
-              },
-            ],
-          },
-          orderBy: { createdAt: "desc" }, // Pegar o mais recente
-        });
+    // Buscar todos os pagamentos de agendamento aprovados (para associar inclusive carrinho com appointmentIds)
+    const pagamentosAgendamento = await prisma.payment.findMany({
+      where: { type: "agendamento", status: "approved", asaasId: { not: null } },
+      orderBy: { createdAt: "desc" },
+    });
 
-        // Buscar cupom associado a este agendamento
-        const cupom = await prisma.coupon.findFirst({
-          where: { appointmentId: agendamento.id },
-        });
-
-        return {
-          ...agendamento,
-          pagamentoConfirmado: pagamento ? {
-            id: pagamento.id,
-            amount: pagamento.amount,
-            status: pagamento.status,
-            paymentMethod: pagamento.paymentMethod,
-            asaasId: pagamento.asaasId,
-            createdAt: pagamento.createdAt,
-          } : null,
-          cupomAssociado: cupom ? {
-            code: cupom.code,
-            serviceType: cupom.serviceType,
-            discountType: cupom.discountType,
-            used: cupom.used,
-          } : null,
-        };
-      })
+    // Buscar cupons por agendamento
+    const cuponsPorAgendamento = await Promise.all(
+      agendamentos.map((a) =>
+        prisma.coupon.findFirst({ where: { appointmentId: a.id } })
+      )
     );
+    const cuponsMap = new Map(agendamentos.map((a, i) => [a.id, cuponsPorAgendamento[i]]));
+
+    const agendamentosComPagamento = agendamentos.map((agendamento) => {
+      let pagamento = pagamentosAgendamento.find((p) => p.appointmentId === agendamento.id);
+      if (!pagamento && agendamento.userId) {
+        pagamento = pagamentosAgendamento.find((p) => {
+          if (p.userId !== agendamento.userId) return false;
+          if (p.appointmentId === agendamento.id) return true;
+          if (p.appointmentIds == null) return false;
+          const ids = Array.isArray(p.appointmentIds) ? p.appointmentIds : (typeof p.appointmentIds === "string" ? JSON.parse(p.appointmentIds) : []);
+          return Array.isArray(ids) && ids.includes(agendamento.id);
+        }) ?? null;
+      }
+      const cupom = cuponsMap.get(agendamento.id) ?? null;
+      return {
+        ...agendamento,
+        pagamentoConfirmado: pagamento ? {
+          id: pagamento.id,
+          amount: pagamento.amount,
+          status: pagamento.status,
+          paymentMethod: pagamento.paymentMethod,
+          asaasId: pagamento.asaasId,
+          createdAt: pagamento.createdAt,
+        } : null,
+        cupomAssociado: cupom ? {
+          code: cupom.code,
+          serviceType: cupom.serviceType,
+          discountType: cupom.discountType,
+          used: cupom.used,
+        } : null,
+      };
+    });
 
     return NextResponse.json({ agendamentos: agendamentosComPagamento });
   } catch (err: any) {
@@ -158,6 +158,12 @@ export async function PATCH(req: Request) {
 
       // Se foi aceito ou confirmado
       if ((statusNovo === "aceito" || statusNovo === "confirmado") && statusAnterior !== statusNovo) {
+        // Atualizar serviços vinculados ao agendamento para "aceito" (Serviços gerais)
+        await prisma.service.updateMany({
+          where: { appointmentId: parseInt(id) },
+          data: { status: "aceito", acceptedAt: new Date() },
+        });
+
         // Marcar cupom como usado se houver cupom associado ao agendamento
         const cupomAssociado = await prisma.coupon.findFirst({
           where: { appointmentId: parseInt(id) },
@@ -186,6 +192,12 @@ export async function PATCH(req: Request) {
 
       // Se foi recusado
       if (statusNovo === "recusado" && statusAnterior !== statusNovo) {
+        // Atualizar serviços vinculados ao agendamento para "recusado" (Serviços gerais)
+        await prisma.service.updateMany({
+          where: { appointmentId: parseInt(id) },
+          data: { status: "recusado" },
+        });
+
         // Liberar cupom se houver cupom associado (desfazer associação)
         const cupomAssociado = await prisma.coupon.findFirst({
           where: { appointmentId: parseInt(id) },

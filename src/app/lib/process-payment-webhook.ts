@@ -48,29 +48,30 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
           },
         });
 
-        if (existingPayment) {
-          console.log("[Process Payment Webhook] Pagamento já processado:", paymentId);
-          return { received: true, alreadyProcessed: true };
-        }
-
-        // Determinar tipo de pagamento pela descrição
         const isPlano = payment.description?.includes("Plano") || payment.description?.includes("plano");
         const isAgendamento = payment.description?.includes("Agendamento") || payment.description?.includes("agendamento");
 
-        // Criar registro de pagamento
-        const newPayment = await prisma.payment.create({
-          data: {
-            userId: userId,
-            amount: value,
-            status: "approved",
-            type: isPlano ? "plano" : (isAgendamento ? "agendamento" : "outro"),
-            currency: "BRL",
-            asaasId: paymentId,
-            planId: isPlano ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
-          },
-        });
-
-        console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", newPayment.id);
+        let newPayment: { id: string; userId: string; type: string } | null = null;
+        if (existingPayment) {
+          console.log("[Process Payment Webhook] Pagamento já no banco:", paymentId, "- verificando se plano/cupons existem");
+          newPayment = { id: existingPayment.id, userId: existingPayment.userId, type: existingPayment.type };
+          userId = existingPayment.userId;
+        } else {
+          // Criar registro de pagamento
+          const created = await prisma.payment.create({
+            data: {
+              userId: userId,
+              amount: value,
+              status: "approved",
+              type: isPlano ? "plano" : (isAgendamento ? "agendamento" : "outro"),
+              currency: "BRL",
+              asaasId: paymentId,
+              planId: isPlano ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
+            },
+          });
+          newPayment = { id: created.id, userId: created.userId, type: created.type };
+          console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", newPayment.id);
+        }
 
         // Buscar metadata
         let metadata: Record<string, any> = {};
@@ -285,7 +286,12 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
               }
 
               console.log(`[Process Payment Webhook] ✅✅✅ PLANO CRIADO COM SUCESSO ✅✅✅`);
-              return { received: true, success: true, userPlanId: userPlan.id };
+              return {
+                received: true,
+                success: true,
+                userPlanId: userPlan.id,
+                userPlan: { id: userPlan.id, planId: userPlan.planId, planName: userPlan.planName, status: userPlan.status },
+              };
             } else {
               console.error("[Process Payment Webhook] ❌ FALHA AO CRIAR PLANO - DADOS INCOMPLETOS");
               console.error("[Process Payment Webhook] planId:", planId);

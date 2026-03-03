@@ -253,6 +253,30 @@ export async function POST(req: Request) {
       },
     });
 
+    // Criar registros de serviços solicitados vinculados ao agendamento (admin: Serviços selecionados / Serviços gerais)
+    if (Array.isArray(servicos) && servicos.length > 0) {
+      for (const svc of servicos) {
+        const tipo = svc.id || "sessao";
+        const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
+        for (let q = 0; q < (svc.quantidade || 1); q++) {
+          try {
+            await prisma.service.create({
+              data: {
+                userId: user.id,
+                appointmentId: appointment.id,
+                tipo,
+                description: desc,
+                status: "pendente",
+              },
+            });
+          } catch (serviceErr: any) {
+            console.error("[API Agendamento com Cupom] Erro ao criar Service (não crítico):", serviceErr);
+          }
+        }
+      }
+      console.log("[API Agendamento com Cupom] Serviços solicitados criados para agendamento:", appointment.id);
+    }
+
     // Enviar email de notificação para o admin
     try {
       const { sendPaymentNotificationToTHouse } = await import("@/app/lib/sendEmail");

@@ -15,6 +15,7 @@ export async function GET() {
             planId: true,
             planName: true,
             endDate: true,
+            status: true,
             userId: true,
             user: {
               select: {
@@ -108,5 +109,30 @@ export async function GET() {
     console.error("[Admin Cupons] Erro:", err);
     console.error("[Admin Cupons] Stack:", err.stack);
     return NextResponse.json({ error: "Erro ao buscar cupons" }, { status: 500 });
+  }
+}
+
+/**
+ * Exclui um cupom do banco (admin). Útil para cupons órfãos ou incorretos.
+ */
+export async function DELETE(req: Request) {
+  try {
+    await requireAdmin();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "ID do cupom é obrigatório" }, { status: 400 });
+    }
+    await prisma.coupon.delete({ where: { id } });
+    return NextResponse.json({ success: true, message: "Cupom excluído do banco." });
+  } catch (err: any) {
+    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+    console.error("[Admin Cupons] Erro ao excluir:", err);
+    return NextResponse.json(
+      { error: err.message || "Erro ao excluir cupom." },
+      { status: 500 }
+    );
   }
 }

@@ -205,19 +205,24 @@ export async function POST(req: Request) {
           try {
             console.log("[Asaas Webhook] Buscando PaymentMetadata para userId:", userId);
             
-            // Primeiro tentar buscar metadata não expirado e sem asaasId (não processado ainda)
+            // Buscar metadata: preferir não processado (asaasId null); senão qualquer um recente para não perder vínculo
             let paymentMetadata = await prisma.paymentMetadata.findFirst({
               where: {
                 userId: userId,
-                expiresAt: { gt: new Date() },
                 OR: [
                   { asaasId: null },
-                  { asaasId: paymentId }, // Também aceitar se já foi associado a este pagamento
+                  { asaasId: paymentId },
                 ],
               },
               orderBy: { createdAt: 'desc' },
             });
-            
+            if (!paymentMetadata) {
+              paymentMetadata = await prisma.paymentMetadata.findFirst({
+                where: { userId: userId, expiresAt: { gt: new Date() } },
+                orderBy: { createdAt: 'desc' },
+              });
+            }
+
             // Se não encontrou, buscar qualquer metadata recente (últimas 48 horas)
             if (!paymentMetadata) {
               const twoDaysAgo = new Date();
@@ -681,11 +686,11 @@ export async function POST(req: Request) {
             }
           }
 
-          // Associar pagamento ao agendamento para prevenir fraudes
+          // Associar pagamento ao agendamento e garantir type "agendamento" (para reembolso/cupom)
           if (agendamentoFinalId) {
             await prisma.payment.update({
               where: { id: newPayment.id },
-              data: { appointmentId: agendamentoFinalId },
+              data: { appointmentId: agendamentoFinalId, type: "agendamento" },
             });
             console.log("[Asaas Webhook] Pagamento associado ao agendamento:", agendamentoFinalId);
 
@@ -697,8 +702,32 @@ export async function POST(req: Request) {
               });
 
               if (appointment) {
-                const services = metadata.servicos ? JSON.parse(metadata.servicos) : [];
-                const beats = metadata.beats ? JSON.parse(metadata.beats) : [];
+                const services = metadata.servicos ? (typeof metadata.servicos === "string" ? JSON.parse(metadata.servicos) : metadata.servicos) : [];
+                const beats = metadata.beats ? (typeof metadata.beats === "string" ? JSON.parse(metadata.beats) : metadata.beats) : [];
+
+                // Criar registros em Service (serviços solicitados) para o admin, vinculados ao agendamento
+                if (Array.isArray(services) && services.length > 0) {
+                  for (const svc of services) {
+                    const tipo = svc.id || svc.nome || "sessao";
+                    const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
+                    for (let q = 0; q < (svc.quantidade || 1); q++) {
+                      try {
+                        await prisma.service.create({
+                          data: {
+                            userId: appointment.userId,
+                            appointmentId: agendamentoFinalId,
+                            tipo,
+                            description: desc,
+                            status: "pendente",
+                          },
+                        });
+                      } catch (serviceErr: any) {
+                        console.error("[Asaas Webhook] Erro ao criar Service (não crítico):", serviceErr);
+                      }
+                    }
+                  }
+                  console.log("[Asaas Webhook] Serviços solicitados criados para agendamento:", agendamentoFinalId);
+                }
 
                 // Email para usuário
                 await sendPaymentConfirmationEmailToUser(
@@ -728,6 +757,90 @@ export async function POST(req: Request) {
             } catch (emailError: any) {
               console.error("[Asaas Webhook] Erro ao enviar emails (não crítico):", emailError);
               // Não falhar o webhook por erro de email
+            }
+          }
+        } else if (tipo === "carrinho") {
+          // Carrinho: múltiplos agendamentos em um único pagamento
+          let items: Array<{ data: string; hora: string; duracaoMinutos?: number; tipo?: string; observacoes?: string }> = [];
+          try {
+            const raw = metadata.items;
+            if (typeof raw === "string") items = JSON.parse(raw);
+            else if (Array.isArray(raw)) items = raw;
+          } catch (e) {
+            console.error("[Asaas Webhook] Erro ao parsear items do carrinho:", e);
+          }
+          const appointmentIds: number[] = [];
+          for (const item of items) {
+            const data = item.data;
+            const hora = item.hora;
+            if (!data || !hora) continue;
+            const duracaoMinutos = item.duracaoMinutos ?? 60;
+            const tipoAgendamento = item.tipo || "sessao";
+            const observacoes = item.observacoes || null;
+            const dataHoraISO = new Date(`${data}T${hora}:00`);
+            const conflito = await prisma.appointment.findFirst({
+              where: {
+                status: { not: "cancelado" },
+                AND: [
+                  { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
+                  { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },
+                ],
+              },
+            });
+            if (!conflito) {
+              const novoAgendamento = await prisma.appointment.create({
+                data: {
+                  userId,
+                  data: dataHoraISO,
+                  duracaoMinutos,
+                  tipo: tipoAgendamento,
+                  observacoes,
+                  status: "pendente",
+                },
+              });
+              appointmentIds.push(novoAgendamento.id);
+              console.log("[Asaas Webhook] Carrinho: agendamento criado:", novoAgendamento.id);
+            }
+          }
+          const firstId = appointmentIds[0] ?? null;
+          if (firstId !== null) {
+            await prisma.payment.update({
+              where: { id: newPayment.id },
+              data: {
+                type: "agendamento",
+                appointmentId: firstId,
+                appointmentIds: appointmentIds.length > 1 ? appointmentIds : undefined,
+              },
+            });
+            console.log("[Asaas Webhook] Carrinho: pagamento associado a", appointmentIds.length, "agendamento(s)");
+            try {
+              const appointment = await prisma.appointment.findUnique({
+                where: { id: firstId },
+                include: { user: true },
+              });
+              if (appointment) {
+                await sendPaymentConfirmationEmailToUser(
+                  appointment.user.email,
+                  appointment.user.nomeArtistico,
+                  appointment.data,
+                  value
+                );
+                await sendPaymentNotificationToTHouse(
+                  appointment.user.email,
+                  appointment.user.nomeArtistico,
+                  appointment.user.telefone,
+                  appointment.data,
+                  appointment.tipo,
+                  appointment.duracaoMinutos,
+                  appointment.observacoes,
+                  value,
+                  metadata.paymentMethod || null,
+                  [],
+                  []
+                );
+              }
+            } catch (emailError: any) {
+              console.error("[Asaas Webhook] Erro ao enviar emails carrinho (não crítico):", emailError);
             }
           }
         }

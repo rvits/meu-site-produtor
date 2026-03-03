@@ -28,6 +28,11 @@ interface Agendamento {
   blocked: boolean;
   blockedAt?: string;
   blockedReason?: string;
+  cancelReason?: string | null;
+  cancelledAt?: string | null;
+  cancelRefundOption?: string | null;
+  refundProcessedAt?: string | null;
+  refundCouponId?: string | null;
   user: {
     nomeArtistico: string;
     email: string;
@@ -42,6 +47,9 @@ export default function AdminAgendamentosPage() {
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<Agendamento[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [cancelModal, setCancelModal] = useState<{ id: number } | null>(null);
+  const [cancelJustificativa, setCancelJustificativa] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   useEffect(() => {
     carregarAgendamentos();
@@ -92,26 +100,46 @@ export default function AdminAgendamentosPage() {
     }
   }
 
-  async function cancelarAgendamento(id: number) {
-    if (!confirm("Tem certeza que deseja cancelar este agendamento? O horário ficará disponível novamente.")) {
+  function abrirModalCancelar(id: number) {
+    setCancelModal({ id });
+    setCancelJustificativa("");
+  }
+
+  function fecharModalCancelar() {
+    setCancelModal(null);
+    setCancelJustificativa("");
+    setCancelSubmitting(false);
+  }
+
+  async function confirmarCancelamento() {
+    if (!cancelModal) return;
+    const justificativa = cancelJustificativa.trim();
+    if (justificativa.length < 3) {
+      alert("Justificativa é obrigatória (mínimo 3 caracteres).");
       return;
     }
-
+    setCancelSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/agendamentos/cancelar?id=${id}`, {
+      const res = await fetch(`/api/admin/agendamentos/cancelar?id=${cancelModal.id}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancellationComment: justificativa }),
       });
 
       if (res.ok) {
+        fecharModalCancelar();
         await carregarAgendamentos();
-        alert("Agendamento cancelado com sucesso! O horário foi liberado.");
+        alert("Agendamento cancelado. O usuário poderá escolher reembolso ou cupom na Minha Conta.");
       } else {
-        const error = await res.json();
-        alert(error.error || "Erro ao cancelar agendamento.");
+        const data = await res.json().catch(() => ({}));
+        const msg = typeof data?.error === "string" ? data.error : "Erro ao cancelar agendamento.";
+        alert(msg);
       }
     } catch (err) {
       console.error("Erro ao cancelar agendamento", err);
       alert("Erro ao cancelar agendamento.");
+    } finally {
+      setCancelSubmitting(false);
     }
   }
 
@@ -315,6 +343,29 @@ export default function AdminAgendamentosPage() {
                         </div>
                       )}
                     </div>
+                    {/* Cancelamento: justificativa e opção escolhida */}
+                    {a.status === "cancelado" && (a.cancelReason || a.cancelRefundOption) && (
+                      <div className="mt-3 pt-3 border-t border-zinc-700 text-sm">
+                        {a.cancelReason && (
+                          <div className="mb-2">
+                            <strong className="text-zinc-300">Justificativa:</strong>
+                            <p className="text-zinc-400 mt-1">{a.cancelReason}</p>
+                          </div>
+                        )}
+                        {a.cancelledAt && (
+                          <div className="text-zinc-500 text-xs">Cancelado em: {new Date(a.cancelledAt).toLocaleString("pt-BR")}</div>
+                        )}
+                        {a.cancelRefundOption === "reembolso" && (
+                          <div className="text-blue-300 mt-1">Reembolso direto (Asaas) solicitado{a.refundProcessedAt ? ` em ${new Date(a.refundProcessedAt).toLocaleString("pt-BR")}` : ""}</div>
+                        )}
+                        {a.cancelRefundOption === "cupom" && (
+                          <div className="text-amber-300 mt-1">Cupom de reembolso gerado para o cliente</div>
+                        )}
+                        {!a.cancelRefundOption && a.pagamentoConfirmado && (
+                          <div className="text-zinc-500 text-xs">Aguardando cliente escolher reembolso ou cupom na Minha Conta</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 ml-4">
@@ -347,7 +398,7 @@ export default function AdminAgendamentosPage() {
                         <option value="recusado">Recusado</option>
                       </select>
                       <button
-                        onClick={() => cancelarAgendamento(a.id)}
+                        onClick={() => abrirModalCancelar(a.id)}
                         className="rounded bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 transition"
                       >
                         ❌ Cancelar Agendamento
@@ -404,6 +455,42 @@ export default function AdminAgendamentosPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal Justificativa Cancelamento */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-zinc-800 border border-zinc-600 rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-zinc-100 mb-2">Cancelar agendamento</h3>
+            <p className="text-zinc-400 text-sm mb-4">
+              Justificativa é obrigatória. O usuário verá essa justificativa na Minha Conta e poderá escolher reembolso direto ou cupom para remarcar.
+            </p>
+            <textarea
+              value={cancelJustificativa}
+              onChange={(e) => setCancelJustificativa(e.target.value)}
+              placeholder="Ex.: Cliente solicitou remarcação por conflito de agenda..."
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-zinc-200 placeholder-zinc-500 min-h-[100px]"
+              rows={4}
+              minLength={3}
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={confirmarCancelamento}
+                disabled={cancelSubmitting || cancelJustificativa.trim().length < 3}
+                className="flex-1 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {cancelSubmitting ? "Cancelando..." : "Confirmar cancelamento"}
+              </button>
+              <button
+                onClick={fecharModalCancelar}
+                disabled={cancelSubmitting}
+                className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-500"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -9,14 +9,39 @@ function SucessoContent() {
   const isTeste = searchParams.get("teste") === "true";
   const tipo = searchParams.get("tipo"); // "agendamento" ou "plano"
   const paymentId = searchParams.get("paymentId");
-  const [verificando, setVerificando] = useState(!!paymentId);
+  const [verificando, setVerificando] = useState(!!paymentId || tipo === "plano");
 
   useEffect(() => {
-    // Se veio com paymentId, verificar status
+    if (tipo === "plano") {
+      processarPlanoAposPagamento();
+      return;
+    }
     if (paymentId) {
       verificarStatus();
     }
-  }, [paymentId]);
+  }, [paymentId, tipo]);
+
+  async function processarPlanoAposPagamento() {
+    try {
+      const res = await fetch("/api/pagamentos/processar-plano-apos-pagamento", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        console.log("[Sucesso] Plano processado:", data.userPlan || data.alreadyProcessed);
+        setTimeout(() => {
+          window.location.href = "/minha-conta";
+        }, 1500);
+        return;
+      }
+      setVerificando(false);
+    } catch (err) {
+      console.error("[Sucesso] Erro ao processar plano:", err);
+      setVerificando(false);
+    }
+  }
 
   async function verificarStatus() {
     try {
@@ -24,7 +49,6 @@ function SucessoContent() {
       if (res.ok) {
         const data = await res.json();
         if (data.status === "RECEIVED" || data.status === "CONFIRMED") {
-          // Se já foi processado e tem plano, redirecionar
           if (data.processed && data.userPlan) {
             console.log("[Sucesso] Pagamento já processado, plano criado:", data.userPlan);
             setTimeout(() => {
@@ -32,40 +56,13 @@ function SucessoContent() {
             }, 1000);
             return;
           }
-          
-          // Se não foi processado, tentar processar automaticamente
-          if (!data.processed) {
-            try {
-              // Usar endpoint de debug que não requer autenticação (apenas em dev)
-              const processRes = await fetch("/api/debug/processar-ultimo-pagamento", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              });
-              
-              if (processRes.ok) {
-                const processData = await processRes.json();
-                console.log("[Sucesso] Pagamento processado automaticamente:", processData);
-                
-                if (processData.userPlan) {
-                  // Plano criado com sucesso, aguardar um pouco e redirecionar
-                  setTimeout(() => {
-                    window.location.href = "/minha-conta";
-                  }, 2000);
-                  return;
-                }
-              }
-            } catch (processError) {
-              console.error("[Sucesso] Erro ao processar automaticamente:", processError);
-              // Não bloquear a página por erro de processamento
-            }
+          if (!data.processed && tipo === "plano") {
+            await processarPlanoAposPagamento();
+            return;
           }
-          
           setVerificando(false);
         } else {
-          // Se ainda está pendente, tentar novamente após 3 segundos
-          setTimeout(() => {
-            verificarStatus();
-          }, 3000);
+          setTimeout(() => verificarStatus(), 3000);
         }
       }
     } catch (error) {
@@ -160,7 +157,7 @@ function SucessoContent() {
             Retornar ao Site
           </Link>
           <Link
-            href="/conta"
+            href="/minha-conta"
             className="rounded-full border border-zinc-700 px-6 py-3 font-semibold text-zinc-200 hover:border-red-500 hover:text-red-300 transition-all"
           >
             Ver Minha Conta

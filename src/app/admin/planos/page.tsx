@@ -38,6 +38,7 @@ interface Cupom {
     planId: string;
     planName: string;
     endDate: string | null;
+    status?: string;
   } | null;
   appointmentId: number | null;
 }
@@ -51,6 +52,8 @@ export default function AdminPlanosPage() {
   const [buscaCupons, setBuscaCupons] = useState("");
   const [abaAtiva, setAbaAtiva] = useState<"planos" | "cupons">("planos");
   const [loading, setLoading] = useState(true);
+  const [excluindo, setExcluindo] = useState(false);
+  const [excluindoCupomId, setExcluindoCupomId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarPlanos();
@@ -142,6 +145,27 @@ export default function AdminPlanosPage() {
     }
   }
 
+  async function excluirCanceladosEInativos() {
+    if (!confirm("Excluir permanentemente do banco de dados todos os planos cancelados e os cupons inativos (vinculados a esses planos)? Esta ação não pode ser desfeita.")) return;
+    try {
+      setExcluindo(true);
+      const res = await fetch("/api/admin/planos/excluir-cancelados", { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Excluído com sucesso.");
+        await carregarPlanos();
+        await carregarCupons();
+      } else {
+        alert(data.error || "Erro ao excluir.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir.");
+    } finally {
+      setExcluindo(false);
+    }
+  }
+
   async function liberarCupom(cupomCode: string) {
     if (!confirm(`Deseja realmente liberar o cupom ${cupomCode}?`)) {
       return;
@@ -165,6 +189,25 @@ export default function AdminPlanosPage() {
     } catch (err) {
       console.error("Erro ao liberar cupom", err);
       alert("Erro ao liberar cupom");
+    }
+  }
+
+  async function excluirCupom(cupomId: string, codigo: string) {
+    if (!confirm(`Excluir o cupom "${codigo}" do banco? Esta ação não pode ser desfeita.`)) return;
+    try {
+      setExcluindoCupomId(cupomId);
+      const res = await fetch(`/api/admin/cupons?id=${encodeURIComponent(cupomId)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        await carregarCupons();
+      } else {
+        alert(data.error || "Erro ao excluir cupom.");
+      }
+    } catch (err) {
+      console.error("Erro ao excluir cupom", err);
+      alert("Erro ao excluir cupom.");
+    } finally {
+      setExcluindoCupomId(null);
     }
   }
 
@@ -194,9 +237,19 @@ export default function AdminPlanosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Planos e Cupons</h1>
-        <p className="text-zinc-400">Gerenciar planos assinados e cupons gerados</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-100 mb-2">Planos e Cupons</h1>
+          <p className="text-zinc-400">Gerenciar planos assinados e cupons gerados</p>
+        </div>
+        <button
+          onClick={excluirCanceladosEInativos}
+          disabled={excluindo}
+          className="px-4 py-2 bg-red-900/50 border border-red-600 text-red-300 hover:bg-red-900/70 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+          title="Remove do banco de dados planos com status cancelado e cupons vinculados a eles (inativos)"
+        >
+          {excluindo ? "Excluindo..." : "Excluir planos cancelados e cupons inativos do BD"}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -376,6 +429,7 @@ export default function AdminPlanosPage() {
                     <th className="px-4 py-3 text-left">Válido até</th>
                     <th className="px-4 py-3 text-left">Usado em</th>
                     <th className="px-4 py-3 text-left">Plano</th>
+                    <th className="px-4 py-3 text-left">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-700">
@@ -384,6 +438,9 @@ export default function AdminPlanosPage() {
                       <td className="px-4 py-3">
                         <div className="font-medium text-zinc-100">{c.user.nomeArtistico}</div>
                         <div className="text-xs text-zinc-400">{c.user.email}</div>
+                        {c.user.email === "N/A" && (
+                          <div className="text-xs text-amber-400 mt-0.5">Cupom órfão (sem usuário/agendamento)</div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -416,11 +473,12 @@ export default function AdminPlanosPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                          c.userPlan?.status === "cancelled" ? "bg-zinc-500/20 text-zinc-300" :
                           c.used ? "bg-red-500/20 text-red-300" :
                           c.appointmentId ? "bg-yellow-500/20 text-yellow-300" :
                           "bg-green-500/20 text-green-300"
                         }`}>
-                          {c.used ? "Usado" : c.appointmentId ? "Pendente" : "Disponível"}
+                          {c.userPlan?.status === "cancelled" ? "Inativo" : c.used ? "Usado" : c.appointmentId ? "Pendente" : "Disponível"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-300">
@@ -436,6 +494,9 @@ export default function AdminPlanosPage() {
                         {c.userPlan ? (
                           <div>
                             <div>{c.userPlan.planName}</div>
+                            {c.userPlan.status === "cancelled" && (
+                              <span className="text-red-400 font-semibold">Plano cancelado</span>
+                            )}
                             {c.userPlan.endDate && (
                               <div className="text-zinc-500">
                                 Fim: {new Date(c.userPlan.endDate).toLocaleDateString("pt-BR")}
@@ -443,6 +504,17 @@ export default function AdminPlanosPage() {
                             )}
                           </div>
                         ) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => excluirCupom(c.id, c.code)}
+                          disabled={excluindoCupomId === c.id}
+                          className="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors disabled:opacity-50"
+                          title="Excluir cupom do banco"
+                        >
+                          {excluindoCupomId === c.id ? "Excluindo…" : "Excluir"}
+                        </button>
                       </td>
                     </tr>
                   ))}
