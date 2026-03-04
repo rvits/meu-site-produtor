@@ -157,10 +157,10 @@ export default function Home() {
               <span className="text-red-500">T</span>House Rec
             </h1>
 
-            {/* TEXTO DE SERVIÇOS - SEM FUNDO */}
+            {/* TEXTO DE SERVIÇOS - SEM FUNDO (mobile menor, desktop tamanho original) */}
             <div className="mt-4 text-center">
               <p 
-                className="text-xs sm:text-sm md:text-base uppercase tracking-[0.2em] sm:tracking-[0.35em] text-red-500 font-bold leading-relaxed inline-block px-2"
+                className="text-xs sm:text-sm lg:text-base xl:text-lg uppercase tracking-[0.2em] sm:tracking-[0.35em] text-red-500 font-bold leading-relaxed inline-block px-2"
                 style={{ 
                   textShadow: "0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)",
                   fontWeight: 700
@@ -170,9 +170,9 @@ export default function Home() {
               </p>
             </div>
 
-            {/* TEXTO DESCRITIVO SEM BOX */}
+            {/* TEXTO DESCRITIVO SEM BOX (mobile menor, desktop tamanho original) */}
             <section className="mt-6 sm:mt-8 md:mt-10 flex justify-center px-2 sm:px-4">
-              <p className="text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-4 max-w-4xl" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="text-center text-xs sm:text-sm lg:text-base xl:text-lg leading-relaxed text-zinc-300 px-4 max-w-4xl" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                       Crie sua música com identidade e qualidade profissional em um estúdio pensado para artistas independentes.
                     </p>
             </section>
@@ -195,8 +195,8 @@ export default function Home() {
               <p>{BIO.p9}</p>
             </div>
 
-            {/* Versão Desktop: 3 blocos (mesmo texto BIO) */}
-            <div className="hidden md:block space-y-5 text-sm leading-relaxed text-white text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
+            {/* Versão Desktop: 3 blocos (mesmo texto BIO) - tamanho original */}
+            <div className="hidden md:block space-y-5 text-base leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
               <p>{BIO.p1} {BIO.p2} {BIO.p3}</p>
               <p>{BIO.p4} {BIO.p5} {BIO.p6}</p>
               <p>{BIO.p7} {BIO.p8} {BIO.p9}</p>
@@ -209,7 +209,7 @@ export default function Home() {
           ========================================================== */}
         <section className="mt-10 flex justify-center px-4">
           <div className="flex flex-col items-center space-y-4 w-full max-w-5xl">
-            <h2 className="w-full text-left text-base md:text-lg font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
+            <h2 className="w-full text-left text-base lg:text-lg xl:text-xl font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
               Reprogramação — Dizzy (Prod. Tremv)
             </h2>
 

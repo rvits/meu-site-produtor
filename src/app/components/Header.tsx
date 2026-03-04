@@ -55,13 +55,13 @@ export default function Header() {
         {/* Logo - Fixada à esquerda */}
         <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl sm:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
-            <span className="text-lg sm:text-xl text-zinc-100">House Rec</span>
+            <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
+            <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
           </div>
         </Link>
 
         {/* Menu Desktop - Centralizado */}
-        <nav className="hidden lg:flex gap-4 xl:gap-6 text-sm items-center flex-1 justify-center px-4">
+        <nav className="hidden lg:flex gap-4 xl:gap-6 text-sm lg:text-base items-center flex-1 justify-center px-4">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -80,7 +80,7 @@ export default function Header() {
           {isAdmin && (
             <Link
               href="/admin"
-              className="ml-2 rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
+              className="ml-2 rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs lg:text-sm font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
             >
               🔐 Admin
             </Link>
@@ -88,23 +88,23 @@ export default function Header() {
         </nav>
 
         {/* Botões de Ação Desktop - Direita (lg+ para manter hamburger em mobile landscape) */}
-        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs flex-shrink-0">
+        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-shrink-0">
           {user ? (
             <>
-              <span className="hidden xl:inline text-zinc-300 text-xs whitespace-nowrap">
+              <span className="hidden xl:inline text-zinc-300 text-xs lg:text-sm whitespace-nowrap">
                 Olá, <b>{user.nomeArtistico}</b>
               </span>
 
               <Link
                 href="/conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm"
               >
                 Perfil
               </Link>
 
               <Link
                 href="/minha-conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex items-center gap-2"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex items-center gap-2"
               >
                 <span>Minha Conta</span>
                 {totalMinhaContaNotifications > 0 && (
@@ -116,7 +116,7 @@ export default function Header() {
 
               <button
                 onClick={logout}
-                className="rounded-full bg-zinc-800 px-3 py-1.5 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs"
+                className="rounded-full bg-zinc-800 px-3 py-1.5 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs lg:text-sm"
               >
                 Sair
               </button>
@@ -125,14 +125,14 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm"
               >
                 Entrar
               </Link>
 
               <Link
                 href="/registro"
-                className="rounded-full bg-red-600 px-3 py-1.5 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs"
+                className="rounded-full bg-red-600 px-3 py-1.5 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs lg:text-sm"
               >
                 Registrar
               </Link>
