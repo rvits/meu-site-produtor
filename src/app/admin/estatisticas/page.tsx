@@ -75,6 +75,7 @@ export default function AdminEstatisticasPage() {
   const [graficoPagamentos, setGraficoPagamentos] = useState(false);
   const [graficoPlanos, setGraficoPlanos] = useState(false);
   const [graficoAgendamentos, setGraficoAgendamentos] = useState(false);
+  const [graficoServicos, setGraficoServicos] = useState(false);
 
   const [periodoUsuarios, setPeriodoUsuarios] = useState<Periodo>("mensal");
   const [periodoPagamentos, setPeriodoPagamentos] = useState("mensal");
@@ -89,6 +90,9 @@ export default function AdminEstatisticasPage() {
   const [anoUsuarios, setAnoUsuarios] = useState(String(new Date().getFullYear()));
   const [dataAgendamentos, setDataAgendamentos] = useState(formatDataHoje());
   const [mesAgendamentos, setMesAgendamentos] = useState(formatMesAtual());
+  const [periodoServicos, setPeriodoServicos] = useState<Periodo>("mensal");
+  const [dataServicos, setDataServicos] = useState(formatDataHoje());
+  const [mesServicos, setMesServicos] = useState(formatMesAtual());
 
   const [dadosGrafico, setDadosGrafico] = useState<unknown>(null);
   const [loadingGrafico, setLoadingGrafico] = useState(false);
@@ -626,9 +630,18 @@ export default function AdminEstatisticasPage() {
         )}
       </div>
 
-      {/* Serviços - sem gráfico, só estatísticas */}
+      {/* Serviços - estatísticas + gráfico e análise por tipo */}
       <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
-        <h2 className="text-xl font-bold text-zinc-100 mb-4">🎵 Serviços</h2>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 className="text-xl font-bold text-zinc-100">🎵 Serviços</h2>
+          <button
+            type="button"
+            onClick={() => setGraficoServicos((v) => !v)}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
+          >
+            {graficoServicos ? "Ocultar análises" : "Ver gráfico e por tipo"}
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
             <div className="text-3xl font-bold text-red-400">{servicosComFallback.total}</div>
@@ -655,6 +668,138 @@ export default function AdminEstatisticasPage() {
             <div className="text-sm text-zinc-400 mt-1">Cancelados</div>
           </div>
         </div>
+        {graficoServicos && (
+          <div className="mt-6 pt-6 border-t border-zinc-700">
+            <div className="flex flex-wrap gap-2 mb-4 items-center">
+              <select
+                value={periodoServicos}
+                onChange={(e) => setPeriodoServicos(e.target.value as Periodo)}
+                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+              >
+                <option value="diario">Diário (por hora)</option>
+                <option value="semanal">Semanal (por dia)</option>
+                <option value="mensal">Mensal (por dia)</option>
+              </select>
+              {periodoServicos === "diario" && (
+                <input
+                  type="date"
+                  value={dataServicos}
+                  onChange={(e) => setDataServicos(e.target.value)}
+                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                />
+              )}
+              {periodoServicos === "mensal" && (
+                <input
+                  type="month"
+                  value={mesServicos}
+                  onChange={(e) => setMesServicos(e.target.value)}
+                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                />
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  buscarGrafico(
+                    "servicos",
+                    periodoServicos,
+                    periodoServicos === "mensal" ? mesServicos : undefined,
+                    periodoServicos === "diario" ? dataServicos : undefined
+                  )
+                }
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
+              >
+                Gráfico por período
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  buscarGrafico(
+                    "servicos-tipos",
+                    periodoServicos,
+                    periodoServicos === "mensal" ? mesServicos : undefined,
+                    periodoServicos === "diario" ? dataServicos : undefined
+                  )
+                }
+                className="px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded text-sm text-white"
+              >
+                Por tipo de serviço
+              </button>
+            </div>
+            {(qualGrafico === "servicos" || qualGrafico === "servicos-tipos") && (
+              <>
+                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
+                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                )}
+                {!loadingGrafico && qualGrafico === "servicos" && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
+                  <div className="h-72 w-full mb-6">
+                    <p className="text-zinc-400 text-sm mb-2">Serviços solicitados por período (por status)</p>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={(dadosGrafico as { buckets: { label: string; pendentes: number; aceitos: number; concluidos: number; cancelados: number; recusados: number }[] }).buckets}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#52525b" />
+                        <XAxis dataKey="label" stroke="#a1a1aa" fontSize={12} />
+                        <YAxis stroke="#a1a1aa" fontSize={12} />
+                        <Tooltip contentStyle={{ backgroundColor: "#27272a", border: "1px solid #52525b" }} />
+                        <Legend />
+                        <Bar dataKey="pendentes" stackId="a" fill="#eab308" name="Pendentes" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="aceitos" stackId="a" fill="#22c55e" name="Aceitos" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="concluidos" stackId="a" fill="#10b981" name="Concluídos" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="cancelados" stackId="a" fill="#f97316" name="Cancelados" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="recusados" stackId="a" fill="#ef4444" name="Recusados" radius={[0, 0, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                {!loadingGrafico && qualGrafico === "servicos-tipos" && dadosGrafico && "tipos" in (dadosGrafico as { tipos?: unknown[] }) && (() => {
+                  const { tipos } = dadosGrafico as { tipos: { tipo: string; total: number; pendentes: number; aceitos: number; concluidos: number; cancelados: number; recusados: number; primeiraData: string | null; ultimaData: string | null }[] };
+                  const formatDt = (s: string | null) => (s ? new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—");
+                  return (
+                    <div className="overflow-x-auto">
+                      <p className="text-zinc-400 text-sm mb-2">Serviços por tipo (quantidade e datas no período)</p>
+                      <table className="w-full text-sm text-left text-zinc-300 border border-zinc-600 rounded-lg overflow-hidden">
+                        <thead className="bg-zinc-700/80 text-zinc-200">
+                          <tr>
+                            <th className="px-3 py-2">Tipo</th>
+                            <th className="px-3 py-2">Total</th>
+                            <th className="px-3 py-2">Pendentes</th>
+                            <th className="px-3 py-2">Aceitos</th>
+                            <th className="px-3 py-2">Concluídos</th>
+                            <th className="px-3 py-2">Cancelados</th>
+                            <th className="px-3 py-2">Recusados</th>
+                            <th className="px-3 py-2">Primeira data</th>
+                            <th className="px-3 py-2">Última data</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tipos.length === 0 ? (
+                            <tr><td colSpan={9} className="px-3 py-4 text-zinc-500">Nenhum serviço no período.</td></tr>
+                          ) : (
+                            tipos.map((row) => (
+                              <tr key={row.tipo} className="border-t border-zinc-600 hover:bg-zinc-700/30">
+                                <td className="px-3 py-2 font-medium">{row.tipo}</td>
+                                <td className="px-3 py-2">{row.total}</td>
+                                <td className="px-3 py-2">{row.pendentes}</td>
+                                <td className="px-3 py-2">{row.aceitos}</td>
+                                <td className="px-3 py-2">{row.concluidos}</td>
+                                <td className="px-3 py-2">{row.cancelados}</td>
+                                <td className="px-3 py-2">{row.recusados}</td>
+                                <td className="px-3 py-2">{formatDt(row.primeiraData)}</td>
+                                <td className="px-3 py-2">{formatDt(row.ultimaData)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

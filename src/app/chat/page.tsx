@@ -493,11 +493,11 @@ export default function ChatPage() {
         aria-hidden
       />
       <div className="relative z-10">
-      {/* CONTAINER PRINCIPAL - DUAS COLUNAS */}
-      <div className="flex gap-4 h-[70vh]">
+      {/* CONTAINER PRINCIPAL - RESPONSIVO (COLUNAS NO DESKTOP, EMPILHADO NO MOBILE) */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:h-[70vh]">
         {/* COLUNA ESQUERDA - CHAT */}
-        <div className="flex-1 flex flex-col h-full min-h-0">
-          <h1 className="mb-4 text-center text-2xl font-semibold">
+        <div className="flex-1 flex flex-col min-h-[60vh] lg:min-h-0">
+          <h1 className="mb-4 text-center lg:text-left text-2xl font-semibold">
             Suporte THouse Rec
           </h1>
           <div className="relative w-full rounded-2xl border border-red-500 bg-zinc-950 flex-1 flex flex-col min-h-0 overflow-hidden" style={{ borderWidth: "1px" }}>
@@ -570,9 +570,9 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* COLUNA DIREITA - CONVERSAS ANTIGAS */}
-        <div className="w-80 flex flex-col h-full min-h-0">
-          <h2 className="mb-4 text-center text-2xl font-semibold text-white">
+        {/* COLUNA DIREITA - CONVERSAS ANTIGAS (ABAIXO NO MOBILE, LADO DIREITO NO DESKTOP) */}
+        <div className="w-full lg:w-80 flex flex-col min-h-[40vh] lg:min-h-0 mt-6 lg:mt-0">
+          <h2 className="mb-4 text-center lg:text-left text-2xl font-semibold text-white">
             Conversas
           </h2>
           <div className="rounded-2xl border border-red-500 bg-zinc-950 flex flex-col flex-1 min-h-0 overflow-hidden" style={{ borderWidth: "1px" }}>

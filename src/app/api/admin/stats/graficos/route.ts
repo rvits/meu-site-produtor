@@ -300,6 +300,121 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ series, periodo, inicio: inicio.toISOString(), fim: fim.toISOString() });
     }
 
+    if (secao === "servicos") {
+      const services = await prisma.service.findMany({
+        where: { createdAt: { gte: inicio, lte: fim } },
+        select: { createdAt: true, status: true },
+      });
+      const statusKeys = ["pendente", "aceito", "concluido", "cancelado", "recusado"] as const;
+      const allLabels: string[] = [];
+      const bucketCounts = new Map<string, { pendentes: number; aceitos: number; concluidos: number; cancelados: number; recusados: number }>();
+
+      const getLabel = (d: Date, p: Periodo) => {
+        if (p === "diario") return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        if (p === "semanal") return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+        return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      };
+      const ensureBucket = (label: string) => {
+        if (!bucketCounts.has(label)) {
+          allLabels.push(label);
+          bucketCounts.set(label, { pendentes: 0, aceitos: 0, concluidos: 0, cancelados: 0, recusados: 0 });
+        }
+        return bucketCounts.get(label)!;
+      };
+
+      if (periodo === "diario") {
+        for (let h = 0; h < 24; h++) {
+          const label = `${String(h).padStart(2, "0")}:00`;
+          ensureBucket(label);
+        }
+        services.forEach((s) => {
+          const hour = s.createdAt.getHours();
+          const label = `${String(hour).padStart(2, "0")}:00`;
+          const b = bucketCounts.get(label);
+          if (b) {
+            if (s.status === "pendente") b.pendentes++;
+            else if (s.status === "aceito") b.aceitos++;
+            else if (s.status === "concluido") b.concluidos++;
+            else if (s.status === "cancelado") b.cancelados++;
+            else if (s.status === "recusado") b.recusados++;
+          }
+        });
+      } else {
+        const daysInRange = periodo === "semanal" ? 7 : Math.ceil((fim.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+        for (let d = 0; d < daysInRange; d++) {
+          const dayStart = new Date(inicio);
+          dayStart.setDate(inicio.getDate() + d);
+          if (dayStart > fim) break;
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(dayStart);
+          dayEnd.setHours(23, 59, 59, 999);
+          const label = getLabel(dayStart, periodo);
+          ensureBucket(label);
+          services.forEach((s) => {
+            if (s.createdAt >= dayStart && s.createdAt <= dayEnd) {
+              const b = bucketCounts.get(label)!;
+              if (s.status === "pendente") b.pendentes++;
+              else if (s.status === "aceito") b.aceitos++;
+              else if (s.status === "concluido") b.concluidos++;
+              else if (s.status === "cancelado") b.cancelados++;
+              else if (s.status === "recusado") b.recusados++;
+            }
+          });
+        }
+      }
+
+      const buckets = allLabels.map((label) => {
+        const b = bucketCounts.get(label)!;
+        return {
+          label,
+          solicitados: b.pendentes + b.aceitos + b.concluidos + b.cancelados + b.recusados,
+          pendentes: b.pendentes,
+          aceitos: b.aceitos,
+          concluidos: b.concluidos,
+          cancelados: b.cancelados,
+          recusados: b.recusados,
+        };
+      });
+      return NextResponse.json({ buckets, periodo, inicio: inicio.toISOString(), fim: fim.toISOString() });
+    }
+
+    if (secao === "servicos-tipos") {
+      const services = await prisma.service.findMany({
+        where: { createdAt: { gte: inicio, lte: fim } },
+        select: { tipo: true, status: true, createdAt: true },
+      });
+      const byTipo = new Map<
+        string,
+        { total: number; pendentes: number; aceitos: number; concluidos: number; cancelados: number; recusados: number; datas: Date[] }
+      >();
+      services.forEach((s) => {
+        if (!byTipo.has(s.tipo)) {
+          byTipo.set(s.tipo, { total: 0, pendentes: 0, aceitos: 0, concluidos: 0, cancelados: 0, recusados: 0, datas: [] });
+        }
+        const row = byTipo.get(s.tipo)!;
+        row.total++;
+        row.datas.push(s.createdAt);
+        if (s.status === "pendente") row.pendentes++;
+        else if (s.status === "aceito") row.aceitos++;
+        else if (s.status === "concluido") row.concluidos++;
+        else if (s.status === "cancelado") row.cancelados++;
+        else if (s.status === "recusado") row.recusados++;
+      });
+      const tipos = Array.from(byTipo.entries()).map(([tipo, row]) => ({
+        tipo,
+        total: row.total,
+        pendentes: row.pendentes,
+        aceitos: row.aceitos,
+        concluidos: row.concluidos,
+        cancelados: row.cancelados,
+        recusados: row.recusados,
+        primeiraData: row.datas.length ? new Date(Math.min(...row.datas.map((d) => d.getTime()))).toISOString() : null,
+        ultimaData: row.datas.length ? new Date(Math.max(...row.datas.map((d) => d.getTime()))).toISOString() : null,
+      }));
+      tipos.sort((a, b) => b.total - a.total);
+      return NextResponse.json({ tipos, inicio: inicio.toISOString(), fim: fim.toISOString() });
+    }
+
     if (secao === "filtros-pagamentos") {
       const plans = await prisma.userPlan.findMany({ select: { planId: true, planName: true }, distinct: ["planId"] });
       const opts = [

@@ -782,16 +782,30 @@ function AgendamentoContent() {
           {BEATS_PACOTES.map((s) => {
             const qtd = quantidadesBeats[s.id] || 0;
 
+              // Quebra especial para Produção Completa no texto
+              const isProducaoCompleta = s.id === "producao_completa";
+
               return (
                 <div
                   key={s.id}
                   className="flex items-center justify-between rounded-xl border border-red-700/40 bg-zinc-900 p-4 text-sm"
                 >
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="font-semibold text-zinc-100">
-                      {s.nome}
-                    </p>
-                    <span className="text-xs text-red-300">
+                  <div className="flex flex-col md:flex-row md:flex-wrap md:items-baseline gap-1">
+                    {isProducaoCompleta ? (
+                      <>
+                        <p className="font-semibold text-zinc-100">
+                          Produção Completa
+                        </p>
+                        <p className="text-xs text-zinc-300">
+                          (4h + beat + mix + master)
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-semibold text-zinc-100">
+                        {s.nome}
+                      </p>
+                    )}
+                    <span className="text-xs text-red-300 mt-0.5">
                       R$ {s.preco.toFixed(2).replace(".", ",")}
                     </span>
                   </div>

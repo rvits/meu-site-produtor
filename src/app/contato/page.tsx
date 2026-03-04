@@ -45,8 +45,8 @@ export default function ContatoPage() {
         aria-hidden
       />
       <div className="relative z-10">
-      {/* Área de entrada: espaço no topo para visualizar o fundo ao entrar */}
-      <section className="w-full min-h-[50vh] sm:min-h-[55vh]" aria-hidden />
+      {/* Área de entrada: no desktop mantém o fundo visível; no mobile começa o conteúdo mais acima */}
+      <section className="hidden sm:block w-full min-h-[55vh]" aria-hidden />
 
       {/* TÍTULO PRINCIPAL */}
       <section className="mb-8 text-center">
