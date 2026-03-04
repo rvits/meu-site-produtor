@@ -7,8 +7,18 @@ function defaultStats() {
     usuarios: { total: 0, comConta: 0, semConta: 0, porcentagemComConta: 0 },
     pagamentos: { total: 0, porUsuarios: 0, porNaoUsuarios: 0, valorTotal: 0 },
     planos: { total: 0, ativos: 0, inativos: 0 },
-    agendamentos: { total: 0, hoje: 0, estaSemana: 0, esteMes: 0 },
-    servicos: { total: 0, pendentes: 0, aceitos: 0 },
+    agendamentos: {
+      total: 0,
+      totalAtivos: 0,
+      totalCancelados: 0,
+      hoje: 0,
+      hojeCancelados: 0,
+      estaSemana: 0,
+      estaSemanaCancelados: 0,
+      esteMes: 0,
+      esteMesCancelados: 0,
+    },
+    servicos: { total: 0, pendentes: 0, aceitos: 0, aFazer: 0, concluidos: 0, cancelados: 0 },
     usoDiario: [] as { data: string; usuarios: number }[],
   };
 }
@@ -40,14 +50,16 @@ export async function GET() {
   }
 
   try {
-    const todosPagamentos = await prisma.payment.findMany({
+    // Apenas pagamentos aprovados: refletem o que realmente entrou e atualizam ao cancelar/excluir
+    const pagamentosAprovados = await prisma.payment.findMany({
+      where: { status: "approved" },
       include: { user: true },
     });
-    stats.pagamentos.total = todosPagamentos.length;
-    stats.pagamentos.porUsuarios = todosPagamentos.filter((p) => p.user).length;
+    stats.pagamentos.total = pagamentosAprovados.length;
+    stats.pagamentos.porUsuarios = pagamentosAprovados.filter((p) => p.user).length;
     stats.pagamentos.porNaoUsuarios =
       stats.pagamentos.total - stats.pagamentos.porUsuarios;
-    stats.pagamentos.valorTotal = todosPagamentos.reduce(
+    stats.pagamentos.valorTotal = pagamentosAprovados.reduce(
       (acc, p) => acc + p.amount,
       0
     );
@@ -68,23 +80,36 @@ export async function GET() {
   try {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
+    const fimHoje = new Date(hoje.getTime() + 24 * 60 * 60 * 1000);
     const inicioSemana = new Date(hoje);
     inicioSemana.setDate(hoje.getDate() - hoje.getDay());
     const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const ativosWhere = { cancelledAt: null };
+    const canceladosWhere = { cancelledAt: { not: null } };
+
     stats.agendamentos.total = await prisma.appointment.count();
+    stats.agendamentos.totalAtivos = await prisma.appointment.count({ where: ativosWhere });
+    stats.agendamentos.totalCancelados = await prisma.appointment.count({ where: canceladosWhere });
+
     stats.agendamentos.hoje = await prisma.appointment.count({
-      where: {
-        data: {
-          gte: hoje,
-          lt: new Date(hoje.getTime() + 24 * 60 * 60 * 1000),
-        },
-      },
+      where: { ...ativosWhere, data: { gte: hoje, lt: fimHoje } },
     });
+    stats.agendamentos.hojeCancelados = await prisma.appointment.count({
+      where: { ...canceladosWhere, data: { gte: hoje, lt: fimHoje } },
+    });
+
     stats.agendamentos.estaSemana = await prisma.appointment.count({
-      where: { data: { gte: inicioSemana } },
+      where: { ...ativosWhere, data: { gte: inicioSemana } },
     });
+    stats.agendamentos.estaSemanaCancelados = await prisma.appointment.count({
+      where: { ...canceladosWhere, data: { gte: inicioSemana } },
+    });
+
     stats.agendamentos.esteMes = await prisma.appointment.count({
-      where: { data: { gte: inicioMes } },
+      where: { ...ativosWhere, data: { gte: inicioMes } },
+    });
+    stats.agendamentos.esteMesCancelados = await prisma.appointment.count({
+      where: { ...canceladosWhere, data: { gte: inicioMes } },
     });
   } catch (e) {
     console.warn("[Admin Stats] Agendamentos:", e);
@@ -97,6 +122,13 @@ export async function GET() {
     });
     stats.servicos.aceitos = await prisma.service.count({
       where: { status: "aceito" },
+    });
+    stats.servicos.aFazer = stats.servicos.aceitos; // aceitos = ainda a fazer (não concluídos)
+    stats.servicos.concluidos = await prisma.service.count({
+      where: { status: "concluido" },
+    });
+    stats.servicos.cancelados = await prisma.service.count({
+      where: { status: "cancelado" },
     });
   } catch (e) {
     console.warn("[Admin Stats] Serviços:", e);
@@ -125,5 +157,11 @@ export async function GET() {
     console.warn("[Admin Stats] Uso diário (LoginLog):", e);
   }
 
-  return NextResponse.json(stats);
+  // Sem cache: estatísticas sempre refletem o estado atual do banco (exclusões, cancelamentos)
+  return NextResponse.json(stats, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      Pragma: "no-cache",
+    },
+  });
 }

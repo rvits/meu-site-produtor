@@ -24,7 +24,9 @@ export async function GET() {
     } catch (e) {}
 
     try {
-      payments = await prisma.payment.count();
+      payments = await prisma.payment.count({
+        where: { status: "approved" },
+      });
     } catch (e) {}
 
     try {
@@ -49,15 +51,23 @@ export async function GET() {
       });
     } catch (e) {}
 
-    return NextResponse.json({
-      appointments,
-      users,
-      payments,
-      activePlans,
-      services,
-      pendingChats,
-      pendingFaqs,
-    });
+    return NextResponse.json(
+      {
+        appointments,
+        users,
+        payments,
+        activePlans,
+        services,
+        pendingChats,
+        pendingFaqs,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("Erro ao buscar stats:", err);
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
