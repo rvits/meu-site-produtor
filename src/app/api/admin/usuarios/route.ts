@@ -40,52 +40,53 @@ export async function GET() {
       },
     });
 
-    // Buscar planos e cupons de cada usuário
-    const usuariosComPlanosECupons = await Promise.all(
-      usuarios.map(async (user) => {
-        // Buscar planos do usuário
-        const planos = await prisma.userPlan.findMany({
-          where: { userId: user.id },
-          orderBy: { createdAt: "desc" },
-          include: {
-            subscription: {
-              select: {
-                id: true,
-                status: true,
-                paymentMethod: true,
-                billingDay: true,
-                nextBillingDate: true,
-                lastBillingDate: true,
+    // Buscar planos e cupons de cada usuário (com fallback se subscription/loginLog falhar em produção)
+    let usuariosComPlanosECupons: any[];
+    try {
+      usuariosComPlanosECupons = await Promise.all(
+        usuarios.map(async (user) => {
+          try {
+            const planos = await prisma.userPlan.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: "desc" },
+              include: {
+                subscription: {
+                  select: {
+                    id: true,
+                    status: true,
+                    paymentMethod: true,
+                    billingDay: true,
+                    nextBillingDate: true,
+                    lastBillingDate: true,
+                  },
+                },
               },
-            },
-          },
-        });
-
-        // Buscar cupons do usuário (gerados pelos planos, reembolsos ou diretamente para o usuário)
-        const agendamentosDoUsuario = await prisma.appointment.findMany({
-          where: { userId: user.id },
-          select: { id: true },
-        });
-        const agendamentosIds = agendamentosDoUsuario.map(a => a.id);
-        
-        const cupons = await prisma.coupon.findMany({
-          where: {
-            OR: [
-              { usedBy: user.id },
-              { userPlanId: { in: planos.map(p => p.id) } },
-              { appointmentId: { in: agendamentosIds.length > 0 ? agendamentosIds : [-1] } }, // Cupons de reembolso
-            ],
-          },
-          orderBy: { createdAt: "desc" },
-        });
-
-        return {
-          ...user,
-          planos,
-          cupons,
-        };
-      })
-    );
+            });
+            const agendamentosDoUsuario = await prisma.appointment.findMany({
+              where: { userId: user.id },
+              select: { id: true },
+            });
+            const agendamentosIds = agendamentosDoUsuario.map((a) => a.id);
+            const cupons = await prisma.coupon.findMany({
+              where: {
+                OR: [
+                  { usedBy: user.id },
+                  { userPlanId: { in: planos.map((p) => p.id) } },
+                  { appointmentId: { in: agendamentosIds.length > 0 ? agendamentosIds : [-1] } },
+                ],
+              },
+              orderBy: { createdAt: "desc" },
+            });
+            return { ...user, planos, cupons };
+          } catch (_e) {
+            return { ...user, planos: [], cupons: [] };
+          }
+        })
+      );
+    } catch (e) {
+      console.error("[Admin Usuarios] Erro ao buscar planos/cupons:", e);
+      usuariosComPlanosECupons = usuarios.map((u) => ({ ...u, planos: [], cupons: [] }));
+    }
 
     // Buscar últimos logins de cada usuário
     const usuariosComLogins = await Promise.all(
@@ -126,7 +127,11 @@ export async function GET() {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
-    return NextResponse.json({ error: "Erro ao buscar usuários" }, { status: 500 });
+    console.error("[Admin Usuarios] GET error:", err?.message || err);
+    return NextResponse.json(
+      { error: err?.message || "Erro ao buscar usuários" },
+      { status: 500 }
+    );
   }
 }
 
