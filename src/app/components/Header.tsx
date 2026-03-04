@@ -51,35 +51,38 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
-        {/* Logo - Canto esquerdo (desktop) */}
-        <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0 z-10">
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
-            <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
-          </div>
-        </Link>
-
-        {/* Links das páginas - Centralizados (apenas desktop) */}
-        <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 gap-4 xl:gap-6 text-sm lg:text-base items-center">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-zinc-200 hover:text-red-400 transition-colors whitespace-nowrap flex items-center gap-2"
-            >
-              <span>{link.label}</span>
-              {link.href === "/chat" && unreadChatCount > 0 && (
-                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
-                  {unreadChatCount > 99 ? "99+" : unreadChatCount}
-                </span>
-              )}
+      {/* Desktop: grid 3 colunas — logo | links centro | admin+user direita */}
+        <div className="hidden lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-4 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+          {/* Coluna 1: Logo na extrema esquerda */}
+          <div className="flex justify-start">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
+                <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
+              </div>
             </Link>
-          ))}
-        </nav>
+          </div>
 
-        {/* Direita: Admin + Olá + Perfil, Minha Conta, Sair (apenas desktop) */}
-        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-shrink-0 ml-auto z-10">
+          {/* Coluna 2: Links das páginas centralizados no meio */}
+          <nav className="flex justify-center gap-3 xl:gap-6 text-sm lg:text-base items-center min-w-0">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-zinc-200 hover:text-red-400 transition-colors whitespace-nowrap flex items-center gap-2"
+              >
+                <span>{link.label}</span>
+                {link.href === "/chat" && unreadChatCount > 0 && (
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (uma linha, sem quebrar) */}
+          <div className="flex justify-end items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-nowrap flex-shrink-0">
           {isAdmin && (
             <Link
               href="/admin"
@@ -137,28 +140,18 @@ export default function Header() {
               </Link>
             </>
           )}
+          </div>
         </div>
 
-        {/* (Removido: nav intermediário - mobile e landscape usam hamburger até lg) */}
-        <nav className="hidden gap-3 text-xs items-center flex-1 justify-center px-2">
-          {navLinks.slice(0, 4).map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-zinc-200 hover:text-red-400 transition-colors whitespace-nowrap flex items-center gap-1.5"
-            >
-              <span>{link.label}</span>
-              {link.href === "/chat" && unreadChatCount > 0 && (
-                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
-                  {unreadChatCount > 99 ? "99+" : unreadChatCount}
-                </span>
-              )}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Botão Hambúrguer Mobile (lg: mantém em landscape onde width pode passar md) */}
-        <div className="flex lg:hidden items-center gap-2">
+        {/* Mobile: mesma barra, logo + hamburger */}
+        <div className="flex lg:hidden items-center justify-between mx-auto max-w-7xl w-full px-4 sm:px-6 py-3 sm:py-4">
+          <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
+              <span className="text-lg text-zinc-100">House Rec</span>
+            </div>
+          </Link>
+          <div className="flex items-center gap-2">
           {isAdmin && (
             <Link
               href="/admin"
