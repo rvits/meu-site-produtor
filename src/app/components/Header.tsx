@@ -51,17 +51,17 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
-        {/* Logo - Fixada à esquerda */}
-        <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
+      <div className="relative mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+        {/* Logo - Canto esquerdo (desktop) */}
+        <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0 z-10">
           <div className="flex items-baseline gap-1">
             <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
             <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
           </div>
         </Link>
 
-        {/* Menu Desktop - Centralizado */}
-        <nav className="hidden lg:flex gap-4 xl:gap-6 text-sm lg:text-base items-center flex-1 justify-center px-4">
+        {/* Links das páginas - Centralizados (apenas desktop) */}
+        <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 gap-4 xl:gap-6 text-sm lg:text-base items-center">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -76,19 +76,18 @@ export default function Header() {
               )}
             </Link>
           ))}
+        </nav>
 
+        {/* Direita: Admin + Olá + Perfil, Minha Conta, Sair (apenas desktop) */}
+        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-shrink-0 ml-auto z-10">
           {isAdmin && (
             <Link
               href="/admin"
-              className="ml-2 rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs lg:text-sm font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
+              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
             >
               🔐 Admin
             </Link>
           )}
-        </nav>
-
-        {/* Botões de Ação Desktop - Direita (lg+ para manter hamburger em mobile landscape) */}
-        <div className="hidden lg:flex items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-shrink-0">
           {user ? (
             <>
               <span className="hidden xl:inline text-zinc-300 text-xs lg:text-sm whitespace-nowrap">

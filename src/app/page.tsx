@@ -172,7 +172,7 @@ export default function Home() {
 
             {/* TEXTO DESCRITIVO SEM BOX (mobile menor, desktop tamanho original) */}
             <section className="mt-6 sm:mt-8 md:mt-10 flex justify-center px-2 sm:px-4">
-              <p className="text-center text-xs sm:text-sm lg:text-base xl:text-lg leading-relaxed text-zinc-300 px-4 max-w-4xl" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="text-center text-xs sm:text-sm lg:text-base xl:text-lg leading-relaxed text-zinc-300 px-4 max-w-4xl lg:whitespace-nowrap" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                       Crie sua música com identidade e qualidade profissional em um estúdio pensado para artistas independentes.
                     </p>
             </section>
