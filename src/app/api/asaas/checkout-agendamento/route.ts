@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const duracao = duracaoMinutos || 60;
 
-    // Verificar conflitos (mas não criar ainda)
+    // Verificar conflitos (mas não criar ainda). select só id para funcionar mesmo sem colunas cancelReason/etc no banco
     const conflito = await prisma.appointment.findFirst({
       where: {
         status: { not: "cancelado" },
@@ -112,6 +112,7 @@ export async function POST(req: Request) {
           { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
         ],
       },
+      select: { id: true },
     });
 
     if (conflito) {

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const dataFim = new Date(dataHoraISO.getTime() + (duracaoMinutos * 60000));
 
-    // 🔍 Verificar conflitos de agendamento
+    // 🔍 Verificar conflitos de agendamento. select só id para não depender de colunas cancelReason/etc
     const conflito = await prisma.appointment.findFirst({
       where: {
         status: { not: "cancelado" },
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
           },
         ],
       },
+      select: { id: true },
     });
 
     if (conflito) {

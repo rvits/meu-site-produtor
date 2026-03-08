@@ -85,6 +85,7 @@ export async function POST(req: Request) {
             { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
           ],
         },
+        select: { id: true },
       });
       if (conflito) {
         return NextResponse.json(

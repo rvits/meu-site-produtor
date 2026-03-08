@@ -624,6 +624,7 @@ export async function POST(req: Request) {
             // O status já está como "pendente" e será mantido para admin aprovar
             const agendamento = await prisma.appointment.findUnique({
               where: { id: parseInt(appointmentId.toString()) },
+              select: { id: true },
             });
             
             if (agendamento) {
@@ -646,6 +647,7 @@ export async function POST(req: Request) {
                   { data: { gte: new Date(dataHoraISO.getTime() - (duracaoMinutos * 60000)) } },
                 ],
               },
+              select: { id: true },
             });
             
             if (!conflito) {
@@ -704,7 +706,7 @@ export async function POST(req: Request) {
             try {
               const appointment = await prisma.appointment.findUnique({
                 where: { id: agendamentoFinalId },
-                include: { user: true },
+                select: { id: true, userId: true, data: true, duracaoMinutos: true, tipo: true, observacoes: true, status: true, createdAt: true, user: true },
               });
 
               if (appointment) {
@@ -792,6 +794,7 @@ export async function POST(req: Request) {
                   { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },
                 ],
               },
+              select: { id: true },
             });
             if (!conflito) {
               const novoAgendamento = await prisma.appointment.create({
@@ -822,7 +825,7 @@ export async function POST(req: Request) {
             try {
               const appointment = await prisma.appointment.findUnique({
                 where: { id: firstId },
-                include: { user: true },
+                select: { id: true, userId: true, data: true, duracaoMinutos: true, tipo: true, observacoes: true, status: true, createdAt: true, user: true },
               });
               if (appointment) {
                 await sendPaymentConfirmationEmailToUser(

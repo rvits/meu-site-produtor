@@ -78,6 +78,7 @@ export async function POST(req: Request) {
     if (coupon.appointmentId) {
       const agendamentoAssociado = await prisma.appointment.findUnique({
         where: { id: coupon.appointmentId },
+        select: { id: true, status: true },
       });
       
       if (agendamentoAssociado && agendamentoAssociado.status === "pendente") {
@@ -213,7 +214,7 @@ export async function POST(req: Request) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const duracao = duracaoMinutos || 60;
 
-    // Verificar conflitos
+    // Verificar conflitos. select só id para não depender de colunas cancelReason/etc
     const conflito = await prisma.appointment.findFirst({
       where: {
         status: { not: "cancelado" },
@@ -222,6 +223,7 @@ export async function POST(req: Request) {
           { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
         ],
       },
+      select: { id: true },
     });
 
     if (conflito) {
