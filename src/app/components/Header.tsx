@@ -81,32 +81,32 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (uma linha, sem quebrar) */}
-          <div className="flex justify-end items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-nowrap flex-shrink-0">
+          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (nome truncado para não sobrepor) */}
+          <div className="flex justify-end items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-nowrap min-w-0">
           {isAdmin && (
             <Link
               href="/admin"
-              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
+              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap flex-shrink-0"
             >
               🔐 Admin
             </Link>
           )}
           {user ? (
             <>
-              <span className="hidden xl:inline text-zinc-300 text-xs lg:text-sm whitespace-nowrap">
+              <span className="hidden lg:inline text-zinc-300 text-xs lg:text-sm min-w-0 max-w-[140px] xl:max-w-[200px] truncate" title={user.nomeArtistico}>
                 Olá, <b>{user.nomeArtistico}</b>
               </span>
 
               <Link
                 href="/conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
               >
                 Perfil
               </Link>
 
               <Link
                 href="/minha-conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex items-center gap-2"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex items-center gap-2 flex-shrink-0"
               >
                 <span>Minha Conta</span>
                 {totalMinhaContaNotifications > 0 && (
@@ -118,7 +118,7 @@ export default function Header() {
 
               <button
                 onClick={logout}
-                className="rounded-full bg-zinc-800 px-3 py-1.5 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs lg:text-sm"
+                className="rounded-full bg-zinc-800 px-3 py-1.5 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
               >
                 Sair
               </button>
@@ -127,14 +127,14 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm"
+                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
               >
                 Entrar
               </Link>
 
               <Link
                 href="/registro"
-                className="rounded-full bg-red-600 px-3 py-1.5 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs lg:text-sm"
+                className="rounded-full bg-red-600 px-3 py-1.5 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
               >
                 Registrar
               </Link>
@@ -208,7 +208,7 @@ export default function Header() {
             <div className="pt-4 border-t border-zinc-800 mt-4 space-y-2">
               {user ? (
                 <>
-                  <div className="px-3 py-2 text-zinc-300 text-sm">
+                  <div className="px-3 py-2 text-zinc-300 text-sm break-words min-w-0">
                     Olá, <b>{user.nomeArtistico}</b>
                   </div>
                   <Link
