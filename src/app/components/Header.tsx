@@ -49,12 +49,12 @@ export default function Header() {
 
   const isAdmin = user?.role === "ADMIN";
   // Exibir só os dois primeiros nomes para evitar sobreposição no header
-  const displayName = user?.nomeArtistico?.split(/\s+/).slice(0, 2).join(" ") ?? user?.nomeArtistico ?? "";
+  const displayName = user?.nomeArtistico?.split(/\s+/).slice(0, 2).join(" ") || user?.nomeArtistico || "Usuário";
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      {/* Desktop: 3 zonas — logo extrema esquerda | links no meio | admin+user extrema direita */}
-        <div className="hidden lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-4 xl:gap-6 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+      {/* Desktop: 3 zonas — logo esq | links centro | user dir (coluna direita com largura mínima para não sobrepor) */}
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(320px,1fr)] lg:gap-6 xl:gap-8 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
           {/* Zona 1: T House Rec na extrema esquerda */}
           <div className="flex justify-start min-w-0">
             <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
@@ -83,19 +83,19 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (só 2 primeiros nomes) */}
-          <div className="flex justify-end items-center gap-2 xl:gap-3 text-xs lg:text-sm flex-nowrap min-w-0">
+          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (só 2 primeiros nomes; coluna com min 320px) */}
+          <div className="flex justify-end items-center gap-3 text-sm flex-nowrap flex-shrink-0">
           {isAdmin && (
             <Link
               href="/admin"
-              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 py-1.5 xl:px-4 xl:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap flex-shrink-0"
+              className="rounded-full border-2 border-red-600 bg-red-600/10 px-4 py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
             >
               🔐 Admin
             </Link>
           )}
           {user ? (
             <>
-              <span className="text-zinc-300 text-xs lg:text-sm whitespace-nowrap truncate max-w-[200px]" title={user.nomeArtistico}>
+              <span className="text-zinc-300 text-sm whitespace-nowrap truncate max-w-[180px]" title={user.nomeArtistico}>
                 Olá, <b>{displayName}</b>
               </span>
 
