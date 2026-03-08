@@ -52,9 +52,9 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
       {/* Desktop: grid 3 colunas — logo | links centro | admin+user direita */}
-        <div className="hidden lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-4 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+        <div className="hidden lg:grid lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,auto)] lg:gap-3 xl:gap-4 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
           {/* Coluna 1: Logo na extrema esquerda */}
-          <div className="flex justify-start">
+          <div className="flex justify-start flex-shrink-0">
             <Link href="/" className="flex items-center gap-2 font-semibold">
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
@@ -81,19 +81,19 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (nome truncado para não sobrepor) */}
-          <div className="flex justify-end items-center gap-2 sm:gap-2.5 text-xs lg:text-sm flex-nowrap min-w-0">
+          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair — nome só em telas grandes para evitar sobreposição */}
+          <div className="flex justify-end items-center gap-2 xl:gap-3 text-xs lg:text-sm flex-nowrap min-w-0 overflow-hidden">
           {isAdmin && (
             <Link
               href="/admin"
-              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 sm:px-4 py-1.5 sm:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap flex-shrink-0"
+              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 py-1.5 xl:px-4 xl:py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap flex-shrink-0"
             >
               🔐 Admin
             </Link>
           )}
           {user ? (
             <>
-              <span className="hidden lg:inline text-zinc-300 text-xs lg:text-sm min-w-0 max-w-[140px] xl:max-w-[200px] truncate" title={user.nomeArtistico}>
+              <span className="hidden 2xl:inline text-zinc-300 text-xs lg:text-sm min-w-0 max-w-[180px] truncate shrink" title={user.nomeArtistico}>
                 Olá, <b>{user.nomeArtistico}</b>
               </span>
 
