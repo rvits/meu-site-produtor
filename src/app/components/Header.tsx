@@ -48,14 +48,16 @@ export default function Header() {
   }
 
   const isAdmin = user?.role === "ADMIN";
+  // Exibir só os dois primeiros nomes para evitar sobreposição no header
+  const displayName = user?.nomeArtistico?.split(/\s+/).slice(0, 2).join(" ") ?? user?.nomeArtistico ?? "";
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      {/* Desktop: grid 3 colunas — logo | links centro | admin+user direita */}
-        <div className="hidden lg:grid lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,auto)] lg:gap-3 xl:gap-4 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
-          {/* Coluna 1: Logo na extrema esquerda */}
-          <div className="flex justify-start flex-shrink-0">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+      {/* Desktop: 3 zonas — logo extrema esquerda | links no meio | admin+user extrema direita */}
+        <div className="hidden lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-4 xl:gap-6 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+          {/* Zona 1: T House Rec na extrema esquerda */}
+          <div className="flex justify-start min-w-0">
+            <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
                 <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
@@ -63,8 +65,8 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Coluna 2: Links das páginas centralizados no meio */}
-          <nav className="flex justify-center gap-3 xl:gap-6 text-sm lg:text-base items-center min-w-0">
+          {/* Zona 2: Links das páginas no meio (coluna auto = só o necessário) */}
+          <nav className="flex justify-center gap-3 xl:gap-6 text-sm lg:text-base items-center flex-shrink-0">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -81,8 +83,8 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Coluna 3: Admin + Olá + Perfil + Minha Conta + Sair — nome só em telas grandes para evitar sobreposição */}
-          <div className="flex justify-end items-center gap-2 xl:gap-3 text-xs lg:text-sm flex-nowrap min-w-0 overflow-hidden">
+          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (só 2 primeiros nomes) */}
+          <div className="flex justify-end items-center gap-2 xl:gap-3 text-xs lg:text-sm flex-nowrap min-w-0">
           {isAdmin && (
             <Link
               href="/admin"
@@ -93,8 +95,8 @@ export default function Header() {
           )}
           {user ? (
             <>
-              <span className="hidden 2xl:inline text-zinc-300 text-xs lg:text-sm min-w-0 max-w-[180px] truncate shrink" title={user.nomeArtistico}>
-                Olá, <b>{user.nomeArtistico}</b>
+              <span className="text-zinc-300 text-xs lg:text-sm whitespace-nowrap truncate max-w-[200px]" title={user.nomeArtistico}>
+                Olá, <b>{displayName}</b>
               </span>
 
               <Link
@@ -208,8 +210,8 @@ export default function Header() {
             <div className="pt-4 border-t border-zinc-800 mt-4 space-y-2">
               {user ? (
                 <>
-                  <div className="px-3 py-2 text-zinc-300 text-sm break-words min-w-0">
-                    Olá, <b>{user.nomeArtistico}</b>
+                  <div className="px-3 py-2 text-zinc-300 text-sm break-words min-w-0" title={user.nomeArtistico}>
+                    Olá, <b>{displayName}</b>
                   </div>
                   <Link
                     href="/conta"
