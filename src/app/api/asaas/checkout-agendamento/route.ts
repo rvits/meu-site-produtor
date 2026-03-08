@@ -159,7 +159,36 @@ export async function POST(req: Request) {
       userEmail,
     });
 
-    // Criar checkout
+    // Salvar metadata em PaymentMetadata para o webhook encontrar após o pagamento (linkagem Asaas)
+    const metadataCompleto = {
+      tipo: "agendamento",
+      userId: user.id,
+      data,
+      hora,
+      duracaoMinutos: duracaoMinutos || 60,
+      tipoAgendamento: tipo || "sessao",
+      observacoes: observacoes || "",
+      servicos: servicos || [],
+      beats: beats || [],
+      total: total.toString(),
+      paymentMethod: paymentMethod || null,
+      cupomCode: cupomCode || undefined,
+    };
+    const expiresAtAg = new Date();
+    expiresAtAg.setHours(expiresAtAg.getHours() + 24);
+    try {
+      await prisma.paymentMetadata.create({
+        data: {
+          userId: user.id,
+          metadata: JSON.stringify(metadataCompleto),
+          expiresAt: expiresAtAg,
+        },
+      });
+    } catch (metaErr: any) {
+      console.warn("[Asaas Checkout Agendamento] PaymentMetadata não criado (continuando):", metaErr?.message);
+    }
+
+    // Criar checkout (externalReference = apenas userId; metadata completo está em PaymentMetadata)
     const checkoutResponse = await provider.createCheckout({
       items,
       payer: {
@@ -169,19 +198,7 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {
-        tipo: "agendamento",
-        userId: user.id,
-        // Não passar appointmentId - será criado após pagamento confirmado
-        data,
-        hora,
-        duracaoMinutos: duracaoMinutos || 60,
-        tipoAgendamento: tipo || "sessao",
-        observacoes: observacoes || "",
-        servicos: JSON.stringify(servicos || []),
-        beats: JSON.stringify(beats || []),
-        total: total.toString(),
-        paymentMethod: paymentMethod || null,
-        cupomCode: cupomCode || undefined, // Incluir código do cupom se aplicado
+        userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
       },
       backUrls: {
         success: `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`,

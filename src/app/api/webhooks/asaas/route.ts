@@ -5,7 +5,11 @@ import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse, se
 
 /**
  * Webhook do Asaas para notificações de pagamento
- * 
+ *
+ * IMPORTANTE: Esta rota SEMPRE retorna HTTP 200 ao Asaas (exceto em erros de rede).
+ * O Asaas interrompe a fila e aplica penalidade quando recebe 4xx/5xx. Por isso
+ * erros internos são logados e a resposta é sempre 200, para a fila não ser interrompida.
+ *
  * Eventos suportados:
  * - PAYMENT_CREATED: Pagamento criado
  * - PAYMENT_RECEIVED: Pagamento confirmado ✅
@@ -21,17 +25,19 @@ export async function POST(req: Request) {
 
     if (process.env.NODE_ENV === "production" && !webhookToken) {
       console.error("[Asaas Webhook] ASAAS_WEBHOOK_ACCESS_TOKEN não configurado em produção - configure para segurança");
+      // Retornar 200 para não penalizar a fila do Asaas; corrigir env e reativar depois
       return NextResponse.json(
-        { received: false, error: "Webhook não configurado" },
-        { status: 500 }
+        { received: true, error: "Webhook não configurado" },
+        { status: 200 }
       );
     }
 
     if (webhookToken && receivedToken !== webhookToken) {
-      console.warn("[Asaas Webhook] Token inválido ou ausente - rejeitando requisição");
+      console.warn("[Asaas Webhook] Token inválido ou ausente - ignorando (retornando 200 para não penalizar)");
+      // Sempre 200: Asaas penaliza qualquer 4xx/5xx e interrompe a fila
       return NextResponse.json(
-        { received: false, error: "Token inválido" },
-        { status: 401 }
+        { received: true, error: "Token inválido" },
+        { status: 200 }
       );
     }
 
