@@ -48,13 +48,16 @@ export default function Header() {
   }
 
   const isAdmin = user?.role === "ADMIN";
-  // Exibir só os dois primeiros nomes para evitar sobreposição no header
-  const displayName = user?.nomeArtistico?.split(/\s+/).slice(0, 2).join(" ") || user?.nomeArtistico || "Usuário";
+  // Formato: primeiro nome + inicial do segundo com ponto (ex: Victor P.)
+  const parts = user?.nomeArtistico?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const displayName = parts.length >= 2
+    ? `${parts[0]} ${parts[1][0].toUpperCase()}.`
+    : (parts[0] || user?.nomeArtistico || "Usuário");
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      {/* Desktop: 3 zonas — logo esq | links centro | user dir (coluna direita com largura mínima para não sobrepor) */}
-        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(320px,1fr)] lg:gap-6 xl:gap-8 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+      {/* Desktop: logo esq | links centro | user na extrema direita (coluna auto) */}
+        <div className="hidden lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-6 xl:gap-8 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
           {/* Zona 1: T House Rec na extrema esquerda */}
           <div className="flex justify-start min-w-0">
             <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
@@ -83,8 +86,8 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair na extrema direita (só 2 primeiros nomes; coluna com min 320px) */}
-          <div className="flex justify-end items-center gap-3 text-sm flex-nowrap flex-shrink-0">
+          {/* Zona 3: Admin + Olá + nome (ex: Victor P.) + Perfil + Minha Conta + Sair na extrema direita */}
+          <div className="flex justify-end items-center gap-3 text-sm flex-nowrap flex-shrink-0 ml-auto">
           {isAdmin && (
             <Link
               href="/admin"
@@ -95,7 +98,7 @@ export default function Header() {
           )}
           {user ? (
             <>
-              <span className="text-zinc-300 text-sm whitespace-nowrap truncate max-w-[180px]" title={user.nomeArtistico}>
+              <span className="text-zinc-300 text-sm whitespace-nowrap" title={user.nomeArtistico}>
                 Olá, <b>{displayName}</b>
               </span>
 
