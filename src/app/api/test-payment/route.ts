@@ -106,16 +106,38 @@ export async function POST(req: Request) {
       }
 
       // Criar agendamento temporário; tipo reflete o primeiro serviço/beat selecionado
-      const agendamentoTemp = await prisma.appointment.create({
-        data: {
-          userId: user.id,
-          data: dataHoraISO,
-          duracaoMinutos: duracao,
-          tipo: tipoAgendamento,
-          observacoes: observacoes || "Agendamento de teste - Pagamento R$ 5,00",
-          status: "pendente",
-        },
-      });
+      let agendamentoTemp: { id: number };
+      try {
+        agendamentoTemp = await prisma.appointment.create({
+          data: {
+            userId: user.id,
+            data: dataHoraISO,
+            duracaoMinutos: duracao,
+            tipo: tipoAgendamento,
+            observacoes: observacoes || "Agendamento de teste - Pagamento R$ 5,00",
+            status: "pendente",
+          },
+        });
+      } catch (createErr: any) {
+        const msg = String(createErr?.message || "").toLowerCase();
+        // Banco em produção pode não ter colunas cancelReason/cancelledAt; inserir só colunas base
+        if (msg.includes("cancelreason") || msg.includes("does not exist") || msg.includes("unknown column")) {
+          const rows = await prisma.$queryRawUnsafe<[{ id: number }]>(
+            `INSERT INTO "Appointment" ("userId", "data", "duracaoMinutos", "tipo", "observacoes", "status") VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            user.id,
+            dataHoraISO,
+            duracao,
+            tipoAgendamento,
+            observacoes || "Agendamento de teste - Pagamento R$ 5,00",
+            "pendente",
+          );
+          if (!rows?.[0]?.id) throw createErr;
+          agendamentoTemp = { id: rows[0].id };
+          console.log("[Test Payment] Agendamento criado via fallback (DB sem coluna cancelReason):", agendamentoTemp.id);
+        } else {
+          throw createErr;
+        }
+      }
 
       metadata.appointmentId = agendamentoTemp.id.toString();
       metadata.data = data;

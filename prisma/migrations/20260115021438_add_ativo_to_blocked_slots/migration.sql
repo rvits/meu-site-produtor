@@ -6,7 +6,7 @@ CREATE TABLE "new_BlockedTimeSlot" (
     "data" TEXT NOT NULL,
     "hora" TEXT NOT NULL,
     "ativo" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO "new_BlockedTimeSlot" ("createdAt", "data", "hora", "id") SELECT "createdAt", "data", "hora", "id" FROM "BlockedTimeSlot";
 DROP TABLE "BlockedTimeSlot";

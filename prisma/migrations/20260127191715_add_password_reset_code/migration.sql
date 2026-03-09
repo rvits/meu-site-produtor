@@ -4,8 +4,8 @@ CREATE TABLE "PasswordResetCode" (
     "email" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "used" BOOLEAN NOT NULL DEFAULT false,
-    "expiresAt" DATETIME NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateIndex

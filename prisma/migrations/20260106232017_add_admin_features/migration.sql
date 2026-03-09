@@ -8,8 +8,8 @@ CREATE TABLE "Payment" (
     "paymentMethod" TEXT,
     "mercadoPagoId" TEXT,
     "description" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "Payment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -22,10 +22,10 @@ CREATE TABLE "UserPlan" (
     "modo" TEXT NOT NULL,
     "amount" REAL NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'active',
-    "startDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endDate" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endDate" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "UserPlan_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -36,9 +36,9 @@ CREATE TABLE "Service" (
     "tipo" TEXT NOT NULL,
     "description" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pendente',
-    "acceptedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "acceptedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "Service_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -51,10 +51,10 @@ CREATE TABLE "ChatSession" (
     "status" TEXT NOT NULL DEFAULT 'pending',
     "humanRequested" BOOLEAN NOT NULL DEFAULT false,
     "adminAccepted" BOOLEAN NOT NULL DEFAULT false,
-    "acceptedAt" DATETIME,
-    "closedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "acceptedAt" TIMESTAMP(3),
+    "closedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "ChatSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -64,7 +64,7 @@ CREATE TABLE "ChatMessage" (
     "sessionId" TEXT NOT NULL,
     "role" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ChatMessage_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ChatSession" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -75,7 +75,7 @@ CREATE TABLE "LoginLog" (
     "ipAddress" TEXT,
     "userAgent" TEXT,
     "success" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "LoginLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -85,15 +85,15 @@ PRAGMA foreign_keys=OFF;
 CREATE TABLE "new_Appointment" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "userId" TEXT NOT NULL,
-    "data" DATETIME NOT NULL,
+    "data" TIMESTAMP(3) NOT NULL,
     "duracaoMinutos" INTEGER NOT NULL,
     "tipo" TEXT NOT NULL,
     "observacoes" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pendente',
     "blocked" BOOLEAN NOT NULL DEFAULT false,
-    "blockedAt" DATETIME,
+    "blockedAt" TIMESTAMP(3),
     "blockedReason" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Appointment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_Appointment" ("createdAt", "data", "duracaoMinutos", "id", "observacoes", "status", "tipo", "userId") SELECT "createdAt", "data", "duracaoMinutos", "id", "observacoes", "status", "tipo", "userId" FROM "Appointment";
@@ -114,15 +114,15 @@ CREATE TABLE "new_User" (
     "estado" TEXT NOT NULL,
     "cidade" TEXT NOT NULL,
     "bairro" TEXT NOT NULL,
-    "dataNascimento" DATETIME NOT NULL,
+    "dataNascimento" TIMESTAMP(3) NOT NULL,
     "estilosMusicais" TEXT,
     "nacionalidade" TEXT,
     "foto" TEXT,
     "role" TEXT NOT NULL DEFAULT 'USER',
     "blocked" BOOLEAN NOT NULL DEFAULT false,
-    "blockedAt" DATETIME,
+    "blockedAt" TIMESTAMP(3),
     "blockedReason" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO "new_User" ("bairro", "cidade", "createdAt", "dataNascimento", "email", "estado", "estilosMusicais", "foto", "id", "nacionalidade", "nomeArtistico", "pais", "role", "senha", "telefone") SELECT "bairro", "cidade", "createdAt", "dataNascimento", "email", "estado", "estilosMusicais", "foto", "id", "nacionalidade", "nomeArtistico", "pais", "role", "senha", "telefone" FROM "User";
 DROP TABLE "User";
@@ -134,7 +134,7 @@ CREATE TABLE "new_UserQuestion" (
     "userName" TEXT,
     "userEmail" TEXT,
     "blocked" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "faqId" TEXT,
     CONSTRAINT "UserQuestion_faqId_fkey" FOREIGN KEY ("faqId") REFERENCES "FAQ" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );

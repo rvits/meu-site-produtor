@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "UserQuestion" ADD COLUMN "readAt" DATETIME;
+ALTER TABLE "UserQuestion" ADD COLUMN IF NOT EXISTS "readAt" TIMESTAMP(3);

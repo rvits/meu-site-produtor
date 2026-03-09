@@ -1632,23 +1632,30 @@ function AgendamentoContent() {
                 🧪 Pagamento de Teste - Agendamento (Apenas Admin)
               </h3>
               <p className="text-sm text-yellow-200 text-center">
-                Use esta opção para testar o fluxo de pagamento. Selecione os serviços acima (na seção SERVIÇOS DE ESTÚDIO), 
-                preencha data, horário e comentário. Os serviços selecionados aparecerão em &quot;Serviços Solicitados&quot; no admin após o pagamento (R$ 5,00).
+                Use esta opção para testar o fluxo de pagamento. <strong>Valor fixo: R$ 5,00.</strong> Todas as opções estão disponíveis: 
+                sessão, captação, mix, master, mix+master, sonoplastia (SERVIÇOS DE ESTÚDIO) e todos os pacotes de beats (BEATS E PACOTES). 
+                Selecione o que quiser, preencha data, horário e comentário. Após o pagamento: cada item selecionado gera um cupom associado 
+                (em Minha Conta) e tudo aparece em &quot;Serviços Solicitados&quot; no admin.
               </p>
               
-              {/* Serviços selecionados (resumo) - usa o mesmo estado do formulário principal */}
+              {/* Serviços e beats selecionados (resumo) — usa o mesmo estado do formulário principal */}
               <div className="rounded-lg border border-yellow-600/50 bg-yellow-950/30 p-4 mt-4">
-                <p className="text-sm font-medium text-yellow-300 mb-2">Serviços para este teste (selecione acima):</p>
-                {SERVICOS_ESTUDIO.some((s) => (quantidadesServicos[s.id] || 0) > 0) ? (
+                <p className="text-sm font-medium text-yellow-300 mb-2">Serviços e beats para este teste (selecione acima):</p>
+                {SERVICOS_ESTUDIO.some((s) => (quantidadesServicos[s.id] || 0) > 0) || BEATS_PACOTES.some((b) => (quantidadesBeats[b.id] || 0) > 0) ? (
                   <ul className="text-sm text-yellow-200 space-y-1">
                     {SERVICOS_ESTUDIO.filter((s) => (quantidadesServicos[s.id] || 0) > 0).map((s) => (
                       <li key={s.id}>
                         {s.nome} x{quantidadesServicos[s.id]} — R$ {((quantidadesServicos[s.id] || 0) * s.preco).toFixed(2)}
                       </li>
                     ))}
+                    {BEATS_PACOTES.filter((b) => (quantidadesBeats[b.id] || 0) > 0).map((b) => (
+                      <li key={b.id}>
+                        {b.nome} x{quantidadesBeats[b.id]} — R$ {((quantidadesBeats[b.id] || 0) * b.preco).toFixed(2)}
+                      </li>
+                    ))}
                   </ul>
                 ) : (
-                  <p className="text-yellow-500/90 text-sm">Nenhum serviço selecionado. Selecione ao menos um na seção de serviços para testar a aba &quot;Serviços Solicitados&quot; no admin.</p>
+                  <p className="text-yellow-500/90 text-sm">Nenhum serviço nem beat selecionado. Selecione ao menos um na seção de serviços ou de beats para testar a aba &quot;Serviços Solicitados&quot; no admin.</p>
                 )}
               </div>
               

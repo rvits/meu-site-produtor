@@ -29,7 +29,7 @@ CREATE TABLE "new_ChatMessage" (
     "chatSessionId" TEXT NOT NULL,
     "senderType" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ChatMessage_chatSessionId_fkey" FOREIGN KEY ("chatSessionId") REFERENCES "ChatSession" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_ChatMessage" ("content", "createdAt", "id") SELECT "content", "createdAt", "id" FROM "ChatMessage";
@@ -44,8 +44,8 @@ CREATE TABLE "new_ChatSession" (
     "humanRequested" BOOLEAN NOT NULL DEFAULT false,
     "adminAccepted" BOOLEAN NOT NULL DEFAULT false,
     "adminId" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "ChatSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "ChatSession_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -62,7 +62,7 @@ CREATE TABLE "new_LoginLog" (
     "ipAddress" TEXT NOT NULL,
     "userAgent" TEXT NOT NULL,
     "success" BOOLEAN NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "LoginLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_LoginLog" ("createdAt", "id", "ipAddress", "success", "userAgent", "userId") SELECT "createdAt", "id", "ipAddress", "success", "userAgent", "userId" FROM "LoginLog";
@@ -80,8 +80,8 @@ CREATE TABLE "new_Payment" (
     "type" TEXT NOT NULL,
     "planId" TEXT,
     "serviceId" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "Payment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_Payment" ("amount", "createdAt", "currency", "id", "status", "updatedAt", "userId") SELECT "amount", "createdAt", "currency", "id", "status", "updatedAt", "userId" FROM "Payment";
