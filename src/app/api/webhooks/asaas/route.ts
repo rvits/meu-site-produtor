@@ -737,6 +737,57 @@ export async function POST(req: Request) {
                   console.log("[Asaas Webhook] Serviços solicitados criados para agendamento:", agendamentoFinalId);
                 }
 
+                // Beats/pacotes: criar Service para cada um para aparecer no admin (Serviços Solicitados)
+                if (Array.isArray(beats) && beats.length > 0) {
+                  for (const b of beats) {
+                    const tipoBeat = b.id || b.nome || "beat";
+                    const descBeat = [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoBeat;
+                    for (let q = 0; q < (b.quantidade || 1); q++) {
+                      try {
+                        await prisma.service.create({
+                          data: {
+                            userId: appointment.userId,
+                            appointmentId: agendamentoFinalId,
+                            tipo: tipoBeat,
+                            description: descBeat,
+                            status: "pendente",
+                          },
+                        });
+                      } catch (serviceErr: any) {
+                        console.error("[Asaas Webhook] Erro ao criar Service beat (não crítico):", serviceErr);
+                      }
+                    }
+                  }
+                  console.log("[Asaas Webhook] Beats/pacotes criados para agendamento:", agendamentoFinalId);
+                }
+
+                // Pagamento de teste: gerar cupom específico do serviço selecionado (R$ 5 off, válido 30 dias)
+                if (metadata.isTest === true && agendamentoFinalId) {
+                  try {
+                    const primeiroServico = Array.isArray(services) && services.length > 0 ? services[0] : null;
+                    const primeiroBeat = Array.isArray(beats) && beats.length > 0 ? beats[0] : null;
+                    const serviceType = primeiroServico?.id || primeiroServico?.nome || primeiroBeat?.id || primeiroBeat?.nome || "sessao";
+                    const code = `TESTE_AGEND_${agendamentoFinalId}`;
+                    const expiresAt = new Date();
+                    expiresAt.setDate(expiresAt.getDate() + 30);
+                    await prisma.coupon.create({
+                      data: {
+                        code,
+                        couponType: "plano",
+                        discountType: "fixed",
+                        discountValue: 5,
+                        serviceType,
+                        minValue: 5,
+                        appointmentId: agendamentoFinalId,
+                        expiresAt,
+                      },
+                    });
+                    console.log("[Asaas Webhook] Cupom de teste criado:", code, "serviço:", serviceType);
+                  } catch (couponErr: any) {
+                    console.error("[Asaas Webhook] Erro ao criar cupom de teste (não crítico):", couponErr);
+                  }
+                }
+
                 // Email para usuário
                 await sendPaymentConfirmationEmailToUser(
                   appointment.user.email,

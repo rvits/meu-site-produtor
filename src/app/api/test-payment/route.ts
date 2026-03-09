@@ -66,6 +66,13 @@ export async function POST(req: Request) {
       isTest: true,
     };
 
+    // Serviços e beats: normalizar como array para o webhook registrar em Serviços Solicitados
+    const servicosArray = Array.isArray(servicos) ? servicos : [];
+    const beatsArray = Array.isArray(beats) ? beats : [];
+    const primeiroServico = servicosArray[0];
+    const primeiroBeat = beatsArray[0];
+    const tipoAgendamento = primeiroServico?.id || primeiroBeat?.id || "sessao";
+
     // Se for teste de agendamento, criar registro temporário antes do pagamento
     if (tipo === "agendamento") {
       // Validar dados do agendamento
@@ -88,6 +95,7 @@ export async function POST(req: Request) {
             { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
           ],
         },
+        select: { id: true },
       });
 
       if (conflito) {
@@ -97,33 +105,28 @@ export async function POST(req: Request) {
         );
       }
 
-      // Criar agendamento temporário com status especial para identificar que está aguardando pagamento
-      // Usaremos um status especial ou um campo adicional para identificar
+      // Criar agendamento temporário; tipo reflete o primeiro serviço/beat selecionado
       const agendamentoTemp = await prisma.appointment.create({
         data: {
           userId: user.id,
           data: dataHoraISO,
           duracaoMinutos: duracao,
-          tipo: "sessao",
+          tipo: tipoAgendamento,
           observacoes: observacoes || "Agendamento de teste - Pagamento R$ 5,00",
-          status: "pendente", // Será mantido como pendente após pagamento confirmado
+          status: "pendente",
         },
       });
 
-      // Armazenar ID do agendamento no metadata para referência no webhook
       metadata.appointmentId = agendamentoTemp.id.toString();
       metadata.data = data;
       metadata.hora = hora;
       metadata.duracaoMinutos = duracao.toString();
-      metadata.tipoAgendamento = "sessao";
+      metadata.tipoAgendamento = tipoAgendamento;
       metadata.observacoes = observacoes || "Agendamento de teste - Pagamento R$ 5,00";
-      if (servicos && Array.isArray(servicos) && servicos.length > 0) {
-        metadata.servicos = JSON.stringify(servicos);
-      }
-      if (beats && Array.isArray(beats) && beats.length > 0) {
-        metadata.beats = JSON.stringify(beats);
-      }
-      console.log("[Test Payment] Agendamento temporário criado:", agendamentoTemp.id);
+      metadata.servicos = servicosArray;
+      metadata.beats = beatsArray;
+      metadata.paymentMethod = "pix";
+      console.log("[Test Payment] Agendamento temporário criado:", agendamentoTemp.id, "servicos:", servicosArray.length, "beats:", beatsArray.length);
     }
 
     // Se for teste de plano, NÃO criar plano antes do pagamento
@@ -159,11 +162,19 @@ export async function POST(req: Request) {
       valor: 5.00,
     });
 
-    // Buscar CPF do usuário
+    // Buscar CPF do usuário (obrigatório para Asaas em produção)
     const userWithCpf = await prisma.user.findUnique({
       where: { id: user.id },
       select: { cpf: true },
     });
+
+    const cpfLimpo = userWithCpf?.cpf?.replace(/\D/g, "");
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      return NextResponse.json(
+        { error: "CPF é obrigatório para gerar pagamento no Asaas. Cadastre seu CPF em Perfil ou Minha Conta e tente novamente." },
+        { status: 400 }
+      );
+    }
 
     // IMPORTANTE: Asaas limita externalReference a 100 caracteres
     // 1. Salvar metadata completo em PaymentMetadata ANTES de criar checkout
@@ -192,7 +203,7 @@ export async function POST(req: Request) {
       payer: {
         name: user.nomeArtistico || user.email,
         email: user.email,
-        cpf: userWithCpf?.cpf || undefined,
+        cpf: cpfLimpo,
       },
       paymentMethod: undefined, // Para teste, deixar usuário escolher (UNDEFINED)
       metadata: {
