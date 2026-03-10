@@ -90,6 +90,7 @@ export default function MinhaContaPage() {
   const [faqQuestions, setFaqQuestions] = useState<FAQQuestion[]>([]);
   const [processandoPlano, setProcessandoPlano] = useState(false);
   const [erroProcessarPlano, setErroProcessarPlano] = useState<string | null>(null);
+  const [vincularCuponsTeste, setVincularCuponsTeste] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -459,7 +460,38 @@ export default function MinhaContaPage() {
           </div>
 
           {cupons.length === 0 ? (
-            <p className="text-zinc-400">Você não possui cupons.</p>
+            <div className="space-y-3">
+              <p className="text-zinc-400">Você não possui cupons.</p>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                <p className="text-sm text-zinc-300 mb-2">
+                  Pagou R$ 5 de teste (agendamento) e os cupons não aparecem aqui?
+                </p>
+                <button
+                  type="button"
+                  disabled={vincularCuponsTeste}
+                  onClick={async () => {
+                    setVincularCuponsTeste(true);
+                    try {
+                      const res = await fetch("/api/meus-dados/vincular-cupons-teste", { method: "POST" });
+                      const data = await res.json().catch(() => ({}));
+                      if (data.success) {
+                        await carregarDados();
+                        alert(data.message || "Cupons vinculados. Atualize a página se não aparecerem.");
+                      } else {
+                        alert(data.error || "Não foi possível vincular. Faça um pagamento de teste primeiro.");
+                      }
+                    } catch {
+                      alert("Erro ao vincular cupons de teste.");
+                    } finally {
+                      setVincularCuponsTeste(false);
+                    }
+                  }}
+                  className="rounded-lg px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium text-sm"
+                >
+                  {vincularCuponsTeste ? "Vinculando..." : "Vincular cupons de teste à minha conta"}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-6">
               {/* Cupons de Plano Disponíveis */}
