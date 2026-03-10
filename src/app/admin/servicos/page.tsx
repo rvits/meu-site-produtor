@@ -74,11 +74,64 @@ export default function AdminServicosPage() {
     return <p className="text-zinc-400">Carregando serviços...</p>;
   }
 
+  const servicosPendentes = servicosFiltrados.filter((s) => s.status === "pendente");
+  const servicosAceitos = servicosFiltrados.filter((s) => s.status === "aceito");
+  const servicosRecusados = servicosFiltrados.filter((s) => s.status === "recusado");
+  const servicosCancelados = servicosFiltrados.filter((s) => s.status === "cancelado");
+  const servicosConcluidos = servicosFiltrados.filter((s) => s.status === "concluido");
+  const servicosEmAndamento = servicosFiltrados.filter((s) => s.status === "em_andamento");
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Serviços</h1>
-        <p className="text-zinc-400">Gerenciar serviços selecionados e aceitos</p>
+        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Serviços Gerais</h1>
+        <p className="text-zinc-400">Visão geral: serviços solicitados, aceitos, recusados e cancelados. O status do serviço é atualizado automaticamente quando o agendamento é aceito, recusado ou cancelado pelo admin.</p>
+      </div>
+
+      {/* Estatísticas rápidas (como na página de Agendamentos) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+            <span className="text-zinc-300 text-sm">Pendentes</span>
+          </div>
+          <div className="text-2xl font-bold text-orange-400 mt-2">{servicosPendentes.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <span className="text-zinc-300 text-sm">Aceitos</span>
+          </div>
+          <div className="text-2xl font-bold text-green-400 mt-2">{servicosAceitos.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+            <span className="text-zinc-300 text-sm">Recusados</span>
+          </div>
+          <div className="text-2xl font-bold text-gray-400 mt-2">{servicosRecusados.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <span className="text-zinc-300 text-sm">Cancelados</span>
+          </div>
+          <div className="text-2xl font-bold text-red-400 mt-2">{servicosCancelados.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span className="text-zinc-300 text-sm">Em andamento</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-400 mt-2">{servicosEmAndamento.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+            <span className="text-zinc-300 text-sm">Concluídos</span>
+          </div>
+          <div className="text-2xl font-bold text-purple-400 mt-2">{servicosConcluidos.length}</div>
+        </div>
       </div>
 
       {/* Input de Busca */}

@@ -229,24 +229,25 @@ export default function MinhaContaPage() {
     return labels[status] || status;
   }
 
-  function getServiceName(serviceType: string) {
+  function getServiceName(serviceType: string, couponCode?: string) {
+    const isTeste = couponCode?.startsWith("TESTE_");
     const names: Record<string, string> = {
-      sessao: "Sessão",
-      captacao: "Captação",
-      sonoplastia: "Sonoplastia",
-      mix: "Mixagem",
-      master: "Masterização",
-      mix_master: "Mix + Master",
-      beat1: "1 Beat",
-      beat2: "2 Beats",
-      beat3: "3 Beats",
-      beat4: "4 Beats",
-      beat_mix_master: "Beat + Mix + Master",
-      producao_completa: "Produção Completa",
+      sessao: isTeste ? "Sessão Teste" : "Sessão",
+      captacao: isTeste ? "Captação Teste" : "Captação",
+      sonoplastia: isTeste ? "Sonoplastia Teste" : "Sonoplastia",
+      mix: isTeste ? "Mixagem Teste" : "Mixagem",
+      master: isTeste ? "Masterização Teste" : "Masterização",
+      mix_master: isTeste ? "Mix + Master Teste" : "Mix + Master",
+      beat1: isTeste ? "1 Beat Teste" : "1 Beat",
+      beat2: isTeste ? "2 Beats Teste" : "2 Beats",
+      beat3: isTeste ? "3 Beats Teste" : "3 Beats",
+      beat4: isTeste ? "4 Beats Teste" : "4 Beats",
+      beat_mix_master: isTeste ? "Beat + Mix + Master Teste" : "Beat + Mix + Master",
+      producao_completa: isTeste ? "Produção Completa Teste" : "Produção Completa",
       percent_servicos: "10% em serviços avulsos",
       percent_beats: "10% em beats",
     };
-    return names[serviceType] || serviceType;
+    return names[serviceType] || (isTeste ? `${serviceType} (Teste)` : serviceType);
   }
 
   if (loading) {
@@ -509,7 +510,7 @@ export default function MinhaContaPage() {
                         </div>
                         {cupom.serviceType && (
                           <p className="text-sm text-zinc-300 mt-2">
-                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType)}
+                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType || "", cupom.code)}
                           </p>
                         )}
                         {cupom.expiresAt && (
@@ -664,7 +665,7 @@ export default function MinhaContaPage() {
                         </div>
                         {cupom.serviceType && (
                           <p className="text-sm text-zinc-500 mt-2">
-                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType)}
+                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType || "", cupom.code)}
                           </p>
                         )}
                         {cupom.usedAt && (
@@ -730,7 +731,7 @@ export default function MinhaContaPage() {
                         </div>
                         {cupom.serviceType && (
                           <p className="text-sm text-zinc-500 mt-2">
-                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType)}
+                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType || "", cupom.code)}
                           </p>
                         )}
                         {cupom.discountValue > 0 && cupom.discountType === "fixed" && (

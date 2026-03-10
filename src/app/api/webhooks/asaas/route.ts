@@ -209,19 +209,25 @@ export async function POST(req: Request) {
         // Se metadata estiver vazio, tentar buscar do PaymentMetadata (armazenado antes de criar pagamento)
         if (Object.keys(metadata).length === 0 && userId) {
           try {
-            console.log("[Asaas Webhook] Buscando PaymentMetadata para userId:", userId);
+            console.log("[Asaas Webhook] Buscando PaymentMetadata para paymentId:", paymentId, "userId:", userId);
             
-            // Buscar metadata: preferir não processado (asaasId null); senão qualquer um recente para não perder vínculo
+            // Preferir metadata vinculado a este pagamento (asaasId = paymentId); senão userId + mais recente
             let paymentMetadata = await prisma.paymentMetadata.findFirst({
-              where: {
-                userId: userId,
-                OR: [
-                  { asaasId: null },
-                  { asaasId: paymentId },
-                ],
-              },
+              where: { userId: userId, asaasId: paymentId },
               orderBy: { createdAt: 'desc' },
             });
+            if (!paymentMetadata) {
+              paymentMetadata = await prisma.paymentMetadata.findFirst({
+                where: {
+                  userId: userId,
+                  OR: [
+                    { asaasId: null },
+                    { asaasId: paymentId },
+                  ],
+                },
+                orderBy: { createdAt: 'desc' },
+              });
+            }
             if (!paymentMetadata) {
               paymentMetadata = await prisma.paymentMetadata.findFirst({
                 where: { userId: userId, expiresAt: { gt: new Date() } },

@@ -238,9 +238,19 @@ export async function POST(req: Request) {
       },
     });
     
-    // Atualizar PaymentMetadata com o asaasId após criar o checkout
-    // Nota: O asaasId será atualizado no webhook quando o pagamento for confirmado
-    console.log("[Test Payment] Checkout criado, PaymentMetadata pronto para ser associado ao pagamento");
+    // Vincular PaymentMetadata ao ID do pagamento Asaas para o webhook encontrar o metadata correto
+    const asaasPaymentId = (checkoutResponse as { preferenceId?: string }).preferenceId;
+    if (asaasPaymentId && paymentMetadata?.id) {
+      try {
+        await prisma.paymentMetadata.update({
+          where: { id: paymentMetadata.id },
+          data: { asaasId: asaasPaymentId },
+        });
+        console.log("[Test Payment] PaymentMetadata.asaasId atualizado:", asaasPaymentId);
+      } catch (e) {
+        console.warn("[Test Payment] Erro ao atualizar PaymentMetadata.asaasId:", e);
+      }
+    }
 
     console.log(`[Test Payment] Checkout criado com sucesso (${providerName}):`, checkoutResponse.initPoint);
     

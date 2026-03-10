@@ -221,7 +221,7 @@ export default function AdminAgendamentosPage() {
       </div>
 
       {/* Estatísticas rápidas */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-orange-500"></div>
@@ -249,6 +249,20 @@ export default function AdminAgendamentosPage() {
             <span className="text-zinc-300">Recusados</span>
           </div>
           <div className="text-2xl font-bold text-gray-400 mt-2">{agendamentosRecusados.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span className="text-zinc-300">Em andamento</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-400 mt-2">{agendamentosPendentes.length}</div>
+        </div>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+            <span className="text-zinc-300">Concluídos</span>
+          </div>
+          <div className="text-2xl font-bold text-purple-400 mt-2">{agendamentosAceitos.length}</div>
         </div>
       </div>
 

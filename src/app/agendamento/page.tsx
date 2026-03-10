@@ -1931,6 +1931,28 @@ function AgendamentoContent() {
                 >
                   Testar Pagamento - R$ 5,00
                 </button>
+                <p className="text-center text-yellow-200/80 text-xs mt-3">
+                  Pagou e não apareceu cupom/agendamento/serviços?{" "}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.success) {
+                          alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados. Atualize Minha Conta e o admin.`);
+                        } else {
+                          alert(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
+                        }
+                      } catch (e) {
+                        alert("Erro ao reprocessar pagamento de teste.");
+                      }
+                    }}
+                    className="underline hover:text-yellow-300"
+                  >
+                    Reprocessar último pagamento de teste
+                  </button>
+                </p>
               </div>
             </div>
           </div>
