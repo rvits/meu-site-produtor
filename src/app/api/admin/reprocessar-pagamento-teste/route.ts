@@ -122,12 +122,14 @@ export async function POST() {
     }
 
     // Garantir que o agendamento pertence ao usuário do pagamento (para cupons e Minha Conta aparecerem)
-    await prisma.appointment.update({
-      where: { id: agendamentoFinalId },
-      data: { userId: pagamento.userId },
-    });
+    // SQL bruto para não depender de colunas que podem não existir no banco (ex.: cancelReason)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Appointment" SET "userId" = $1 WHERE id = $2`,
+      pagamento.userId,
+      agendamentoFinalId,
+    );
 
-    // Vincular pagamento ao agendamento
+    // Vincular pagamento ao agendamento (select só colunas que existem em todos os bancos)
     await prisma.payment.update({
       where: { id: pagamento.id },
       data: { appointmentId: agendamentoFinalId, type: "agendamento" },
