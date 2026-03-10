@@ -15,7 +15,7 @@ export async function POST() {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores." }, { status: 403 });
     }
 
-    // Último pagamento de teste do usuário: R$ 5, tipo agendamento; ou usar último PaymentMetadata
+    // Último pagamento de teste: primeiro do usuário logado; se admin e não achar, último do sistema (qualquer usuário)
     // select apenas colunas que existem em todos os bancos (evita erro se appointmentIds não existir)
     let pagamento = await prisma.payment.findFirst({
       where: {
@@ -37,7 +37,24 @@ export async function POST() {
       },
     });
 
-    // Se não existe pagamento (webhook não rodou), buscar último metadata e criar Payment + resto
+    if (!pagamento && (user.role === "ADMIN" || user.email === "thouse.rec.tremv@gmail.com")) {
+      pagamento = await prisma.payment.findFirst({
+        where: { amount: 5, type: "agendamento", status: "approved" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          userId: true,
+          amount: true,
+          type: true,
+          status: true,
+          asaasId: true,
+          appointmentId: true,
+          createdAt: true,
+        },
+      });
+    }
+
+    // Se ainda não existe pagamento (webhook não rodou), criar a partir do último metadata do usuário logado
     const paymentMetadataRecente = await prisma.paymentMetadata.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
@@ -58,24 +75,25 @@ export async function POST() {
 
     if (!pagamento) {
       return NextResponse.json({
-        error: "Nenhum pagamento de teste (R$ 5, agendamento) encontrado e nenhum metadata recente. Faça um pagamento de teste primeiro.",
+        error: "Nenhum pagamento de teste (R$ 5, agendamento) encontrado. Faça um pagamento de teste ou peça ao dono do pagamento para reprocessar.",
       }, { status: 404 });
     }
 
-    // Buscar metadata: por asaasId do pagamento ou o mais recente do usuário
+    // Metadata do DONO do pagamento (quem fez o teste), não do admin logado
+    const ownerId = pagamento.userId;
     let paymentMetadata = pagamento.asaasId
       ? await prisma.paymentMetadata.findFirst({
-          where: { userId: user.id, asaasId: pagamento.asaasId },
+          where: { userId: ownerId, asaasId: pagamento.asaasId },
           orderBy: { createdAt: "desc" },
         })
       : null;
     if (!paymentMetadata) {
       paymentMetadata = await prisma.paymentMetadata.findFirst({
-        where: { userId: user.id },
+        where: { userId: ownerId },
         orderBy: { createdAt: "desc" },
       });
     }
-    if (!paymentMetadata && paymentMetadataRecente) {
+    if (!paymentMetadata && ownerId === user.id && paymentMetadataRecente) {
       paymentMetadata = paymentMetadataRecente;
     }
 
@@ -104,7 +122,7 @@ export async function POST() {
       const duracao = parseInt(metadata.duracaoMinutos || "60", 10);
       const novo = await prisma.appointment.create({
         data: {
-          userId: user.id,
+          userId: pagamento.userId,
           data: dataHoraISO,
           duracaoMinutos: duracao,
           tipo: metadata.tipoAgendamento || "sessao",
@@ -247,6 +265,11 @@ export async function POST() {
       }
     }
 
+    const owner = await prisma.user.findUnique({
+      where: { id: pagamento.userId },
+      select: { email: true, nomeArtistico: true },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Pagamento de teste reprocessado. Agendamento, serviços e cupons foram criados/vinculados.",
@@ -254,6 +277,8 @@ export async function POST() {
       paymentId: pagamento.id,
       servicesCreated,
       couponsCreated,
+      forUser: owner ? { email: owner.email, nome: owner.nomeArtistico } : null,
+      hint: "Quem fez o pagamento deve acessar Minha Conta e clicar em Atualizar para ver agendamento e cupons. No admin, use os botões Atualizar em Agendamentos e Serviços.",
     });
   } catch (err: any) {
     console.error("[Reprocessar Pagamento Teste]", err);

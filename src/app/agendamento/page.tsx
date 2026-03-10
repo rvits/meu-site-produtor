@@ -1940,7 +1940,8 @@ function AgendamentoContent() {
                         const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
                         const data = await res.json().catch(() => ({}));
                         if (res.ok && data.success) {
-                          alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados. Atualize Minha Conta e o admin.`);
+                          const who = data.forUser ? ` (usuário: ${data.forUser.email || data.forUser.nome || "—"})` : "";
+                          alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados${who}. ${data.hint || "Atualize Minha Conta e o admin."}`);
                         } else {
                           alert(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
                         }
