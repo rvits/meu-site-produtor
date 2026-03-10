@@ -130,6 +130,25 @@ const MENU_ITEMS = [
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reprocessando, setReprocessando] = useState(false);
+
+  async function reprocessarPagamentoTeste() {
+    setReprocessando(true);
+    try {
+      const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const who = data.forUser ? ` (usuário: ${data.forUser.email || data.forUser.nome || "—"})` : "";
+        alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados${who}. ${data.hint || "Atualize Minha Conta e as páginas de Agendamentos/Serviços no admin."}`);
+      } else {
+        alert(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
+      }
+    } catch {
+      alert("Erro ao reprocessar pagamento de teste.");
+    } finally {
+      setReprocessando(false);
+    }
+  }
 
   useEffect(() => {
     async function fetchStats() {
@@ -154,6 +173,22 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-4xl font-bold text-zinc-100 mb-2">Painel Admin</h1>
         <p className="text-zinc-400">Gerencie todos os aspectos da THouse Rec</p>
+      </div>
+
+      {/* Ação rápida: Reprocessar pagamento de teste */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-zinc-100">Pagamento de teste (R$ 5)</h3>
+          <p className="text-sm text-zinc-400 mt-1">Se agendamento/serviços/cupons não aparecerem, reprocesse o último pagamento de teste.</p>
+        </div>
+        <button
+          type="button"
+          onClick={reprocessarPagamentoTeste}
+          disabled={reprocessando}
+          className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
+        >
+          {reprocessando ? "Reprocessando..." : "Reprocessar último pagamento de teste"}
+        </button>
       </div>
 
       {/* Stats Cards */}

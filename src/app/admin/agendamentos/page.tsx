@@ -50,6 +50,7 @@ export default function AdminAgendamentosPage() {
   const [cancelModal, setCancelModal] = useState<{ id: number } | null>(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [reprocessando, setReprocessando] = useState(false);
 
   useEffect(() => {
     carregarAgendamentos();
@@ -225,14 +226,40 @@ export default function AdminAgendamentosPage() {
           <h1 className="text-3xl font-bold text-zinc-100 mb-2">Agendamentos</h1>
           <p className="text-zinc-400">Solicitações pendentes, aceitas e recusadas</p>
         </div>
-        <button
-          type="button"
-          onClick={atualizarLista}
-          disabled={loading}
-          className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
-        >
-          {loading ? "Atualizando..." : "Atualizar"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={atualizarLista}
+            disabled={loading}
+            className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {loading ? "Atualizando..." : "Atualizar"}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              setReprocessando(true);
+              try {
+                const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
+                  alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns). ${data.hint || "Clique em Atualizar para ver a lista."}`);
+                  await carregarAgendamentos();
+                } else {
+                  alert(data.error || "Erro ao reprocessar.");
+                }
+              } catch {
+                alert("Erro ao reprocessar.");
+              } finally {
+                setReprocessando(false);
+              }
+            }}
+            disabled={reprocessando}
+            className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
+          >
+            {reprocessando ? "Reprocessando..." : "Reprocessar pagamento teste"}
+          </button>
+        </div>
       </div>
 
       {/* Estatísticas rápidas */}
