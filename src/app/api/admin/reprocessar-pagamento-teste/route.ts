@@ -133,10 +133,23 @@ export async function POST() {
       agendamentoFinalId = novo.id;
     }
 
+    // Sem metadata data/hora: criar agendamento padrão para o pagamento aparecer no admin (pendente)
     if (!agendamentoFinalId) {
-      return NextResponse.json({
-        error: "Não foi possível identificar ou criar o agendamento. Metadata sem data/hora ou appointmentId.",
-      }, { status: 400 });
+      const amanha = new Date();
+      amanha.setDate(amanha.getDate() + 1);
+      amanha.setHours(10, 0, 0, 0);
+      const duracao = parseInt(metadata.duracaoMinutos || "60", 10);
+      const novo = await prisma.appointment.create({
+        data: {
+          userId: pagamento.userId,
+          data: amanha,
+          duracaoMinutos: duracao,
+          tipo: metadata.tipoAgendamento || "sessao",
+          observacoes: metadata.observacoes || "Agendamento de teste - Pagamento R$ 5,00 (data padrão)",
+          status: "pendente",
+        },
+      });
+      agendamentoFinalId = novo.id;
     }
 
     // Garantir que o agendamento pertence ao usuário do pagamento (para cupons e Minha Conta aparecerem)
@@ -227,9 +240,9 @@ export async function POST() {
       }
     }
     for (const b of beats) {
-      const serviceType = String(b.id || b.nome || "beat1");
+      const tipoBeat = String(b.id || b.nome || "beat1");
       for (let q = 0; q < Math.max(1, Number(b.quantidade) || 1); q++) {
-        const code = makeCode(serviceType);
+        const code = makeCode(tipoBeat);
         const existing = await prisma.coupon.findUnique({ where: { code } });
         if (existing) continue;
         await prisma.coupon.create({
@@ -238,7 +251,7 @@ export async function POST() {
             couponType: "plano",
             discountType: "service",
             discountValue: 0,
-            serviceType: serviceType,
+            serviceType: tipoBeat,
             appointmentId: agendamentoFinalId,
             expiresAt,
           },

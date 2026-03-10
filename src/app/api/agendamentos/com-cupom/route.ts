@@ -185,13 +185,15 @@ export async function POST(req: Request) {
       const beatsIds = (beats || []).map((b: any) => b.id);
       const todosServicos = [...servicosIds, ...beatsIds];
       
-      // Mapear tipos de serviço equivalentes
+      // Mapear tipos de serviço equivalentes (inclui cupons de teste: sessao, beat, beat1-beat4)
       const serviceTypeMap: Record<string, string[]> = {
+        "sessao": ["sessao", "captacao"],
         "captacao": ["captacao", "sessao"],
         "mix": ["mix"],
         "master": ["master"],
         "mix_master": ["mix_master", "mix", "master"],
         "sonoplastia": ["sonoplastia"],
+        "beat": ["beat1", "beat2", "beat3", "beat4"],
         "beat1": ["beat1"],
         "beat2": ["beat2"],
         "beat3": ["beat3"],

@@ -16,7 +16,7 @@ export async function GET() {
   try {
     await requireAdmin();
 
-    // Buscar apenas agendamentos com pagamento confirmado (status "pendente" significa que o pagamento foi confirmado e está aguardando aprovação do admin)
+    // Buscar todos os agendamentos (pendente = aguardando aceitar/recusar; aceito/confirmado = aprovados; inclui teste e reais)
     const agendamentos = await prisma.appointment.findMany({
       where: {
         status: {
