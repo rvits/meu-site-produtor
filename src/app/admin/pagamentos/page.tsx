@@ -44,6 +44,7 @@ export default function AdminPagamentosPage() {
   const [loading, setLoading] = useState(true);
   const [pagamentoExpandido, setPagamentoExpandido] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [reprocessandoId, setReprocessandoId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarPagamentos();
@@ -314,6 +315,43 @@ export default function AdminPagamentosPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Pagamento teste (R$ 5 agendamento): associar agendamento e gerar cupons (1 sessão + 1 beat) */}
+                    {p.status === "approved" && p.type === "agendamento" && p.amount === 5 && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                        <p className="text-sm text-zinc-300 mb-2">
+                          Pagamento de teste: associe um agendamento a este pagamento e gere cupons (1 Sessão + 1 Beat) para o cliente usar em Minha Conta.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={reprocessandoId === p.id}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setReprocessandoId(p.id);
+                            try {
+                              const res = await fetch("/api/admin/reprocessar-pagamento-teste", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ paymentId: p.id }),
+                              });
+                              const data = await res.json().catch(() => ({}));
+                              if (res.ok && data.success) {
+                                alert(`Pronto: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados. Agendamento ID: ${data.appointmentId}. ${data.hint || "Peça ao cliente acessar Minha Conta e usar os cupons para agendar. No admin, use Atualizar em Agendamentos e Serviços."}`);
+                              } else {
+                                alert(data.error || "Erro ao associar.");
+                              }
+                            } catch {
+                              alert("Erro ao reprocessar.");
+                            } finally {
+                              setReprocessandoId(null);
+                            }
+                          }}
+                          className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
+                        >
+                          {reprocessandoId === p.id ? "Associando..." : "Associar agendamento e gerar cupons (1 sessão + 1 beat)"}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Informações do Usuário */}
                     <div>

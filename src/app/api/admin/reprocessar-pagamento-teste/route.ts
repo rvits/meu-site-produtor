@@ -1,56 +1,69 @@
 /**
  * POST /api/admin/reprocessar-pagamento-teste
- * Reprocessa o último pagamento de teste (R$ 5) do usuário admin: associa ao agendamento,
- * cria Services e cupons (Sessão Teste, Beat Teste) para que apareçam em Minha Conta, Admin e estatísticas.
+ * Reprocessa um pagamento de teste (R$ 5): associa ao agendamento, cria Services e cupons
+ * (1 sessão + 1 beat por padrão) para aparecer em Minha Conta, Admin (Agendamentos, Serviços).
+ * Aceita body: { paymentId?: string } para reprocessar um pagamento específico (ex.: da tela de Pagamentos).
  * Só admin.
  */
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const user = await requireAuth();
     if (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com") {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores." }, { status: 403 });
     }
 
-    // Último pagamento de teste: primeiro do usuário logado; se admin e não achar, último do sistema (qualquer usuário)
-    // select apenas colunas que existem em todos os bancos (evita erro se appointmentIds não existir)
-    let pagamento = await prisma.payment.findFirst({
-      where: {
-        userId: user.id,
-        amount: 5,
-        type: "agendamento",
-        status: "approved",
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        userId: true,
-        amount: true,
-        type: true,
-        status: true,
-        asaasId: true,
-        appointmentId: true,
-        createdAt: true,
-      },
-    });
+    let body: { paymentId?: string } = {};
+    try {
+      body = await req.json().catch(() => ({}));
+    } catch {
+      // ignore
+    }
+    const paymentIdParam = body.paymentId;
 
+    const selectPayment = {
+      id: true,
+      userId: true,
+      amount: true,
+      type: true,
+      status: true,
+      asaasId: true,
+      appointmentId: true,
+      createdAt: true,
+    };
+
+    // Se veio paymentId, usar esse pagamento (desde que seja R$ 5 e agendamento)
+    let pagamento: { id: string; userId: string; amount: number; type: string; status: string; asaasId: string | null; appointmentId: number | null; createdAt: Date } | null = null;
+    if (paymentIdParam) {
+      const p = await prisma.payment.findUnique({
+        where: { id: paymentIdParam },
+        select: selectPayment,
+      });
+      if (p && p.amount === 5 && p.type === "agendamento" && p.status === "approved") {
+        pagamento = p;
+      }
+    }
+
+    if (!pagamento) {
+      pagamento = await prisma.payment.findFirst({
+        where: {
+          userId: user.id,
+          amount: 5,
+          type: "agendamento",
+          status: "approved",
+        },
+        orderBy: { createdAt: "desc" },
+        select: selectPayment,
+      });
+    }
     if (!pagamento && (user.role === "ADMIN" || user.email === "thouse.rec.tremv@gmail.com")) {
       pagamento = await prisma.payment.findFirst({
         where: { amount: 5, type: "agendamento", status: "approved" },
         orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          userId: true,
-          amount: true,
-          type: true,
-          status: true,
-          asaasId: true,
-          appointmentId: true,
-          createdAt: true,
-        },
+        select: selectPayment,
       });
     }
 
@@ -259,22 +272,53 @@ export async function POST() {
         couponsCreated++;
       }
     }
+    // Sem metadata (servicos/beats): criar 1 sessão + 1 beat (serviços e cupons) para concluir a rota do teste
     if (services.length === 0 && beats.length === 0) {
-      const code = makeCode("sessao");
-      const existing = await prisma.coupon.findUnique({ where: { code } });
-      if (!existing) {
-        await prisma.coupon.create({
+      try {
+        await prisma.service.create({
           data: {
-            code,
-            couponType: "plano",
-            discountType: "service",
-            discountValue: 0,
-            serviceType: "sessao",
+            userId: userIdApt,
             appointmentId: agendamentoFinalId,
-            expiresAt,
+            tipo: "sessao",
+            description: "Agendamento de teste - 1 Sessão",
+            status: "pendente",
           },
         });
-        couponsCreated++;
+        servicesCreated++;
+      } catch (e) {
+        console.warn("[Reprocessar Teste] Service sessão já existe?", e);
+      }
+      try {
+        await prisma.service.create({
+          data: {
+            userId: userIdApt,
+            appointmentId: agendamentoFinalId,
+            tipo: "beat1",
+            description: "Agendamento de teste - 1 Beat",
+            status: "pendente",
+          },
+        });
+        servicesCreated++;
+      } catch (e) {
+        console.warn("[Reprocessar Teste] Service beat já existe?", e);
+      }
+      for (const tipo of ["sessao", "beat1"]) {
+        const code = makeCode(tipo);
+        const existing = await prisma.coupon.findUnique({ where: { code } });
+        if (!existing) {
+          await prisma.coupon.create({
+            data: {
+              code,
+              couponType: "plano",
+              discountType: "service",
+              discountValue: 0,
+              serviceType: tipo,
+              appointmentId: agendamentoFinalId,
+              expiresAt,
+            },
+          });
+          couponsCreated++;
+        }
       }
     }
 

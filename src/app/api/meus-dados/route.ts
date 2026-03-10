@@ -38,17 +38,27 @@ export async function GET() {
     });
     console.log("[API /meus-dados] Planos encontrados:", planos.length, planos.map(p => ({ id: p.id, planId: p.planId, status: p.status })));
 
-    // Buscar cupons do usuário (apenas de planos ativos; cupons de planos cancelados não aparecem na conta)
+    // Buscar cupons do usuário: usedBy, planos ativos, agendamentos do usuário, ou agendamentos vinculados a pagamentos do usuário (cupons de teste)
     const planosAtivosIds = planos.filter((p) => p.status !== "cancelled").map((p) => p.id);
     const planosIds = planos.length > 0 ? planos.map((p) => p.id) : [];
     const agendamentosIds = agendamentos.length > 0 ? agendamentos.map((a) => a.id) : [];
+
+    // Cupons de teste: pagamentos do usuário podem ter appointmentId sem o agendamento estar em "agendamentos" (userId do appointment)
+    const pagamentosUsuarioComAgendamento = await prisma.payment.findMany({
+      where: { userId: user.id, appointmentId: { not: null } },
+      select: { appointmentId: true },
+    });
+    const appointmentIdsDosPagamentos = pagamentosUsuarioComAgendamento
+      .map((p) => p.appointmentId)
+      .filter((id): id is number => id != null);
+    const todosAppointmentIds = [...new Set([...agendamentosIds, ...appointmentIdsDosPagamentos])];
 
     const todosCupons = await prisma.coupon.findMany({
       where: {
         OR: [
           { usedBy: user.id },
-          ...(planosAtivosIds.length > 0 ? [{ userPlanId: { in: planosAtivosIds } }] : []), // Só cupons de planos não cancelados
-          ...(agendamentosIds.length > 0 ? [{ appointmentId: { in: agendamentosIds } }] : []),
+          ...(planosAtivosIds.length > 0 ? [{ userPlanId: { in: planosAtivosIds } }] : []),
+          ...(todosAppointmentIds.length > 0 ? [{ appointmentId: { in: todosAppointmentIds } }] : []),
         ],
       },
       orderBy: { createdAt: "desc" },
