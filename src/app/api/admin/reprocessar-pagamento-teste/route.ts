@@ -16,6 +16,7 @@ export async function POST() {
     }
 
     // Último pagamento de teste do usuário: R$ 5, tipo agendamento; ou usar último PaymentMetadata
+    // select apenas colunas que existem em todos os bancos (evita erro se appointmentIds não existir)
     let pagamento = await prisma.payment.findFirst({
       where: {
         userId: user.id,
@@ -24,6 +25,16 @@ export async function POST() {
         status: "approved",
       },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        userId: true,
+        amount: true,
+        type: true,
+        status: true,
+        asaasId: true,
+        appointmentId: true,
+        createdAt: true,
+      },
     });
 
     // Se não existe pagamento (webhook não rodou), buscar último metadata e criar Payment + resto
