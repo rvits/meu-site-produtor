@@ -20,6 +20,7 @@ export default function AdminServicosPage() {
   const [servicosFiltrados, setServicosFiltrados] = useState<Service[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     carregarServicos();
@@ -81,11 +82,37 @@ export default function AdminServicosPage() {
   const servicosConcluidos = servicosFiltrados.filter((s) => s.status === "concluido");
   const servicosEmAndamento = servicosFiltrados.filter((s) => s.status === "em_andamento");
 
+  async function atualizarLista() {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/admin/servicos");
+      if (res.ok) {
+        const data = await res.json();
+        setServicos(data.servicos || []);
+        setServicosFiltrados(data.servicos || []);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar serviços", err);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Serviços Gerais</h1>
-        <p className="text-zinc-400">Visão geral: serviços solicitados, aceitos, recusados e cancelados. O status do serviço é atualizado automaticamente quando o agendamento é aceito, recusado ou cancelado pelo admin.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-100 mb-2">Serviços Gerais</h1>
+          <p className="text-zinc-400">Visão geral: serviços solicitados, aceitos, recusados e cancelados. O status do serviço é atualizado automaticamente quando o agendamento é aceito, recusado ou cancelado pelo admin.</p>
+        </div>
+        <button
+          type="button"
+          onClick={atualizarLista}
+          disabled={refreshing}
+          className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+        >
+          {refreshing ? "Atualizando..." : "Atualizar"}
+        </button>
       </div>
 
       {/* Estatísticas rápidas (como na página de Agendamentos) */}

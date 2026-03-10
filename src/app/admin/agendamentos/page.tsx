@@ -213,11 +213,26 @@ export default function AdminAgendamentosPage() {
     return status;
   }
 
+  async function atualizarLista() {
+    setLoading(true);
+    await carregarAgendamentos();
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Agendamentos</h1>
-        <p className="text-zinc-400">Solicitações pendentes, aceitas e recusadas</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-100 mb-2">Agendamentos</h1>
+          <p className="text-zinc-400">Solicitações pendentes, aceitas e recusadas</p>
+        </div>
+        <button
+          type="button"
+          onClick={atualizarLista}
+          disabled={loading}
+          className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+        >
+          {loading ? "Atualizando..." : "Atualizar"}
+        </button>
       </div>
 
       {/* Estatísticas rápidas */}
