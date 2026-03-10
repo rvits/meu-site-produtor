@@ -121,6 +121,12 @@ export async function POST() {
       }, { status: 400 });
     }
 
+    // Garantir que o agendamento pertence ao usuário do pagamento (para cupons e Minha Conta aparecerem)
+    await prisma.appointment.update({
+      where: { id: agendamentoFinalId },
+      data: { userId: pagamento.userId },
+    });
+
     // Vincular pagamento ao agendamento
     await prisma.payment.update({
       where: { id: pagamento.id },
@@ -130,11 +136,7 @@ export async function POST() {
     const services = metadata.servicos ? (Array.isArray(metadata.servicos) ? metadata.servicos : JSON.parse(metadata.servicos)) : [];
     const beats = metadata.beats ? (Array.isArray(metadata.beats) ? metadata.beats : JSON.parse(metadata.beats)) : [];
 
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: agendamentoFinalId },
-      select: { userId: true },
-    });
-    const userIdApt = appointment?.userId ?? user.id;
+    const userIdApt = pagamento.userId;
 
     let servicesCreated = 0;
     for (const svc of services) {
