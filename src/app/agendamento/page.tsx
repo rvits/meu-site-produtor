@@ -258,6 +258,19 @@ function AgendamentoContent() {
     if (restore) window.history.replaceState({}, "", "/agendamento");
   }, [searchParams, aplicarRestore]);
 
+  // Preencher cupom quando vier da Minha Conta com ?cupom=CODE
+  useEffect(() => {
+    const cupomFromUrl = searchParams.get("cupom") || searchParams.get("cupomCode");
+    if (cupomFromUrl && cupomFromUrl.trim()) {
+      setCupomCode(cupomFromUrl.trim());
+      // Limpar URL para não reaproveitar o cupom ao recarregar
+      const url = new URL(window.location.href);
+      url.searchParams.delete("cupom");
+      url.searchParams.delete("cupomCode");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    }
+  }, [searchParams]);
+
   // pageshow: restaura ao usar botão Voltar do navegador (incl. bfcache)
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {

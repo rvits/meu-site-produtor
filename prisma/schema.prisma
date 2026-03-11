@@ -43,6 +43,7 @@ model User {
   chatSessions  ChatSession[]
   adminChats    ChatSession[]  @relation("AdminChat")
   faqQuestions  UserQuestion[]
+  assignedCoupons Coupon[]     @relation("AssignedCoupons") // Cupons associados manualmente pelo admin à Minha Conta
 
   createdAt DateTime @default(now())
 
@@ -161,6 +162,7 @@ model Payment {
   appointmentIds Json? // IDs de todos os agendamentos (carrinho); array de inteiros
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  coupons       Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
 
   @@index([userId])
   @@index([status])
@@ -326,6 +328,10 @@ model Coupon {
   appointmentId Int? // ID do agendamento que gerou este cupom (para cupons de reembolso)
   userPlanId    String? // ID do plano que gerou este cupom (para cupons de plano)
   userPlan      UserPlan? @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
+  paymentId     String? // ID do pagamento que gerou este cupom (ex.: teste sem agendamento prévio)
+  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  assignedUserId String? // Associado manualmente pelo admin à Minha Conta deste usuário
+  assignedUser   User?   @relation("AssignedCoupons", fields: [assignedUserId], references: [id], onDelete: SetNull)
   expiresAt     DateTime?
   createdAt     DateTime  @default(now())
 
@@ -336,4 +342,6 @@ model Coupon {
   @@index([userPlanId])
   @@index([couponType])
   @@index([appointmentId])
+  @@index([paymentId])
+  @@index([assignedUserId])
 }

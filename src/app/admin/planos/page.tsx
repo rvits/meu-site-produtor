@@ -54,6 +54,12 @@ export default function AdminPlanosPage() {
   const [loading, setLoading] = useState(true);
   const [excluindo, setExcluindo] = useState(false);
   const [excluindoCupomId, setExcluindoCupomId] = useState<string | null>(null);
+  const [adicionandoAContaAppointmentId, setAdicionandoAContaAppointmentId] = useState<number | null>(null);
+  const [selectedCouponIds, setSelectedCouponIds] = useState<string[]>([]);
+  const [modalAssociarOpen, setModalAssociarOpen] = useState(false);
+  const [associarEmail, setAssociarEmail] = useState("");
+  const [associando, setAssociando] = useState(false);
+  const [associarError, setAssociarError] = useState("");
 
   useEffect(() => {
     carregarPlanos();
@@ -208,6 +214,34 @@ export default function AdminPlanosPage() {
       alert("Erro ao excluir cupom.");
     } finally {
       setExcluindoCupomId(null);
+    }
+  }
+
+  async function adicionarCuponsAMinhaConta(c: Cupom) {
+    const aid = c.appointmentId;
+    if (aid == null) {
+      alert("Este cupom não está vinculado a um agendamento.");
+      return;
+    }
+    try {
+      setAdicionandoAContaAppointmentId(aid);
+      const res = await fetch("/api/admin/cupons/adicionar-a-conta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: aid }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Cupons vinculados à Minha Conta do usuário.");
+        await carregarCupons();
+      } else {
+        alert(data.error || "Erro ao vincular cupons.");
+      }
+    } catch (err) {
+      console.error("Erro ao adicionar cupons à conta", err);
+      alert("Erro ao vincular cupons.");
+    } finally {
+      setAdicionandoAContaAppointmentId(null);
     }
   }
 
@@ -387,16 +421,34 @@ export default function AdminPlanosPage() {
       {/* Conteúdo da Aba Cupons */}
       {abaAtiva === "cupons" && (
         <>
-          {/* Input de Busca Cupons e Botão de Correção */}
+          {/* Input de Busca Cupons, Associar ao usuário e Corrigir */}
           <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               <input
                 type="text"
                 value={buscaCupons}
                 onChange={(e) => setBuscaCupons(e.target.value)}
                 placeholder="Buscar por nome, email ou código do cupom..."
-                className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+                className="flex-1 min-w-[200px] rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
               />
+              <button
+                onClick={() => setModalAssociarOpen(true)}
+                disabled={selectedCouponIds.length === 0}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={selectedCouponIds.length === 0 ? "Selecione cupons na tabela" : "Associar cupons selecionados à Minha Conta de um usuário"}
+              >
+                ➕ Associar seleção à Minha Conta ({selectedCouponIds.length})
+              </button>
+              <button
+                onClick={() => {
+                  const naoAssociados = cuponsFiltrados.filter((c) => c.user.email === "N/A").map((c) => c.id);
+                  setSelectedCouponIds(naoAssociados);
+                }}
+                className="rounded-lg bg-amber-600/80 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
+                title="Selecionar cupons que ainda não têm usuário associado"
+              >
+                Selecionar não associados
+              </button>
               <button
                 onClick={corrigirCuponsAntigos}
                 className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-700 transition-colors"
@@ -411,6 +463,68 @@ export default function AdminPlanosPage() {
             )}
           </div>
 
+          {/* Modal: Associar cupons ao usuário (e-mail) */}
+          {modalAssociarOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+              <div className="rounded-xl border border-zinc-600 bg-zinc-900 p-6 w-full max-w-md shadow-xl">
+                <h3 className="text-lg font-semibold text-zinc-100 mb-2">Associar cupons à Minha Conta</h3>
+                <p className="text-sm text-zinc-400 mb-4">
+                  {selectedCouponIds.length} cupom(ns) selecionado(s). Informe o e-mail do usuário que comprou para que os cupons apareçam na Minha Conta dele.
+                </p>
+                <input
+                  type="email"
+                  value={associarEmail}
+                  onChange={(e) => { setAssociarEmail(e.target.value); setAssociarError(""); }}
+                  placeholder="E-mail do usuário"
+                  className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none mb-3"
+                />
+                {associarError && <p className="text-sm text-red-400 mb-2">{associarError}</p>}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setModalAssociarOpen(false); setAssociarEmail(""); setAssociarError(""); }}
+                    className="rounded-lg border border-zinc-600 px-4 py-2 text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={associando || !associarEmail.trim()}
+                    onClick={async () => {
+                      if (!associarEmail.trim()) return;
+                      setAssociando(true);
+                      setAssociarError("");
+                      try {
+                        const res = await fetch("/api/admin/cupons/associar-usuario", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ userEmail: associarEmail.trim(), couponIds: selectedCouponIds }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          setModalAssociarOpen(false);
+                          setAssociarEmail("");
+                          setSelectedCouponIds([]);
+                          await carregarCupons();
+                          alert(data.message || "Cupons associados.");
+                        } else {
+                          setAssociarError(data.error || "Erro ao associar.");
+                        }
+                      } catch (e) {
+                        setAssociarError("Erro de conexão.");
+                      } finally {
+                        setAssociando(false);
+                      }
+                    }}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {associando ? "Associando…" : "Associar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {cuponsFiltrados.length === 0 ? (
             <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
               Nenhum cupom encontrado.
@@ -420,6 +534,18 @@ export default function AdminPlanosPage() {
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900 text-zinc-300">
                   <tr>
+                    <th className="px-2 py-3 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={cuponsFiltrados.length > 0 && cuponsFiltrados.every((c) => selectedCouponIds.includes(c.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedCouponIds(cuponsFiltrados.map((c) => c.id));
+                          else setSelectedCouponIds([]);
+                        }}
+                        title="Selecionar todos"
+                        className="rounded border-zinc-500"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left">Usuário</th>
                     <th className="px-4 py-3 text-left">Código</th>
                     <th className="px-4 py-3 text-left">Tipo</th>
@@ -435,6 +561,17 @@ export default function AdminPlanosPage() {
                 <tbody className="divide-y divide-zinc-700">
                   {cuponsFiltrados.map((c) => (
                     <tr key={c.id}>
+                      <td className="px-2 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedCouponIds.includes(c.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedCouponIds((ids) => [...ids, c.id]);
+                            else setSelectedCouponIds((ids) => ids.filter((id) => id !== c.id));
+                          }}
+                          className="rounded border-zinc-500"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-zinc-100">{c.user.nomeArtistico}</div>
                         <div className="text-xs text-zinc-400">{c.user.email}</div>
@@ -506,15 +643,28 @@ export default function AdminPlanosPage() {
                         ) : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => excluirCupom(c.id, c.code)}
-                          disabled={excluindoCupomId === c.id}
-                          className="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors disabled:opacity-50"
-                          title="Excluir cupom do banco"
-                        >
-                          {excluindoCupomId === c.id ? "Excluindo…" : "Excluir"}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {c.appointmentId != null && (
+                            <button
+                              type="button"
+                              onClick={() => adicionarCuponsAMinhaConta(c)}
+                              disabled={adicionandoAContaAppointmentId === c.appointmentId}
+                              className="text-xs bg-emerald-600/80 hover:bg-emerald-600 text-white px-2 py-1 rounded transition-colors disabled:opacity-50"
+                              title="Vincular os cupons deste agendamento à Minha Conta do usuário que pagou"
+                            >
+                              {adicionandoAContaAppointmentId === c.appointmentId ? "Vinculando…" : "Adicionar à Minha Conta"}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => excluirCupom(c.id, c.code)}
+                            disabled={excluindoCupomId === c.id}
+                            className="text-xs bg-red-600/80 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors disabled:opacity-50"
+                            title="Excluir cupom do banco"
+                          >
+                            {excluindoCupomId === c.id ? "Excluindo…" : "Excluir"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -73,82 +73,14 @@ export async function POST(req: Request) {
     const primeiroBeat = beatsArray[0];
     const tipoAgendamento = primeiroServico?.id || primeiroBeat?.id || "sessao";
 
-    // Se for teste de agendamento, criar registro temporário antes do pagamento
+    // Teste de agendamento: não criar agendamento. Após o pagamento só geramos cupons;
+    // o usuário agenda depois pela página do cupom (Minha Conta).
     if (tipo === "agendamento") {
-      // Validar dados do agendamento
-      if (!data || !hora) {
-        return NextResponse.json(
-          { error: "Data e horário são obrigatórios para teste de agendamento." },
-          { status: 400 }
-        );
-      }
-
-      // Verificar conflitos antes de criar o pagamento
-      const dataHoraISO = new Date(`${data}T${hora}:00`);
-      const duracao = duracaoMinutos || 60;
-
-      const conflito = await prisma.appointment.findFirst({
-        where: {
-          status: { not: "cancelado" },
-          AND: [
-            { data: { lt: new Date(dataHoraISO.getTime() + (duracao * 60000)) } },
-            { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
-          ],
-        },
-        select: { id: true },
-      });
-
-      if (conflito) {
-        return NextResponse.json(
-          { error: "Já existe um agendamento neste horário." },
-          { status: 409 }
-        );
-      }
-
-      // Criar agendamento temporário; tipo reflete o primeiro serviço/beat selecionado
-      let agendamentoTemp: { id: number };
-      try {
-        agendamentoTemp = await prisma.appointment.create({
-          data: {
-            userId: user.id,
-            data: dataHoraISO,
-            duracaoMinutos: duracao,
-            tipo: tipoAgendamento,
-            observacoes: observacoes || "Agendamento de teste - Pagamento R$ 5,00",
-            status: "pendente",
-          },
-        });
-      } catch (createErr: any) {
-        const msg = String(createErr?.message || "").toLowerCase();
-        // Banco em produção pode não ter colunas cancelReason/cancelledAt; inserir só colunas base
-        if (msg.includes("cancelreason") || msg.includes("does not exist") || msg.includes("unknown column")) {
-          const rows = await prisma.$queryRawUnsafe<[{ id: number }]>(
-            `INSERT INTO "Appointment" ("userId", "data", "duracaoMinutos", "tipo", "observacoes", "status") VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            user.id,
-            dataHoraISO,
-            duracao,
-            tipoAgendamento,
-            observacoes || "Agendamento de teste - Pagamento R$ 5,00",
-            "pendente",
-          );
-          if (!rows?.[0]?.id) throw createErr;
-          agendamentoTemp = { id: rows[0].id };
-          console.log("[Test Payment] Agendamento criado via fallback (DB sem coluna cancelReason):", agendamentoTemp.id);
-        } else {
-          throw createErr;
-        }
-      }
-
-      metadata.appointmentId = agendamentoTemp.id.toString();
-      metadata.data = data;
-      metadata.hora = hora;
-      metadata.duracaoMinutos = duracao.toString();
-      metadata.tipoAgendamento = tipoAgendamento;
-      metadata.observacoes = observacoes || "Agendamento de teste - Pagamento R$ 5,00";
       metadata.servicos = servicosArray;
       metadata.beats = beatsArray;
       metadata.paymentMethod = "pix";
-      console.log("[Test Payment] Agendamento temporário criado:", agendamentoTemp.id, "servicos:", servicosArray.length, "beats:", beatsArray.length);
+      metadata.tipoAgendamento = tipoAgendamento;
+      console.log("[Test Payment] Pagamento de teste (agendamento): cupons serão gerados após pagamento; sem agendamento prévio. servicos:", servicosArray.length, "beats:", beatsArray.length);
     }
 
     // Se for teste de plano, NÃO criar plano antes do pagamento

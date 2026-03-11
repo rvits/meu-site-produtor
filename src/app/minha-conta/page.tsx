@@ -561,6 +561,13 @@ export default function MinhaContaPage() {
                         </p>
                         <button
                           type="button"
+                          onClick={() => router.push(`/agendamento?cupom=${encodeURIComponent(cupom.code)}`)}
+                          className="mt-3 w-full py-2 text-sm font-semibold text-zinc-100 bg-green-600 hover:bg-green-500 rounded transition-colors"
+                        >
+                          📅 Agendar com este cupom
+                        </button>
+                        <button
+                          type="button"
                           onClick={async () => {
                             if (!confirm("Excluir este cupom da sua lista? Você não poderá usá-lo depois.")) return;
                             try {

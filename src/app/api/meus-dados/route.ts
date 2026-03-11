@@ -58,12 +58,15 @@ export async function GET() {
     }
     let todosAppointmentIds = [...new Set([...agendamentosIds, ...appointmentIdsDosPagamentos])];
 
+    const paymentIdsUsuario = pagamentos.map((p) => p.id);
     const todosCupons = await prisma.coupon.findMany({
       where: {
         OR: [
           { usedBy: user.id },
           ...(planosAtivosIds.length > 0 ? [{ userPlanId: { in: planosAtivosIds } }] : []),
           ...(todosAppointmentIds.length > 0 ? [{ appointmentId: { in: todosAppointmentIds } }] : []),
+          ...(paymentIdsUsuario.length > 0 ? [{ paymentId: { in: paymentIdsUsuario } }] : []),
+          { assignedUserId: user.id }, // cupons associados manualmente pelo admin à Minha Conta
         ],
       },
       orderBy: { createdAt: "desc" },
