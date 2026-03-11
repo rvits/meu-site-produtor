@@ -476,11 +476,18 @@ export default function MinhaContaPage() {
                       const res = await fetch("/api/meus-dados/vincular-cupons-teste", { method: "POST" });
                       const data = await res.json().catch(() => ({}));
                       if (data.success) {
+                        await new Promise((r) => setTimeout(r, 400));
                         await carregarDados();
-                        alert(data.message || "Cupons vinculados. Atualize a página se não aparecerem.");
-                      } else {
-                        alert(data.error || "Não foi possível vincular. Faça um pagamento de teste primeiro.");
+                        setVincularCuponsTeste(false);
+                        const qtd = (data.cuponsCount ?? 0) as number;
+                        if (qtd > 0) {
+                          alert(`${data.message ?? "Cupons vinculados."}\n\nSe não aparecerem acima, clique em "Atualizar" no topo da página.`);
+                        } else {
+                          alert(data.message ?? "Vinculado. Se os cupons não aparecerem, clique em Atualizar ou recarregue a página (F5).");
+                        }
+                        return;
                       }
+                      alert(data.error || "Não foi possível vincular. Faça um pagamento de teste primeiro.");
                     } catch {
                       alert("Erro ao vincular cupons de teste.");
                     } finally {

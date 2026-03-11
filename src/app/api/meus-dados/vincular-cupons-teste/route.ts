@@ -53,11 +53,10 @@ export async function POST() {
       );
     }
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Appointment" SET "userId" = $1 WHERE id = $2`,
-      user.id,
-      agendamentoId
-    );
+    await prisma.appointment.update({
+      where: { id: agendamentoId },
+      data: { userId: user.id },
+    });
 
     try {
       await prisma.payment.update({
@@ -65,13 +64,20 @@ export async function POST() {
         data: { appointmentId: agendamentoId },
       });
     } catch (e) {
-      console.warn("[vincular-cupons-teste] Payment.update falhou (pode não ter coluna appointmentId):", e);
+      console.warn("[vincular-cupons-teste] Payment.update falhou:", e);
     }
+
+    const cuponsCount = await prisma.coupon.count({
+      where: { appointmentId: agendamentoId },
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Cupons de teste vinculados à sua conta. Clique em Atualizar para ver os cupons.",
+      message: cuponsCount > 0
+        ? `${cuponsCount} cupom(ns) vinculado(s) à sua conta. Eles devem aparecer abaixo.`
+        : "Agendamento vinculado. Se os cupons não aparecerem, atualize a página (F5).",
       appointmentId: agendamentoId,
+      cuponsCount,
     });
   } catch (err: any) {
     if (err.message === "Não autenticado") {
