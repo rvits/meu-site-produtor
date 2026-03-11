@@ -126,9 +126,54 @@ export async function GET() {
         select: { id: true },
       });
       const idsQueSaoDoUsuario = new Set(agendamentosDoUsuario.map((a) => a.id));
-      if (idsQueSaoDoUsuario.size > 0) {
+
+      // Cupons teste pelo pagamento: incluir quando o pagamento ligado ao appointment for do usuário (por email)
+      let idsAppointmentDoUsuarioPorEmail = new Set<number>(idsQueSaoDoUsuario);
+      try {
+        const pagamentosDosAgendamentosTeste = await prisma.payment.findMany({
+          where: {
+            appointmentId: { in: idsAgendamentoTeste },
+            amount: 5,
+            type: "agendamento",
+            status: "approved",
+          },
+          select: { appointmentId: true, user: { select: { email: true } } },
+        });
+        const emailDoUsuario = user.email?.toLowerCase().trim();
+        for (const p of pagamentosDosAgendamentosTeste) {
+          if (p.appointmentId != null && emailDoUsuario && p.user?.email?.toLowerCase().trim() === emailDoUsuario) {
+            idsAppointmentDoUsuarioPorEmail.add(p.appointmentId);
+          }
+        }
+      } catch (e) {
+        console.warn("[meus-dados] Busca pagamentos por appointmentId (cupons teste) falhou:", e);
+      }
+      // Se o usuário tem algum pagamento de teste (por id ou email), incluir todos os cupons TESTE_ desses appointments
+      let temPagamentoTeste = false;
+      try {
+        const pt = await prisma.payment.findFirst({
+          where: { userId: user.id, amount: 5, type: "agendamento", status: "approved" },
+          select: { id: true },
+        });
+        if (pt) temPagamentoTeste = true;
+      } catch (_) {}
+      if (!temPagamentoTeste && user.email) {
+        try {
+          const pt2 = await prisma.payment.findFirst({
+            where: { amount: 5, type: "agendamento", status: "approved", user: { email: user.email.trim() } },
+            select: { id: true },
+          });
+          if (pt2) temPagamentoTeste = true;
+        } catch (_) {}
+      }
+      if (temPagamentoTeste) {
+        idsAgendamentoTeste.forEach((id) => idsAppointmentDoUsuarioPorEmail.add(id));
+      }
+
+      if (idsAppointmentDoUsuarioPorEmail.size > 0) {
+        const idsFinais = [...idsAppointmentDoUsuarioPorEmail];
         const cuponsTesteDoUsuario = await prisma.coupon.findMany({
-          where: { code: { startsWith: "TESTE_AGEND_" }, appointmentId: { in: [...idsQueSaoDoUsuario] } },
+          where: { code: { startsWith: "TESTE_AGEND_" }, appointmentId: { in: idsFinais } },
           orderBy: { createdAt: "desc" },
         });
         const idsJaIncluidos = new Set(todosCupons.map((c) => c.id));
