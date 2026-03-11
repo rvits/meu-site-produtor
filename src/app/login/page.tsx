@@ -136,7 +136,7 @@ export default function LoginPage() {
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
-          backgroundImage: "url(/login-bg.png.png)",
+          backgroundImage: "url(/login-bg.png)",
           ["--page-bg-size" as string]: "cover",
           ["--page-bg-position" as string]: "center center",
         }}

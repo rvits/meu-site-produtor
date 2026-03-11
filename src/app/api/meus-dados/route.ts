@@ -79,11 +79,27 @@ export async function GET() {
     // Auto-vincular: se usuário tem pagamento R$ 5 agendamento mas nenhum cupom TESTE_ apareceu, vincular o agendamento ao usuário agora
     const temCupomTesteNaLista = todosCupons.some((c) => c.code.startsWith("TESTE_AGEND_"));
     if (!temCupomTesteNaLista && idsAgendamentoTeste.length > 0) {
-      const pagamentoTeste = await prisma.payment.findFirst({
+      let pagamentoTeste = await prisma.payment.findFirst({
         where: { userId: user.id, amount: 5, type: "agendamento", status: "approved" },
         orderBy: { createdAt: "desc" },
         select: { id: true, appointmentId: true },
       });
+      // Fallback: pagamento pode estar com outro userId; buscar por email do usuário
+      if (!pagamentoTeste && user.email) {
+        try {
+          const p = await prisma.payment.findFirst({
+            where: {
+              amount: 5,
+              type: "agendamento",
+              status: "approved",
+              user: { email: user.email.trim() },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, appointmentId: true },
+          });
+          if (p) pagamentoTeste = p;
+        } catch (_) {}
+      }
       if (pagamentoTeste) {
         const agendamentoIdParaVincular = pagamentoTeste.appointmentId ?? idsAgendamentoTeste[0];
         try {

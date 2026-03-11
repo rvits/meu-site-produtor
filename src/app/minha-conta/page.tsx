@@ -81,7 +81,7 @@ interface FAQQuestion {
 }
 
 export default function MinhaContaPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
@@ -93,6 +93,7 @@ export default function MinhaContaPage() {
   const [vincularCuponsTeste, setVincularCuponsTeste] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       router.push("/login");
       return;
@@ -105,7 +106,7 @@ export default function MinhaContaPage() {
     }, 60000);
     
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, authLoading]);
 
   async function carregarDados() {
     try {
@@ -251,9 +252,9 @@ export default function MinhaContaPage() {
     return names[serviceType] || (isTeste ? `${serviceType} (Teste)` : serviceType);
   }
 
-  if (loading) {
+  if (authLoading || !user || (user && loading)) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-8">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-8 flex items-center justify-center">
         <p className="text-zinc-400">Carregando...</p>
       </div>
     );
