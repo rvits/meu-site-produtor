@@ -69,12 +69,41 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    // Integração cupons teste: SEMPRE buscar cupons TESTE_AGEND_* cujo agendamento pertence ao usuário e mesclar
-    const cuponsTeste = await prisma.coupon.findMany({
+    // Integração cupons teste: buscar cupons TESTE_AGEND_* cujo agendamento pertence ao usuário
+    let cuponsTeste = await prisma.coupon.findMany({
       where: { code: { startsWith: "TESTE_AGEND_" }, appointmentId: { not: null } },
       select: { id: true, appointmentId: true },
     });
     const idsAgendamentoTeste = [...new Set(cuponsTeste.map((c) => c.appointmentId).filter((id): id is number => id != null))];
+
+    // Auto-vincular: se usuário tem pagamento R$ 5 agendamento mas nenhum cupom TESTE_ apareceu, vincular o agendamento ao usuário agora
+    const temCupomTesteNaLista = todosCupons.some((c) => c.code.startsWith("TESTE_AGEND_"));
+    if (!temCupomTesteNaLista && idsAgendamentoTeste.length > 0) {
+      const pagamentoTeste = await prisma.payment.findFirst({
+        where: { userId: user.id, amount: 5, type: "agendamento", status: "approved" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, appointmentId: true },
+      });
+      if (pagamentoTeste) {
+        const agendamentoIdParaVincular = pagamentoTeste.appointmentId ?? idsAgendamentoTeste[0];
+        try {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "Appointment" SET "userId" = $1 WHERE id = $2`,
+            user.id,
+            agendamentoIdParaVincular
+          );
+          try {
+            await prisma.payment.update({
+              where: { id: pagamentoTeste.id },
+              data: { appointmentId: agendamentoIdParaVincular },
+            });
+          } catch (_) {}
+        } catch (e) {
+          console.warn("[meus-dados] Auto-vincular appointment falhou:", e);
+        }
+      }
+    }
+
     if (idsAgendamentoTeste.length > 0) {
       const agendamentosDoUsuario = await prisma.appointment.findMany({
         where: { id: { in: idsAgendamentoTeste }, userId: user.id },
