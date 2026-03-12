@@ -75,18 +75,34 @@ export async function GET() {
         }
       } catch (_) {}
     }
-    const todosCupons = await prisma.coupon.findMany({
+    let todosCupons = await prisma.coupon.findMany({
       where: {
         OR: [
           { usedBy: user.id },
           ...(planosAtivosIds.length > 0 ? [{ userPlanId: { in: planosAtivosIds } }] : []),
           ...(todosAppointmentIds.length > 0 ? [{ appointmentId: { in: todosAppointmentIds } }] : []),
           ...(paymentIdsUsuario.length > 0 ? [{ paymentId: { in: paymentIdsUsuario } }] : []),
-          { assignedUserId: user.id }, // cupons associados manualmente pelo admin à Minha Conta
         ],
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Cupons associados manualmente pelo admin (query separada: evita falha se coluna não existir e garante resultado)
+    try {
+      const cuponsAssociados = await prisma.coupon.findMany({
+        where: { assignedUserId: user.id },
+        orderBy: { createdAt: "desc" },
+      });
+      const idsJaIncluidos = new Set(todosCupons.map((c) => c.id));
+      for (const c of cuponsAssociados) {
+        if (!idsJaIncluidos.has(c.id)) {
+          todosCupons = [...todosCupons, c];
+          idsJaIncluidos.add(c.id);
+        }
+      }
+    } catch (e) {
+      console.warn("[meus-dados] Busca cupons por assignedUserId falhou (coluna pode não existir no banco):", e);
+    }
 
     // Integração cupons teste: buscar cupons TESTE_AGEND_* cujo agendamento pertence ao usuário
     let cuponsTeste = await prisma.coupon.findMany({

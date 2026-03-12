@@ -50,9 +50,19 @@ export async function POST(req: Request) {
       data: { assignedUserId: user.id },
     });
 
+    if (result.count === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Nenhum cupom foi atualizado. Verifique se os cupons ainda existem no banco. Se o problema persistir, execute no servidor: npx prisma migrate deploy (para criar a coluna assignedUserId).",
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      message: `${result.count} cupom(ns) associado(s) à Minha Conta de ${user.nomeArtistico || user.email}. Eles aparecerão em Minha Conta para esse usuário.`,
+      message: `${result.count} cupom(ns) associado(s) à Minha Conta de ${user.nomeArtistico || user.email}. Peça ao usuário atualizar a página Minha Conta (F5) para ver os cupons.`,
       userId: user.id,
       userEmail: user.email,
       count: result.count,

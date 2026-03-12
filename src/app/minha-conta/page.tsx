@@ -205,6 +205,9 @@ export default function MinhaContaPage() {
       } else {
         const errorText = await res.text();
         console.error("[Minha Conta] Erro na resposta:", res.status, errorText);
+        if (res.status >= 500) {
+          setCupons([]);
+        }
       }
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
