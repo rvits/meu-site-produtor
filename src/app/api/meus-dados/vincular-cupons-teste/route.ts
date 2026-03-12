@@ -1,7 +1,7 @@
 /**
  * POST /api/meus-dados/vincular-cupons-teste
- * Vincula cupons de teste (TESTE_AGEND_*) à conta do usuário: atualiza o agendamento
- * para userId do usuário e o pagamento para appointmentId, para os cupons aparecerem em Minha Conta.
+ * Vincula cupons de teste à conta do usuário: atualiza agendamento/pagamento e
+ * define assignedUserId nos cupons para garantirem aparecer em Minha Conta.
  */
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
@@ -11,7 +11,7 @@ export async function POST() {
   try {
     const user = await requireAuth();
 
-    const pagamento = await prisma.payment.findFirst({
+    let pagamento = await prisma.payment.findFirst({
       where: {
         userId: user.id,
         amount: 5,
@@ -22,9 +22,23 @@ export async function POST() {
       select: { id: true, appointmentId: true },
     });
 
+    if (!pagamento && user.email) {
+      const porEmail = await prisma.payment.findFirst({
+        where: {
+          amount: 5,
+          type: "agendamento",
+          status: "approved",
+          user: { email: { equals: user.email.trim(), mode: "insensitive" } },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, appointmentId: true },
+      });
+      if (porEmail) pagamento = porEmail;
+    }
+
     if (!pagamento) {
       return NextResponse.json(
-        { success: false, error: "Nenhum pagamento de teste (R$ 5, agendamento) encontrado na sua conta." },
+        { success: false, error: "Nenhum pagamento de teste (R$ 5, agendamento) encontrado para este e-mail. Faça o pagamento de teste ou peça ao admin associar os cupons ao seu e-mail em Admin → Planos e Cupons → Cupons." },
         { status: 404 }
       );
     }
@@ -39,44 +53,57 @@ export async function POST() {
     if (!agendamentoId && appointmentIds.length === 1) {
       agendamentoId = appointmentIds[0];
     } else if (!agendamentoId && appointmentIds.length > 1) {
-      const comPagamento = appointmentIds.find((aid) => {
-        const p = cuponsTeste.find((c) => c.appointmentId === aid);
-        return p;
+      agendamentoId = appointmentIds[0];
+    }
+
+    if (agendamentoId) {
+      try {
+        await prisma.appointment.update({
+          where: { id: agendamentoId },
+          data: { userId: user.id },
+        });
+      } catch (e) {
+        console.warn("[vincular-cupons-teste] Appointment.update falhou:", e);
+      }
+      try {
+        await prisma.payment.update({
+          where: { id: pagamento.id },
+          data: { appointmentId: agendamentoId },
+        });
+      } catch (e) {
+        console.warn("[vincular-cupons-teste] Payment.update falhou:", e);
+      }
+    }
+
+    const idsParaAssociar: string[] = [];
+    if (agendamentoId != null) {
+      const porAppointment = await prisma.coupon.findMany({
+        where: { code: { startsWith: "TESTE_AGEND_" }, appointmentId: agendamentoId },
+        select: { id: true },
       });
-      agendamentoId = comPagamento ?? appointmentIds[0];
+      idsParaAssociar.push(...porAppointment.map((c) => c.id));
     }
-
-    if (!agendamentoId) {
-      return NextResponse.json(
-        { success: false, error: "Nenhum agendamento de teste encontrado para vincular." },
-        { status: 404 }
-      );
-    }
-
-    await prisma.appointment.update({
-      where: { id: agendamentoId },
-      data: { userId: user.id },
+    const porPayment = await prisma.coupon.findMany({
+      where: { code: { startsWith: "TESTE_PAY_" }, paymentId: pagamento.id },
+      select: { id: true },
     });
+    idsParaAssociar.push(...porPayment.map((c) => c.id));
 
-    try {
-      await prisma.payment.update({
-        where: { id: pagamento.id },
-        data: { appointmentId: agendamentoId },
+    if (idsParaAssociar.length > 0) {
+      await prisma.coupon.updateMany({
+        where: { id: { in: idsParaAssociar } },
+        data: { assignedUserId: user.id },
       });
-    } catch (e) {
-      console.warn("[vincular-cupons-teste] Payment.update falhou:", e);
     }
 
-    const cuponsCount = await prisma.coupon.count({
-      where: { appointmentId: agendamentoId },
-    });
+    const cuponsCount = idsParaAssociar.length;
 
     return NextResponse.json({
       success: true,
       message: cuponsCount > 0
         ? `${cuponsCount} cupom(ns) vinculado(s) à sua conta. Eles devem aparecer abaixo.`
-        : "Agendamento vinculado. Se os cupons não aparecerem, atualize a página (F5).",
-      appointmentId: agendamentoId,
+        : "Nenhum cupom de teste encontrado para este pagamento. Se você pagou e os cupons existem no admin, peça ao admin usar 'Associar seleção à Minha Conta' com seu e-mail.",
+      appointmentId: agendamentoId ?? undefined,
       cuponsCount,
     });
   } catch (err: any) {
