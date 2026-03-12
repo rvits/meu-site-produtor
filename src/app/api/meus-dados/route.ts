@@ -58,7 +58,23 @@ export async function GET() {
     }
     let todosAppointmentIds = [...new Set([...agendamentosIds, ...appointmentIdsDosPagamentos])];
 
-    const paymentIdsUsuario = pagamentos.map((p) => p.id);
+    let paymentIdsUsuario = pagamentos.map((p) => p.id);
+    if (user.email) {
+      try {
+        const pagamentoTestePorEmail = await prisma.payment.findFirst({
+          where: {
+            amount: 5,
+            type: "agendamento",
+            status: "approved",
+            user: { email: { equals: user.email.trim(), mode: "insensitive" } },
+          },
+          select: { id: true },
+        });
+        if (pagamentoTestePorEmail && !paymentIdsUsuario.includes(pagamentoTestePorEmail.id)) {
+          paymentIdsUsuario = [...paymentIdsUsuario, pagamentoTestePorEmail.id];
+        }
+      } catch (_) {}
+    }
     const todosCupons = await prisma.coupon.findMany({
       where: {
         OR: [
@@ -87,30 +103,31 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         select: { id: true, appointmentId: true },
       });
-      // Fallback: pagamento pode estar com outro userId; buscar por email do usuário
+      // Fallback: pagamento pode estar com outro userId; buscar por email do usuário (case-insensitive)
       if (!pagamentoTeste && user.email) {
         try {
-          const p = await prisma.payment.findFirst({
+          const emailNorm = user.email.trim().toLowerCase();
+          const pagamentosPorEmail = await prisma.payment.findMany({
             where: {
               amount: 5,
               type: "agendamento",
               status: "approved",
-              user: { email: user.email.trim() },
+              user: { email: { equals: emailNorm, mode: "insensitive" } },
             },
             orderBy: { createdAt: "desc" },
             select: { id: true, appointmentId: true },
+            take: 1,
           });
-          if (p) pagamentoTeste = p;
+          if (pagamentosPorEmail[0]) pagamentoTeste = pagamentosPorEmail[0];
         } catch (_) {}
       }
       if (pagamentoTeste) {
         const agendamentoIdParaVincular = pagamentoTeste.appointmentId ?? idsAgendamentoTeste[0];
         try {
-          await prisma.$executeRawUnsafe(
-            `UPDATE "Appointment" SET "userId" = $1 WHERE id = $2`,
-            user.id,
-            agendamentoIdParaVincular
-          );
+          await prisma.appointment.update({
+            where: { id: agendamentoIdParaVincular },
+            data: { userId: user.id },
+          });
           try {
             await prisma.payment.update({
               where: { id: pagamentoTeste.id },
@@ -163,7 +180,12 @@ export async function GET() {
       if (!temPagamentoTeste && user.email) {
         try {
           const pt2 = await prisma.payment.findFirst({
-            where: { amount: 5, type: "agendamento", status: "approved", user: { email: user.email.trim() } },
+            where: {
+              amount: 5,
+              type: "agendamento",
+              status: "approved",
+              user: { email: { equals: user.email.trim(), mode: "insensitive" } },
+            },
             select: { id: true },
           });
           if (pt2) temPagamentoTeste = true;
