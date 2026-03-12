@@ -32,14 +32,15 @@ export async function POST(req: Request) {
       });
     }
     if (!user && userEmail) {
-      user = await prisma.user.findUnique({
-        where: { email: userEmail },
+      const byEmail = await prisma.user.findFirst({
+        where: { email: { equals: userEmail, mode: "insensitive" } },
         select: { id: true, nomeArtistico: true, email: true },
       });
+      if (byEmail) user = byEmail;
     }
     if (!user) {
       return NextResponse.json(
-        { error: userId ? "Usuário não encontrado com esse ID." : "Usuário não encontrado com esse e-mail. Verifique o endereço." },
+        { error: userId ? "Usuário não encontrado com esse ID." : "Usuário não encontrado com esse e-mail. Verifique o e-mail (pode ser diferença de maiúsculas/minúsculas ou cadastro com outro e-mail)." },
         { status: 404 }
       );
     }

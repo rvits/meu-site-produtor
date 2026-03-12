@@ -463,6 +463,9 @@ export default function MinhaContaPage() {
           {cupons.length === 0 ? (
             <div className="space-y-3">
               <p className="text-zinc-400">Você não possui cupons.</p>
+              <p className="text-xs text-zinc-500">
+                Se o admin associou cupons ao seu e-mail, clique em <strong>Atualizar</strong> no topo da página ou recarregue (F5).
+              </p>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
                 <p className="text-sm text-zinc-300 mb-2">
                   Pagou R$ 5 de teste (agendamento) e os cupons não aparecem aqui?
