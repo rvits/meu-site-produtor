@@ -155,11 +155,11 @@ export default function Home() {
           className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
         >
           <div className="w-full max-w-4xl px-4 sm:px-6 text-center">
-            {/* TÍTULO — THouse Rec: um pouco maior; T vermelho, House Rec branco */}
+            {/* TÍTULO — maior destaque; T vermelho, House Rec branco */}
             <h1
               className="font-extrabold tracking-tight text-white"
               style={{
-                fontSize: "clamp(2.75rem, 8.5vw, 5.5rem)",
+                fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
                 letterSpacing: "-0.02em",
                 textShadow: `${HERO_SERVICES_TEXT_SHADOW}, 0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.25)`,
               }}
@@ -167,23 +167,22 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS — vermelho com borda preta */}
+            {/* SERVIÇOS — vermelho com borda preta; maior destaque */}
             <p
               className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em]"
               style={{
-                fontSize: "clamp(0.8rem, 2.2vw, 1.05rem)",
+                fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                 textShadow: HERO_SERVICES_TEXT_SHADOW,
               }}
             >
               ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
             </p>
 
-            {/* TAGLINE — centralização por flex para espaço igual à esquerda e à direita */}
-            <div className="mt-6 flex w-full justify-center">
+            {/* TAGLINE — mobile: quebra de linha e limita à tela; desktop: uma linha, centralizada */}
+            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1">
               <p
-                className="m-0 shrink-0 text-white leading-relaxed whitespace-nowrap"
+                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.25rem,2.2vw)]"
                 style={{
-                  fontSize: "min(1.15rem, 2.1vw)",
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
                 }}
               >
