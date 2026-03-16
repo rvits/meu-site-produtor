@@ -10,6 +10,10 @@ import ProfessionalBox from "@/app/components/ProfessionalBox";
 // e use apenas a parte após "v=" (antes do primeiro & se houver)
 const YOUTUBE_VIDEO_ID = "UPY_DfdiGK4"; // ID do vídeo (apenas a parte após v=)
 
+/** text-shadow: apenas borda preta no texto de serviços do hero */
+const HERO_SERVICES_TEXT_SHADOW =
+  "2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 2px 1px 0 #000, 2px -1px 0 #000, -2px 1px 0 #000, -2px -1px 0 #000, 1px 2px 0 #000, 1px -2px 0 #000, -1px 2px 0 #000, -1px -2px 0 #000";
+
 /* Texto da bibliografia — edite só aqui; vale para mobile e desktop */
 const strong = (s: string) => <strong className="text-red-400">{s}</strong>;
 const BIO = {
@@ -129,7 +133,7 @@ export default function Home() {
   const [modoPlano, setModoPlano] = useState<"mensal" | "anual">("mensal");
 
   return (
-    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-3 sm:py-5 text-zinc-100">
         {/* Imagem de fundo da home — cover preenche a tela; posição ajustada para enquadrar melhor */}
         <div
           className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -144,46 +148,56 @@ export default function Home() {
         {/* Conteúdo acima da imagem */}
         <div className="relative z-10">
         {/* =========================================================
-            INTRODUÇÃO / HERO
+            INTRODUÇÃO / HERO (igual à página de produção)
         ========================================================== */}
         <section
           id="inicio"
-          className="flex min-h-[calc(100vh-72px)] items-center justify-center text-center pt-[72px]"
+          className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
         >
-          <div className="w-full max-w-7xl space-y-5 px-6">
-
-            {/* TÍTULO */}
-            <h1 className="text-5xl sm:text-6xl md:text-6xl lg:text-8xl xl:text-9xl font-extrabold tracking-tight" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-              <span className="text-red-500">T</span>House Rec
+          <div className="w-full max-w-4xl px-4 sm:px-6 text-center">
+            {/* TÍTULO — THouse Rec: um pouco maior; T vermelho, House Rec branco */}
+            <h1
+              className="font-extrabold tracking-tight text-white"
+              style={{
+                fontSize: "clamp(2.75rem, 8.5vw, 5.5rem)",
+                letterSpacing: "-0.02em",
+                textShadow: `${HERO_SERVICES_TEXT_SHADOW}, 0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.25)`,
+              }}
+            >
+              <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* TEXTO DE SERVIÇOS - SEM FUNDO (mobile menor, desktop tamanho original) */}
-            <div className="mt-4 text-center">
-              <p 
-                className="text-xs sm:text-sm lg:text-base xl:text-lg uppercase tracking-[0.2em] sm:tracking-[0.35em] text-red-500 font-bold leading-relaxed inline-block px-2"
-                style={{ 
-                  textShadow: "0 2px 8px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)",
-                  fontWeight: 700
+            {/* SERVIÇOS — vermelho com borda preta */}
+            <p
+              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em]"
+              style={{
+                fontSize: "clamp(0.8rem, 2.2vw, 1.05rem)",
+                textShadow: HERO_SERVICES_TEXT_SHADOW,
+              }}
+            >
+              ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
+            </p>
+
+            {/* TAGLINE — centralização por flex para espaço igual à esquerda e à direita */}
+            <div className="mt-6 flex w-full justify-center">
+              <p
+                className="m-0 shrink-0 text-white leading-relaxed whitespace-nowrap"
+                style={{
+                  fontSize: "min(1.15rem, 2.1vw)",
+                  textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
                 }}
               >
-                ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
+                Crie sua música com identidade e qualidade profissional em um estúdio pensado para artistas independentes.
               </p>
             </div>
-
-            {/* TEXTO DESCRITIVO SEM BOX (mobile menor, desktop tamanho original) */}
-            <section className="mt-6 sm:mt-8 md:mt-10 flex justify-center px-2 sm:px-4">
-              <p className="text-center text-xs sm:text-sm lg:text-base xl:text-lg leading-relaxed text-zinc-300 px-4 max-w-4xl lg:whitespace-nowrap" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                      Crie sua música com identidade e qualidade profissional em um estúdio pensado para artistas independentes.
-                    </p>
-            </section>
           </div>
         </section>
 
         {/* INTRODUÇÃO EM CAIXA */}
-        <section className="mt-6 md:mt-16 flex justify-center px-4">
+        <section className="mt-4 md:mt-10 flex justify-center px-4">
           <ProfessionalBox contentAlign="inherit">
-            {/* Versão Mobile: 9 parágrafos (usa BIO acima) */}
-            <div className="space-y-4 md:hidden text-xs leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
+            {/* Versão Mobile: 9 parágrafos - compacto */}
+            <div className="space-y-3 md:hidden text-[11px] sm:text-xs leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
               <p>{BIO.p1}</p>
               <p>{BIO.p2}</p>
               <p>{BIO.p3}</p>
@@ -195,8 +209,8 @@ export default function Home() {
               <p>{BIO.p9}</p>
             </div>
 
-            {/* Versão Desktop: 3 blocos (mesmo texto BIO) - tamanho original */}
-            <div className="hidden md:block space-y-5 text-base leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
+            {/* Versão Desktop: 3 blocos - compacto */}
+            <div className="hidden md:block space-y-4 text-sm leading-relaxed text-white" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", textAlign: "justify" }}>
               <p>{BIO.p1} {BIO.p2} {BIO.p3}</p>
               <p>{BIO.p4} {BIO.p5} {BIO.p6}</p>
               <p>{BIO.p7} {BIO.p8} {BIO.p9}</p>
@@ -207,13 +221,13 @@ export default function Home() {
           {/* =========================================================
               VÍDEO - CLIPE DO ARTISTA
           ========================================================== */}
-        <section className="mt-10 flex justify-center px-4">
-          <div className="flex flex-col items-center space-y-4 w-full max-w-5xl">
-            <h2 className="w-full text-left text-base lg:text-lg xl:text-xl font-bold uppercase tracking-[0.15em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
+        <section className="mt-6 sm:mt-8 flex justify-center px-4">
+          <div className="flex flex-col items-center space-y-3 w-full max-w-4xl">
+            <h2 className="w-full text-left text-sm lg:text-base font-bold uppercase tracking-[0.12em] text-red-400" style={{ textShadow: "0 2px 8px rgba(239, 68, 68, 0.5)" }}>
               Reprogramação — Dizzy (Prod. Tremv)
             </h2>
 
-            <div className="aspect-video w-full max-w-5xl overflow-hidden rounded-xl border border-red-500 bg-zinc-900" style={{ borderWidth: "1px" }}>
+            <div className="aspect-video w-full max-w-4xl overflow-hidden rounded-lg border border-red-500 bg-zinc-900" style={{ borderWidth: "1px" }}>
               {YOUTUBE_VIDEO_ID ? (
                 <iframe
                   src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?rel=0&modestbranding=1&playsinline=1`}
@@ -239,10 +253,10 @@ export default function Home() {
         {/* =========================================================
             TEXTO EXPLICATIVO ANTES DOS SERVIÇOS
         ========================================================== */}
-        <section className="mt-10 mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <section className="mt-4 mb-6 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl border border-red-500 rounded-lg" style={{ borderWidth: "1px" }}>
             <div
-              className="relative p-6 md:p-8"
+              className="relative p-3 md:p-4"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -260,11 +274,11 @@ export default function Home() {
         {/* =========================================================
             CAIXA: SERVIÇOS DE ESTÚDIO
         ========================================================== */}
-        {/* SERVIÇOS DE ESTÚDIO */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl">
+        {/* SERVIÇOS DE ESTÚDIO - compacto */}
+        <section className="mb-6 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl">
             <div
-              className="relative space-y-8 p-6 md:p-8 border border-red-500"
+              className="relative space-y-3 p-3 md:p-4 border border-red-500 rounded-lg"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -273,57 +287,55 @@ export default function Home() {
                 borderWidth: "1px",
               }}
             >
-              <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-base font-semibold text-red-400 mb-3" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
               Serviços de Estúdio
             </h2>
 
             {/* LINHA 1 */}
-            <div className="grid grid-cols-3 gap-3 md:gap-6">
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Sessão</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 40 / h</p>
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Sessão</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 40 / h</p>
               </Link>
 
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Captação</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 65 / h</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Captação</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 65 / h</p>
               </Link>
 
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Mixagem</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 110</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Mixagem</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 110</p>
               </Link>
             </div>
 
             {/* LINHA 2 */}
-            <div className="grid grid-cols-3 gap-3 md:gap-6">
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Masterização</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 80</p>
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Masterização</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 80</p>
               </Link>
 
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Mix + Master</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 170</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Mix + Master</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 170</p>
               </Link>
 
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">Sonoplastia</p>
-                <p className="text-[10px] md:text-xs text-zinc-300">(a partir de)</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 350</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">Sonoplastia</p>
+                <p className="text-[9px] md:text-[10px] text-zinc-300">(a partir de)</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 350</p>
               </Link>
             </div>
             </div>
           </div>
         </section>
 
-        {/* =========================================================
-            CAIXA: BEATS E PACOTES
-        ========================================================== */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl">
+        {/* CAIXA: BEATS E PACOTES - compacto */}
+        <section className="mb-10 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl">
             <div
-              className="relative space-y-8 p-6 md:p-8 border border-red-500"
+              className="relative space-y-4 p-3 md:p-5 border border-red-500 rounded-lg"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -332,54 +344,54 @@ export default function Home() {
                 borderWidth: "1px",
               }}
             >
-              <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-base font-semibold text-red-400 mb-3" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
               Beats e Pacotes Especiais
             </h2>
 
             {/* LINHA 1 */}
-            <div className="grid grid-cols-3 gap-3 md:gap-6">
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
               {/* 1 beat */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">1 Beat</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 150</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">1 Beat</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 150</p>
               </Link>
 
               {/* 2 beats */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">2 Beats</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 250</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">2 Beats</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 250</p>
               </Link>
 
               {/* 3 beats */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">3 Beats</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 350</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">3 Beats</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 350</p>
               </Link>
             </div>
 
             {/* LINHA 2 */}
-            <div className="grid grid-cols-3 gap-3 md:gap-6">
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
               {/* 4 beats */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">4 Beats</p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 400</p>
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">4 Beats</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 400</p>
               </Link>
 
               {/* beat + mix + master */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">
                   Beat + Mix + Master
                 </p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 320</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 320</p>
               </Link>
 
               {/* produção completa */}
-              <Link href="/agendamento" className="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-red-700/40 bg-black/50 backdrop-blur-sm p-3 md:p-4 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-                <p className="text-xs md:text-sm font-medium text-white">
+              <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+                <p className="text-[10px] md:text-xs font-medium text-white">
                   Produção Completa
                 </p>
-                <p className="mt-1 text-base md:text-xl font-bold text-red-400">R$ 450</p>
-                <p className="mt-1 text-[10px] md:text-xs text-zinc-300">
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 450</p>
+                <p className="mt-0.5 text-[9px] md:text-[10px] text-zinc-300">
                   4h captação + beat + mix + master
                 </p>
               </Link>
@@ -388,13 +400,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* =========================================================
-            LEMBRETE IMPORTANTE
-        ========================================================== */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px" }}>
+        {/* LEMBRETE IMPORTANTE - compacto */}
+        <section className="mb-10 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl border border-yellow-500 rounded-lg" style={{ borderWidth: "1px" }}>
             <div
-              className="relative p-6 md:p-8"
+              className="relative p-3 md:p-5"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -412,10 +422,10 @@ export default function Home() {
         {/* =========================================================
             PLANOS — COM TOGGLE MENSAL / ANUAL
         ========================================================== */}
-        <section id="planos" className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl">
+        <section id="planos" className="mb-10 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl">
             <div
-              className="relative space-y-6 p-6 md:p-8 border border-red-500"
+              className="relative space-y-4 p-4 md:p-6 border border-red-500 rounded-lg"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -424,11 +434,11 @@ export default function Home() {
                 borderWidth: "1px",
               }}
             >
-              <h2 className="text-center text-xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-base font-semibold text-red-400 mb-3" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
               Quer aprofundar e produzir com frequência?
             </h2>
 
-              <p className="mx-auto max-w-3xl text-center text-sm text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="mx-auto max-w-2xl text-center text-xs text-white md:text-sm" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               Os planos da THouse Rec foram pensados para artistas que desejam
               manter uma rotina de lançamentos, garantir prioridade na agenda e
               ter o melhor custo-benefício em relação aos serviços avulsos.
@@ -462,8 +472,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* GRID DOS PLANOS */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
+            {/* GRID DOS PLANOS - compacto */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
               {PLANOS.map((plano) => {
                 const valorBase =
                   modoPlano === "mensal" ? plano.mensal : plano.anual;
@@ -487,7 +497,7 @@ export default function Home() {
                 return (
                   <div
                     key={plano.id}
-                    className={`flex h-full flex-col rounded-2xl border ${borderColor} bg-black/50 backdrop-blur-sm p-6 transition-all ${hoverBorderColor} hover:bg-black/70`}
+                    className={`flex h-full flex-col rounded-xl border ${borderColor} bg-black/50 backdrop-blur-sm p-4 transition-all ${hoverBorderColor} hover:bg-black/70`}
                     style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)", borderWidth: "1px" }}
                   >
                     <div className="flex flex-col h-full">
@@ -571,10 +581,10 @@ export default function Home() {
         {/* =========================================================
             SHOPPING
         ========================================================== */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <section className="mb-10 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl border border-red-500 rounded-lg" style={{ borderWidth: "1px" }}>
             <div
-              className="relative space-y-6 p-6 md:p-8"
+              className="relative space-y-3 p-4 md:p-6"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -582,11 +592,11 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <h2 className="text-center text-2xl md:text-3xl font-semibold text-red-400 mb-6" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-base md:text-lg font-semibold text-red-400 mb-3" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
             Loja Digital THouse Rec (em desenvolvimento)
           </h2>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               Em breve você poderá adquirir roupas estilizadas, beats originais , promoções sazonais e ingressos para eventos exclusivos da Thouse Rec.
             </p>
@@ -599,7 +609,7 @@ export default function Home() {
               <div className="flex justify-center">
                 <a
                   href="/shopping"
-                  className="max-w-2xl w-full rounded-full bg-red-600 py-3 text-base font-semibold text-white text-center hover:bg-red-500 transition-all"
+                  className="max-w-2xl w-full rounded-full bg-red-600 py-2 text-sm font-semibold text-white text-center hover:bg-red-500 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Acessar Shopping
@@ -620,10 +630,10 @@ export default function Home() {
         {/* =========================================================
             CHAMADA FINAL
         ========================================================== */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <section className="mb-6 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl border border-red-500 rounded-lg" style={{ borderWidth: "1px" }}>
             <div
-              className="relative space-y-6 p-6 md:p-8"
+              className="relative space-y-3 p-4 md:p-5"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -631,18 +641,18 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <h2 className="text-center text-2xl md:text-3xl font-semibold text-red-400 mb-4" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-lg md:text-xl font-semibold text-red-400 mb-2" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
             Pronto para começar sua próxima faixa?
           </h2>
 
-              <p className="mx-auto max-w-5xl text-xs md:text-sm leading-relaxed text-white md:text-base mb-6 px-4 md:px-8 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="mx-auto max-w-4xl text-xs md:text-sm leading-relaxed text-white mb-3 px-3 md:px-4 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
             A THouse Rec existe para transformar ideias em música real. Se você tem um projeto, um verso, um beat ou apenas vontade de começar, esse pode ser o momento perfeito para dar o próximo passo com estrutura, apoio e qualidade de estúdio.
           </p>
 
               <div className="flex justify-center">
                 <a
                   href="/agendamento"
-                  className="max-w-2xl w-full rounded-full bg-red-600 py-3 text-base font-semibold text-white text-center hover:bg-red-500 transition-all"
+                  className="max-w-xl w-full rounded-full bg-red-600 py-2.5 text-sm font-semibold text-white text-center hover:bg-red-500 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Agendar sessão
@@ -652,13 +662,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* =========================================================
-            DÚVIDAS / SUPORTE
-        ========================================================== */}
-        <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        {/* DÚVIDAS / SUPORTE - compacto */}
+        <section className="mb-6 flex justify-center px-4">
+          <div className="relative w-full max-w-4xl border border-red-500 rounded-lg" style={{ borderWidth: "1px" }}>
             <div
-              className="relative space-y-6 p-6 md:p-8"
+              className="relative space-y-3 p-4 md:p-5"
               style={{
                 background:
                   "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
@@ -666,18 +674,18 @@ export default function Home() {
                 WebkitBackdropFilter: "blur(16px)",
               }}
             >
-              <h2 className="text-center text-xl md:text-2xl font-semibold text-red-400 mb-4" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
+              <h2 className="text-center text-base md:text-lg font-semibold text-red-400 mb-2" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
             Ficou com alguma dúvida?
           </h2>
 
-              <p className="mx-auto max-w-5xl text-xs md:text-sm leading-relaxed text-white md:text-base mb-6 px-4 md:px-8 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <p className="mx-auto max-w-4xl text-xs md:text-sm leading-relaxed text-white mb-3 px-3 md:px-4 text-justify md:text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
             Se ainda restar alguma dúvida sobre sessões, prazos, valores ou questões técnicas, você pode consultar o FAQ ou falar diretamente com o suporte pelo chat. Estamos aqui para te ajudar a tirar o máximo proveito de cada sessão.
           </p>
 
-              <div className="flex flex-wrap justify-center items-center gap-4">
+              <div className="flex flex-wrap justify-center items-center gap-2">
             <a
               href="/faq"
-                  className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Ver FAQ
@@ -685,7 +693,7 @@ export default function Home() {
 
             <a
               href="/chat"
-                  className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Suporte via Chat
@@ -693,7 +701,7 @@ export default function Home() {
 
             <a
               href="/contato"
-                  className="rounded-full border border-red-600 px-6 py-3 text-sm font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
+                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Contato direto
