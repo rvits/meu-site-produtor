@@ -154,10 +154,10 @@ export default function Home() {
           id="inicio"
           className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
         >
-          <div className="w-full max-w-4xl px-4 sm:px-6 text-center">
+          <div className="w-full max-w-4xl px-4 sm:px-6 flex flex-col items-center">
             {/* TÍTULO — exatamente no meio; T vermelho, House Rec branco; desktop: maior (globals .hero-title) */}
             <h1
-              className="hero-title font-extrabold tracking-tight text-white"
+              className="hero-title font-extrabold tracking-tight text-white text-center w-full"
               style={{
                 fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
                 letterSpacing: "-0.02em",
@@ -169,7 +169,7 @@ export default function Home() {
 
             {/* SERVIÇOS — centralizado em relação ao título; desktop: uma linha e maior (.hero-services) */}
             <p
-              className="hero-services mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap"
+              className="hero-services mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap text-center w-full"
               style={{
                 fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                 textShadow: HERO_SERVICES_TEXT_SHADOW,
@@ -178,10 +178,10 @@ export default function Home() {
               ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
             </p>
 
-            {/* TAGLINE — centralizado em relação ao título; mobile: quebra; desktop: uma linha e maior (.hero-tagline) */}
-            <div className="mt-6 flex w-full justify-center overflow-hidden px-1">
+            {/* TAGLINE — desktop: quebra de linha para não cortar e bem centralizado; mobile inalterado */}
+            <div className="mt-6 w-full flex justify-center px-1 overflow-hidden md:overflow-visible">
               <p
-                className="hero-tagline m-0 max-w-full text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:flex-shrink-0"
+                className="hero-tagline m-0 max-w-full text-white leading-relaxed text-center whitespace-normal text-base sm:text-lg"
                 style={{
                   fontSize: "min(1.25rem, 2.2vw)",
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
