@@ -154,13 +154,12 @@ export default function Home() {
           id="inicio"
           className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
         >
-          {/* Desktop: título no meio da página; os três textos na mesma coluna centralizados (não altera mobile) */}
-          <div className="w-full max-w-4xl px-4 sm:px-6 text-center flex flex-col items-center">
-            {/* TÍTULO — centro da página; desktop: maior; T vermelho, House Rec branco */}
+          <div className="w-full max-w-4xl px-4 sm:px-6 text-center">
+            {/* TÍTULO — exatamente no meio; T vermelho, House Rec branco; desktop: maior (globals .hero-title) */}
             <h1
-              className="font-extrabold tracking-tight text-white w-full"
+              className="hero-title font-extrabold tracking-tight text-white"
               style={{
-                fontSize: "clamp(3rem, 9.5vw, 7rem)",
+                fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
                 letterSpacing: "-0.02em",
                 textShadow: `${HERO_SERVICES_TEXT_SHADOW}, 0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.25)`,
               }}
@@ -168,22 +167,23 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS — alinhado ao título; desktop: uma linha e maior (mobile inalterado) */}
+            {/* SERVIÇOS — centralizado em relação ao título; desktop: uma linha e maior (.hero-services) */}
             <p
-              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap w-full"
+              className="hero-services mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap"
               style={{
-                fontSize: "clamp(0.9rem, 2.6vw, 1.35rem)",
+                fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                 textShadow: HERO_SERVICES_TEXT_SHADOW,
               }}
             >
               ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
             </p>
 
-            {/* TAGLINE — mesma coluna do título; desktop: uma linha e maior (mobile: quebra e limita) */}
-            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1">
+            {/* TAGLINE — centralizado em relação ao título; mobile: quebra; desktop: uma linha e maior (.hero-tagline) */}
+            <div className="mt-6 flex w-full justify-center overflow-hidden px-1">
               <p
-                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.4rem,2.5vw)] md:flex-shrink-0"
+                className="hero-tagline m-0 max-w-full text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:flex-shrink-0"
                 style={{
+                  fontSize: "min(1.25rem, 2.2vw)",
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
                 }}
               >
