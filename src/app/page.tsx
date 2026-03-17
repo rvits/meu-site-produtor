@@ -598,12 +598,12 @@ export default function Home() {
             Loja Digital THouse Rec (em desenvolvimento)
           </h2>
 
-              <div className="space-y-2 md:space-y-0">
-                {/* Mobile: dois parágrafos */}
-                <p className="md:hidden text-xs md:text-sm leading-relaxed text-white text-justify px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <div className="space-y-2 md:space-y-0 overflow-visible">
+                {/* Mobile: dois parágrafos — padding maior para não cortar nas laterais */}
+                <p className="md:hidden text-xs leading-relaxed text-white text-justify px-6 min-w-0 w-full" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", boxSizing: "border-box" }}>
                   Em breve você poderá adquirir roupas estilizadas, beats originais, promoções sazonais e ingressos para eventos exclusivos da Thouse Rec.
                 </p>
-                <p className="md:hidden text-xs md:text-sm leading-relaxed text-white text-justify px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                <p className="md:hidden text-xs leading-relaxed text-white text-justify px-6 min-w-0 w-full" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)", boxSizing: "border-box" }}>
                   A aba <strong className="text-red-300">Shopping</strong> está em construção e será atualizada conforme os produtos forem lançados, sempre alinhados à estética e à identidade do estúdio.
                 </p>
                 {/* Desktop: um único texto juntado */}
