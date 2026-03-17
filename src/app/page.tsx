@@ -598,14 +598,18 @@ export default function Home() {
             Loja Digital THouse Rec (em desenvolvimento)
           </h2>
 
-              <div className="space-y-2">
-                <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Em breve você poderá adquirir roupas estilizadas, beats originais , promoções sazonais e ingressos para eventos exclusivos da Thouse Rec.
-            </p>
-
-                <p className="text-xs md:text-sm leading-relaxed text-white md:text-base text-justify md:text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+              <div className="space-y-2 md:space-y-0">
+                {/* Mobile: dois parágrafos */}
+                <p className="md:hidden text-xs md:text-sm leading-relaxed text-white text-justify px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                  Em breve você poderá adquirir roupas estilizadas, beats originais, promoções sazonais e ingressos para eventos exclusivos da Thouse Rec.
+                </p>
+                <p className="md:hidden text-xs md:text-sm leading-relaxed text-white text-justify px-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
                   A aba <strong className="text-red-300">Shopping</strong> está em construção e será atualizada conforme os produtos forem lançados, sempre alinhados à estética e à identidade do estúdio.
-            </p>
+                </p>
+                {/* Desktop: um único texto juntado */}
+                <p className="hidden md:block text-base leading-relaxed text-white text-center px-4 md:px-0" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                  Em breve você poderá adquirir roupas estilizadas, beats originais, promoções sazonais e ingressos para eventos exclusivos da Thouse Rec. A aba <strong className="text-red-300">Shopping</strong> está em construção e será atualizada conforme os produtos forem lançados, sempre alinhados à estética e à identidade do estúdio.
+                </p>
               </div>
 
               <div className="flex justify-center">
