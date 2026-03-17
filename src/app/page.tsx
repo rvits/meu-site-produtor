@@ -167,9 +167,9 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS — vermelho com borda preta; maior destaque */}
+            {/* SERVIÇOS — vermelho com borda preta; no desktop uma linha só (mobile pode quebrar) */}
             <p
-              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em]"
+              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap"
               style={{
                 fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                 textShadow: HERO_SERVICES_TEXT_SHADOW,
@@ -178,10 +178,10 @@ export default function Home() {
               ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
             </p>
 
-            {/* TAGLINE — mobile: quebra de linha e limita à tela; desktop: uma linha, centralizada */}
-            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1">
+            {/* TAGLINE — mobile: quebra e limita; desktop: uma linha e centralização por viewport (mesma distância esq/meio e dir/meio) */}
+            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1 md:relative md:left-1/2 md:ml-[-50vw] md:w-screen">
               <p
-                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.25rem,2.2vw)]"
+                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.25rem,2.2vw)] md:flex-shrink-0"
                 style={{
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
                 }}
