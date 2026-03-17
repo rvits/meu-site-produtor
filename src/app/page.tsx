@@ -167,16 +167,18 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS — centralizado em relação ao título; desktop: uma linha e maior (.hero-services) */}
-            <p
-              className="hero-services mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap text-center w-full"
-              style={{
-                fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
-                textShadow: HERO_SERVICES_TEXT_SHADOW,
-              }}
-            >
-              ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
-            </p>
+            {/* SERVIÇOS (texto vermelho) — centralizado no eixo da página; desktop: uma linha e maior (.hero-services) */}
+            <div className="mt-5 w-full flex justify-center">
+              <p
+                className="hero-services uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap text-center shrink-0"
+                style={{
+                  fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
+                  textShadow: HERO_SERVICES_TEXT_SHADOW,
+                }}
+              >
+                ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
+              </p>
+            </div>
 
             {/* TAGLINE — desktop: quebra de linha para não cortar e bem centralizado; mobile inalterado */}
             <div className="mt-6 w-full flex justify-center px-1 overflow-hidden md:overflow-visible">
