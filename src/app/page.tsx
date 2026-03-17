@@ -154,12 +154,13 @@ export default function Home() {
           id="inicio"
           className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
         >
-          <div className="w-full max-w-4xl px-4 sm:px-6 text-center">
-            {/* TÍTULO — maior destaque; T vermelho, House Rec branco */}
+          {/* Desktop: título no meio da página; os três textos na mesma coluna centralizados (não altera mobile) */}
+          <div className="w-full max-w-4xl px-4 sm:px-6 text-center flex flex-col items-center">
+            {/* TÍTULO — centro da página; desktop: maior; T vermelho, House Rec branco */}
             <h1
-              className="font-extrabold tracking-tight text-white"
+              className="font-extrabold tracking-tight text-white w-full"
               style={{
-                fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
+                fontSize: "clamp(3rem, 9.5vw, 7rem)",
                 letterSpacing: "-0.02em",
                 textShadow: `${HERO_SERVICES_TEXT_SHADOW}, 0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.25)`,
               }}
@@ -167,21 +168,21 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS — vermelho com borda preta; no desktop uma linha só (mobile pode quebrar) */}
+            {/* SERVIÇOS — alinhado ao título; desktop: uma linha e maior (mobile inalterado) */}
             <p
-              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap"
+              className="mt-5 uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap w-full"
               style={{
-                fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
+                fontSize: "clamp(0.9rem, 2.6vw, 1.35rem)",
                 textShadow: HERO_SERVICES_TEXT_SHADOW,
               }}
             >
               ESTÚDIO • PRODUÇÃO • MIX &amp; MASTER • SONOPLASTIA • BEATMAKING
             </p>
 
-            {/* TAGLINE — mobile: quebra e limita; desktop: uma linha e centralização por viewport (mesma distância esq/meio e dir/meio) */}
-            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1 md:relative md:left-1/2 md:ml-[-50vw] md:w-screen">
+            {/* TAGLINE — mesma coluna do título; desktop: uma linha e maior (mobile: quebra e limita) */}
+            <div className="mt-6 flex w-full justify-center overflow-hidden md:overflow-visible px-1">
               <p
-                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.25rem,2.2vw)] md:flex-shrink-0"
+                className="m-0 max-w-full shrink-0 text-white leading-relaxed text-center whitespace-normal md:whitespace-nowrap text-base sm:text-lg md:text-[min(1.4rem,2.5vw)] md:flex-shrink-0"
                 style={{
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
                 }}
