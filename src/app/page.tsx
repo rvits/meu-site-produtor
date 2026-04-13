@@ -152,12 +152,12 @@ export default function Home() {
         ========================================================== */}
         <section
           id="inicio"
-          className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)]"
+          className="flex min-h-[calc(100vh-var(--header-h,60px))] flex-col items-center justify-center text-center pt-[var(--header-h,60px)] px-3 sm:px-4"
         >
-          <div className="w-full max-w-4xl px-4 sm:px-6 flex flex-col items-center">
+          <div className="w-full max-w-4xl px-3 sm:px-6 flex flex-col items-center max-md:min-w-0">
             {/* TÍTULO — exatamente no meio; T vermelho, House Rec branco; desktop: maior (globals .hero-title) */}
             <h1
-              className="hero-title font-extrabold tracking-tight text-white text-center w-full"
+              className="hero-title font-extrabold tracking-tight text-white text-center w-full max-w-full px-1 sm:px-0"
               style={{
                 fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
                 letterSpacing: "-0.02em",
@@ -167,10 +167,10 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS (texto vermelho) — centralizado no eixo da página; desktop: uma linha e maior (.hero-services) */}
-            <div className="mt-5 w-full flex justify-center">
+            {/* SERVIÇOS (texto vermelho) — centralizado; mobile: tracking menor e texto legível nas margens */}
+            <div className="mt-5 w-full max-w-full flex justify-center px-0.5">
               <p
-                className="hero-services uppercase font-bold text-red-500 tracking-[0.2em] md:whitespace-nowrap text-center shrink-0"
+                className="hero-services uppercase font-bold text-red-500 tracking-[0.1em] md:tracking-[0.2em] md:whitespace-nowrap text-center max-w-full shrink max-md:text-[clamp(0.7rem,3.2vw,0.85rem)]"
                 style={{
                   fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                   textShadow: HERO_SERVICES_TEXT_SHADOW,
@@ -180,10 +180,10 @@ export default function Home() {
               </p>
             </div>
 
-            {/* TAGLINE — desktop: quebra de linha para não cortar e bem centralizado; mobile inalterado */}
-            <div className="mt-6 w-full flex justify-center px-1 overflow-hidden md:overflow-visible">
+            {/* TAGLINE — mobile: maior e dentro das margens; desktop: sem corte */}
+            <div className="mt-6 w-full max-w-full flex justify-center px-1 overflow-visible">
               <p
-                className="hero-tagline m-0 max-w-full text-white leading-relaxed text-center whitespace-normal text-base sm:text-lg"
+                className="hero-tagline m-0 max-w-full text-white leading-relaxed text-center whitespace-normal text-[0.95rem] sm:text-base md:text-lg max-md:font-medium"
                 style={{
                   fontSize: "min(1.25rem, 2.2vw)",
                   textShadow: "1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 10px rgba(0, 0, 0, 0.9)",
@@ -302,7 +302,7 @@ export default function Home() {
 
               <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
                 <p className="text-[10px] md:text-xs font-medium text-white">Captação</p>
-                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 65 / h</p>
+                <p className="mt-0.5 text-sm md:text-base font-bold text-red-400">R$ 55 / h</p>
               </Link>
 
               <Link href="/agendamento" className="flex min-h-[80px] flex-col items-center justify-center rounded-lg border border-red-700/40 bg-black/50 backdrop-blur-sm p-2 md:p-3 text-center transition-all hover:border-red-500/60 hover:bg-black/70 cursor-pointer" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>

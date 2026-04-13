@@ -26,7 +26,7 @@ type Plano = {
 
 const SERVICOS_ESTUDIO: Servico[] = [
   { id: "sessao", nome: "Sessão", preco: 40 },
-  { id: "captacao", nome: "Captação", preco: 65 },
+  { id: "captacao", nome: "Captação", preco: 55 },
   { id: "sonoplastia", nome: "Sonoplastia (a partir de)", preco: 350 },
   { id: "mix", nome: "Mixagem", preco: 110 },
   { id: "master", nome: "Masterização", preco: 80 },
@@ -694,7 +694,7 @@ function AgendamentoContent() {
   };
 
   return (
-    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de agendamento */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -707,14 +707,11 @@ function AgendamentoContent() {
       />
 
       <div className="relative z-10">
-      {/* Área de entrada: mesmo espaço para a imagem de fundo aparecer como “título” de entrada (sem texto) */}
-      <section className="mt-12 mb-8 sm:mb-12 w-full min-h-[60vh] sm:min-h-[70vh]" aria-hidden />
-
       {/* =========================================================
-          SERVIÇOS DE ESTÚDIO
+          SERVIÇOS DE ESTÚDIO (início da página — sem espaço vazio acima)
       ========================================================== */}
-      <section className="mb-16 flex justify-center px-4 mt-32 sm:mt-40 md:mt-48">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+      <section className="mb-16 flex justify-center px-4 pt-2 sm:pt-4">
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
             style={{
@@ -773,7 +770,7 @@ function AgendamentoContent() {
           BEATS E PACOTES
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
             style={{
@@ -868,7 +865,7 @@ function AgendamentoContent() {
           COMENTÁRIOS ADICIONAIS
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
             style={{
@@ -901,7 +898,7 @@ function AgendamentoContent() {
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-6 p-6 md:p-8"
             style={{
@@ -1128,7 +1125,7 @@ function AgendamentoContent() {
           TRABALHOS EXTERNOS
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-yellow-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
+        <div className="relative w-full max-w-4xl border border-yellow-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative p-6 md:p-8"
             style={{
@@ -1159,7 +1156,7 @@ function AgendamentoContent() {
           PLANOS (COLAPSÁVEL)
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-4 p-6 md:p-8 text-sm"
             style={{
@@ -1338,7 +1335,7 @@ function AgendamentoContent() {
           CUPOM DE DESCONTO
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8"
             style={{
@@ -1451,7 +1448,7 @@ function AgendamentoContent() {
           RESUMO / VALOR TOTAL
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
           <div
             className="relative p-6 md:p-8"
             style={{
@@ -1545,7 +1542,7 @@ function AgendamentoContent() {
           CONFIRMAR E IR PARA PAGAMENTO
       ========================================================== */}
       <section className="mb-16 flex justify-center px-4 mt-16">
-        <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
             className="relative space-y-3 p-6 md:p-8 text-sm"
             style={{
@@ -1639,7 +1636,7 @@ function AgendamentoContent() {
       ========================================================== */}
       {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
         <section className="mb-16 flex justify-center px-4 mt-16">
-          <div className="relative w-full max-w-5xl border-2 border-yellow-500 rounded-2xl bg-yellow-950/20 backdrop-blur-sm p-6">
+          <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-yellow-400 text-center">
                 🧪 Pagamento de Teste - Agendamento (Apenas Admin)

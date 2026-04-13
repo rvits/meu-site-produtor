@@ -33,7 +33,7 @@ export default function ContatoPage() {
   };
 
   return (
-    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-3 sm:py-5 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página Contato */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -53,16 +53,16 @@ export default function ContatoPage() {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Contato
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-zinc-300 max-w-4xl mx-auto px-2 text-center" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+        <p className="text-xs sm:text-sm md:text-base text-black max-w-4xl mx-auto px-2 text-center bg-white/90 rounded-lg py-2 sm:py-2.5">
           Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
         </p>
       </section>
 
       {/* BOX PRINCIPAL - INFORMAÇÕES DE CONTATO */}
       <section className="mb-8 flex justify-center px-4">
-        <div className="relative w-full max-w-5xl border border-red-500 rounded-2xl" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500 rounded-xl" style={{ borderWidth: "1px" }}>
           <div
-            className="relative p-6 md:p-10 rounded-2xl"
+            className="relative p-3 md:p-4 rounded-xl"
             style={{
               background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
               backdropFilter: "blur(16px)",
@@ -113,11 +113,11 @@ export default function ContatoPage() {
 
       {/* BOX - HORÁRIO DE ATENDIMENTO E LGPD */}
       <section className="mb-8 flex justify-center px-4">
-        <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* HORÁRIO DE ATENDIMENTO */}
-          <div className="relative border border-red-500 rounded-2xl" style={{ borderWidth: "1px", overflow: "hidden" }}>
+          <div className="relative border border-red-500 rounded-xl" style={{ borderWidth: "1px", overflow: "hidden" }}>
             <div
-              className="relative p-6 md:p-8 w-full h-full"
+              className="relative p-3 md:p-4 w-full h-full"
               style={{
                 background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
                 backdropFilter: "blur(16px)",
@@ -138,9 +138,9 @@ export default function ContatoPage() {
           </div>
 
           {/* LGPD */}
-          <div className="relative border border-red-500 rounded-2xl" style={{ borderWidth: "1px", overflow: "hidden" }}>
+          <div className="relative border border-red-500 rounded-xl" style={{ borderWidth: "1px", overflow: "hidden" }}>
             <div
-              className="relative p-6 md:p-8 w-full h-full"
+              className="relative p-3 md:p-4 w-full h-full"
               style={{
                 background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
                 backdropFilter: "blur(16px)",
@@ -173,9 +173,9 @@ export default function ContatoPage() {
 
       {/* BOX - MENSAGEM FINAL */}
       <section className="mb-8 flex justify-center px-4">
-        <div className="relative w-full max-w-5xl border border-red-500 rounded-2xl overflow-hidden" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500 rounded-xl overflow-hidden" style={{ borderWidth: "1px" }}>
           <div
-            className="relative p-6 md:p-8 rounded-2xl border-b border-red-500"
+            className="relative p-3 md:p-4 rounded-xl border-b border-red-500"
             style={{
               background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
               backdropFilter: "blur(16px)",
