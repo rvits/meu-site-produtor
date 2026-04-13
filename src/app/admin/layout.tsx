@@ -51,15 +51,15 @@ export default function AdminLayout({
     <div className="min-h-screen bg-zinc-900 text-zinc-100">
       {/* HEADER ADMIN */}
       <header className="sticky top-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <span className="text-xl font-bold text-red-500">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <span className="text-base font-bold text-red-500">
                 THouse Rec — Admin
               </span>
               <button
                 onClick={() => router.push("/")}
-                className="text-sm text-zinc-400 hover:text-red-400 transition"
+                className="text-xs text-zinc-400 hover:text-red-400 transition"
               >
                 ← Voltar ao site
               </button>
@@ -67,11 +67,11 @@ export default function AdminLayout({
           </div>
           
           {/* DASHBOARD CENTRALIZADO */}
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-3">
             <Link
               href="/admin"
               className={`
-                rounded-xl border-2 px-6 py-3 text-base font-semibold transition-all duration-300
+                rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-all duration-300
                 ${pathname === "/admin"
                   ? "bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20"
                   : "bg-gradient-to-br from-red-500/20 to-red-600/20 border-red-500/50 text-zinc-100 hover:from-red-500/30 hover:to-red-600/30 hover:border-red-500/70"
@@ -82,15 +82,15 @@ export default function AdminLayout({
             </Link>
           </div>
 
-          {/* NAVEGAÇÃO PRINCIPAL */}
-          <nav className="flex flex-wrap gap-2 justify-center">
+          {/* NAVEGAÇÃO PRINCIPAL - compacto */}
+          <nav className="flex flex-wrap gap-1.5 justify-center">
             {MENU.map((item) => {
               const ativo = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
                     ativo
                       ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
                       : "text-zinc-300 hover:text-red-400 hover:bg-zinc-800 border border-zinc-700"
@@ -105,7 +105,7 @@ export default function AdminLayout({
       </header>
 
       {/* CONTEÚDO */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
         {children}
       </main>
     </div>

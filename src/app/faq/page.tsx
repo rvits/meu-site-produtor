@@ -317,7 +317,7 @@ export default function FAQPage() {
   }
 
   return (
-    <main className="relative mx-auto max-w-6xl px-6 py-10 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-4 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página FAQ */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image page-bg-image-faq"
@@ -397,7 +397,7 @@ export default function FAQPage() {
             <>
               <div className="space-y-3">
                 {frequentFaqs.map((faq) => (
-                  <div key={faq.id} className="max-w-6xl">
+                  <div key={faq.id} className="max-w-4xl">
                     <button
                       type="button"
                       onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
@@ -469,7 +469,7 @@ export default function FAQPage() {
 
         <div className="space-y-3">
           {faqs.map((faq) => (
-            <div key={faq.id} className="max-w-6xl">
+            <div key={faq.id} className="max-w-4xl">
               <button
                 type="button"
                 onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
@@ -550,7 +550,7 @@ export default function FAQPage() {
             ) : (
               <div className="space-y-3">
                 {allFaqs.map((faq) => (
-                  <div key={faq.id} className="max-w-6xl">
+                  <div key={faq.id} className="max-w-4xl">
                     <button
                       type="button"
                       onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
@@ -578,7 +578,7 @@ export default function FAQPage() {
       </section>
 
       {/* OUVIDORIA */}
-      <section className="mb-4 rounded-2xl border border-zinc-700 bg-zinc-950/70 p-5">
+      <section className="mb-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
         <h2 className="mb-3 text-xl md:text-2xl font-semibold text-center">
           Não achou sua resposta? Envie sua dúvida.
         </h2>

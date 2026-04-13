@@ -8,6 +8,12 @@ export async function GET() {
 
     // Contar estatísticas (com tratamento de erro se modelos não existirem ainda)
     let appointments = 0;
+    let appointmentsPendente = 0;
+    let appointmentsAceitos = 0;
+    let appointmentsCancelados = 0;
+    let appointmentsRecusados = 0;
+    let appointmentsEmAndamento = 0;
+    let appointmentsConcluidos = 0;
     let users = 0;
     let payments = 0;
     let activePlans = 0;
@@ -16,7 +22,45 @@ export async function GET() {
     let pendingFaqs = 0;
 
     try {
-      appointments = await prisma.appointment.count();
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const [
+        total,
+        pendente,
+        aceitos,
+        cancelados,
+        recusados,
+        emAndamento,
+        concluidos,
+      ] = await Promise.all([
+        prisma.appointment.count(),
+        prisma.appointment.count({ where: { status: "pendente" } }),
+        prisma.appointment.count({
+          where: { status: { in: ["aceito", "confirmado"] } },
+        }),
+        prisma.appointment.count({ where: { status: "cancelado" } }),
+        prisma.appointment.count({ where: { status: "recusado" } }),
+        prisma.appointment.count({
+          where: {
+            status: { in: ["aceito", "confirmado"] },
+            data: { gte: startOfToday },
+          },
+        }),
+        prisma.appointment.count({
+          where: {
+            status: { in: ["aceito", "confirmado"] },
+            data: { lt: startOfToday },
+          },
+        }),
+      ]);
+      appointments = total;
+      appointmentsPendente = pendente;
+      appointmentsAceitos = aceitos;
+      appointmentsCancelados = cancelados;
+      appointmentsRecusados = recusados;
+      appointmentsEmAndamento = emAndamento;
+      appointmentsConcluidos = concluidos;
     } catch (e) {}
 
     try {
@@ -54,6 +98,12 @@ export async function GET() {
     return NextResponse.json(
       {
         appointments,
+        appointmentsPendente,
+        appointmentsAceitos,
+        appointmentsCancelados,
+        appointmentsRecusados,
+        appointmentsEmAndamento,
+        appointmentsConcluidos,
         users,
         payments,
         activePlans,

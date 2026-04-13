@@ -122,10 +122,9 @@ export default function MinhaContaPage() {
       if (res.ok) {
         const data = await res.json();
         console.log("[Minha Conta] Dados carregados:", {
+          totalCupons: data.cupons?.length ?? 0,
           totalPlanos: data.planos?.length || 0,
-          planos: data.planos,
           totalFaqQuestions: data.faqQuestions?.length || 0,
-          faqQuestions: data.faqQuestions,
           timestamp: new Date().toISOString(),
         });
         setAgendamentos(data.agendamentos || []);
@@ -257,38 +256,38 @@ export default function MinhaContaPage() {
 
   if (authLoading || !user || (user && loading)) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 flex items-center justify-center">
         <p className="text-zinc-400">Carregando...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-3 md:p-6">
+      <div className="max-w-5xl mx-auto space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 mb-2">Minha Conta</h1>
-            <p className="text-zinc-400 text-sm sm:text-base">Gerencie seus agendamentos, planos e cupons</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-100 mb-1">Minha Conta</h1>
+            <p className="text-zinc-400 text-xs sm:text-sm">Gerencie seus agendamentos, planos e cupons</p>
           </div>
           <button
             onClick={() => {
               setLoading(true);
               carregarDados();
             }}
-            className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 rounded-lg transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 rounded-lg transition-colors flex items-center gap-1.5 text-sm"
             title="Atualizar dados"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Atualizar
           </button>
         </div>
 
-        {/* Planos Ativos */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
-          <h2 className="text-xl font-bold text-zinc-100 mb-4">📦 Meus Planos</h2>
+        {/* Planos Ativos - compacto */}
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <h2 className="text-base font-bold text-zinc-100 mb-3">📦 Meus Planos</h2>
           {planos.length === 0 ? (
             <div className="space-y-3">
               <p className="text-zinc-400">Você não possui planos. Assine um plano na página Planos ou faça um pagamento teste.</p>
@@ -447,8 +446,8 @@ export default function MinhaContaPage() {
         </div>
 
         {/* Cupons */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
-          <h2 className="text-xl font-bold text-zinc-100 mb-4">🎟️ Meus Cupons</h2>
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <h2 className="text-base font-bold text-zinc-100 mb-3">🎟️ Meus Cupons</h2>
           
           {/* Explicação dos tipos de cupons */}
           <div className="mb-6 p-4 bg-zinc-900/50 rounded-lg border border-zinc-600">
@@ -807,7 +806,7 @@ export default function MinhaContaPage() {
         </div>
 
         {/* Agendamentos */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
           <h2 className="text-xl font-bold text-zinc-100 mb-4">📅 Meus Agendamentos</h2>
           {agendamentos.length === 0 ? (
             <p className="text-zinc-400">Você não possui agendamentos.</p>
@@ -1042,7 +1041,7 @@ export default function MinhaContaPage() {
         </div>
 
         {/* Perguntas Enviadas ao FAQ */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-zinc-100">❓ Minhas Perguntas ao FAQ</h2>

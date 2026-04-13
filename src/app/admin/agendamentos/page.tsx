@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 interface PagamentoConfirmado {
   id: string;
@@ -42,9 +50,12 @@ interface Agendamento {
   cupomAssociado: CupomAssociado | null;
 }
 
-export default function AdminAgendamentosPage() {
+function AdminAgendamentosContent() {
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const filtroParam = searchParams.get("filtro");
+
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<Agendamento[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ id: number } | null>(null);
@@ -56,19 +67,35 @@ export default function AdminAgendamentosPage() {
     carregarAgendamentos();
   }, []);
 
-  useEffect(() => {
-    if (busca.trim() === "") {
-      setAgendamentosFiltrados(agendamentos);
-    } else {
-      const termo = busca.toLowerCase();
-      const filtrados = agendamentos.filter(
-        (a) =>
-          a.user.nomeArtistico.toLowerCase().includes(termo) ||
-          a.user.email.toLowerCase().includes(termo)
-      );
-      setAgendamentosFiltrados(filtrados);
-    }
+  const porBusca = useMemo(() => {
+    if (busca.trim() === "") return agendamentos;
+    const termo = busca.toLowerCase();
+    return agendamentos.filter(
+      (a) =>
+        a.user.nomeArtistico.toLowerCase().includes(termo) ||
+        a.user.email.toLowerCase().includes(termo)
+    );
   }, [busca, agendamentos]);
+
+  const listaExibida = useMemo(() => {
+    if (!statusParam && !filtroParam) return porBusca;
+    const start = startOfToday();
+    return porBusca.filter((a) => {
+      if (statusParam === "pendente") return a.status === "pendente";
+      if (statusParam === "aceitos") return a.status === "aceito" || a.status === "confirmado";
+      if (statusParam === "cancelado") return a.status === "cancelado";
+      if (statusParam === "recusado") return a.status === "recusado";
+      if (filtroParam === "em_andamento") {
+        if (a.status !== "aceito" && a.status !== "confirmado") return false;
+        return new Date(a.data) >= start;
+      }
+      if (filtroParam === "concluidos") {
+        if (a.status !== "aceito" && a.status !== "confirmado") return false;
+        return new Date(a.data) < start;
+      }
+      return true;
+    });
+  }, [porBusca, statusParam, filtroParam]);
 
   async function carregarAgendamentos() {
     try {
@@ -76,7 +103,6 @@ export default function AdminAgendamentosPage() {
       if (res.ok) {
         const data = await res.json();
         setAgendamentos(data.agendamentos || []);
-        setAgendamentosFiltrados(data.agendamentos || []);
       }
     } catch (err) {
       console.error("Erro ao carregar agendamentos", err);
@@ -194,10 +220,21 @@ export default function AdminAgendamentosPage() {
     return <p className="text-zinc-400">Carregando agendamentos...</p>;
   }
 
-  const agendamentosPendentes = agendamentosFiltrados.filter(a => a.status === "pendente");
-  const agendamentosAceitos = agendamentosFiltrados.filter(a => a.status === "aceito" || a.status === "confirmado");
-  const agendamentosCancelados = agendamentosFiltrados.filter(a => a.status === "cancelado");
-  const agendamentosRecusados = agendamentosFiltrados.filter(a => a.status === "recusado");
+  const agendamentosPendentes = porBusca.filter((a) => a.status === "pendente");
+  const agendamentosAceitos = porBusca.filter((a) => a.status === "aceito" || a.status === "confirmado");
+  const agendamentosCancelados = porBusca.filter((a) => a.status === "cancelado");
+  const agendamentosRecusados = porBusca.filter((a) => a.status === "recusado");
+  const start = startOfToday();
+  const agendamentosEmAndamento = porBusca.filter(
+    (a) =>
+      (a.status === "aceito" || a.status === "confirmado") && new Date(a.data) >= start
+  );
+  const agendamentosConcluidos = porBusca.filter(
+    (a) =>
+      (a.status === "aceito" || a.status === "confirmado") && new Date(a.data) < start
+  );
+
+  const filtroAtivo = Boolean(statusParam || filtroParam);
 
   function getStatusColor(status: string) {
     if (status === "pendente") return "bg-orange-500";
@@ -262,50 +299,92 @@ export default function AdminAgendamentosPage() {
         </div>
       </div>
 
+      {filtroAtivo && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-zinc-400">Filtro ativo na lista abaixo.</span>
+          <Link
+            href="/admin/agendamentos"
+            className="text-red-400 hover:text-red-300 underline underline-offset-2"
+          >
+            Limpar filtro
+          </Link>
+        </div>
+      )}
+
       {/* Estatísticas rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 min-w-0">
+        <Link
+          href="/admin/agendamentos?status=pendente"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            statusParam === "pendente" ? "border-orange-500/60" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span className="text-zinc-300">Pendentes</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-orange-500" />
+            <span className="text-zinc-300 text-sm truncate">Pendentes</span>
           </div>
-          <div className="text-2xl font-bold text-orange-400 mt-2">{agendamentosPendentes.length}</div>
-        </div>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="text-2xl font-bold text-orange-400 mt-2 tabular-nums">{agendamentosPendentes.length}</div>
+        </Link>
+        <Link
+          href="/admin/agendamentos?status=aceitos"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            statusParam === "aceitos" ? "border-green-500/60" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span className="text-zinc-300">Aceitos</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-green-500" />
+            <span className="text-zinc-300 text-sm truncate">Aceitos</span>
           </div>
-          <div className="text-2xl font-bold text-green-400 mt-2">{agendamentosAceitos.length}</div>
-        </div>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="text-2xl font-bold text-green-400 mt-2 tabular-nums">{agendamentosAceitos.length}</div>
+        </Link>
+        <Link
+          href="/admin/agendamentos?status=cancelado"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            statusParam === "cancelado" ? "border-red-500/60" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span className="text-zinc-300">Cancelados</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-red-500" />
+            <span className="text-zinc-300 text-sm truncate">Cancelados</span>
           </div>
-          <div className="text-2xl font-bold text-red-400 mt-2">{agendamentosCancelados.length}</div>
-        </div>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="text-2xl font-bold text-red-400 mt-2 tabular-nums">{agendamentosCancelados.length}</div>
+        </Link>
+        <Link
+          href="/admin/agendamentos?status=recusado"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            statusParam === "recusado" ? "border-zinc-500/80" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-            <span className="text-zinc-300">Recusados</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-gray-500" />
+            <span className="text-zinc-300 text-sm truncate">Recusados</span>
           </div>
-          <div className="text-2xl font-bold text-gray-400 mt-2">{agendamentosRecusados.length}</div>
-        </div>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="text-2xl font-bold text-gray-400 mt-2 tabular-nums">{agendamentosRecusados.length}</div>
+        </Link>
+        <Link
+          href="/admin/agendamentos?filtro=em_andamento"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            filtroParam === "em_andamento" ? "border-blue-500/60" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span className="text-zinc-300">Em andamento</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-blue-500" />
+            <span className="text-zinc-300 text-sm truncate">Em andamento</span>
           </div>
-          <div className="text-2xl font-bold text-blue-400 mt-2">{agendamentosPendentes.length}</div>
-        </div>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+          <div className="text-2xl font-bold text-blue-400 mt-2 tabular-nums">{agendamentosEmAndamento.length}</div>
+        </Link>
+        <Link
+          href="/admin/agendamentos?filtro=concluidos"
+          className={`rounded-xl border bg-zinc-800/50 p-4 min-w-0 transition hover:bg-zinc-800 ${
+            filtroParam === "concluidos" ? "border-purple-500/60" : "border-zinc-700"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-            <span className="text-zinc-300">Concluídos</span>
+            <div className="w-3 h-3 shrink-0 rounded-full bg-purple-500" />
+            <span className="text-zinc-300 text-sm truncate">Concluídos</span>
           </div>
-          <div className="text-2xl font-bold text-purple-400 mt-2">{agendamentosAceitos.length}</div>
-        </div>
+          <div className="text-2xl font-bold text-purple-400 mt-2 tabular-nums">{agendamentosConcluidos.length}</div>
+        </Link>
       </div>
 
       {/* Input de Busca */}
@@ -319,18 +398,18 @@ export default function AdminAgendamentosPage() {
         />
         {busca && (
           <p className="mt-2 text-sm text-zinc-400">
-            {agendamentosFiltrados.length} agendamento(s) encontrado(s)
+            {listaExibida.length} agendamento(s) na lista (com busca e filtro)
           </p>
         )}
       </div>
 
-      {agendamentosFiltrados.length === 0 ? (
+      {listaExibida.length === 0 ? (
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
           Nenhum agendamento encontrado.
         </div>
       ) : (
         <div className="space-y-4">
-          {agendamentosFiltrados.map((a) => (
+          {listaExibida.map((a) => (
             <div
               key={a.id}
               className={`rounded-xl border ${
@@ -550,5 +629,13 @@ export default function AdminAgendamentosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminAgendamentosPage() {
+  return (
+    <Suspense fallback={<p className="text-zinc-400">Carregando agendamentos...</p>}>
+      <AdminAgendamentosContent />
+    </Suspense>
   );
 }

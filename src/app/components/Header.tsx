@@ -41,8 +41,8 @@ export default function Header() {
 
   if (loading) {
     return (
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-        <div className="mx-auto h-[72px] max-w-6xl px-4 sm:px-6" />
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg" style={{ height: "var(--header-h, 60px)" }}>
+        <div className="mx-auto h-full max-w-6xl px-4 sm:px-6" />
       </header>
     );
   }
@@ -55,21 +55,21 @@ export default function Header() {
     : (parts[0] || user?.nomeArtistico || "Usuário");
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg">
-      {/* Desktop: logo esq | links centro | user na extrema direita (coluna auto) */}
-        <div className="hidden lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-6 xl:gap-8 mx-auto max-w-7xl w-full items-center px-4 sm:px-6 py-3 sm:py-4">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-md shadow-lg" style={{ height: "var(--header-h, 60px)" }}>
+      {/* Desktop: logo esq | links centro | user na extrema direita (coluna auto) - compacto */}
+        <div className="hidden lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-4 xl:gap-5 mx-auto max-w-7xl w-full h-full items-center px-4 sm:px-6 py-2">
           {/* Zona 1: T House Rec na extrema esquerda */}
           <div className="flex justify-start min-w-0">
-            <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl lg:text-3xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
-                <span className="text-lg lg:text-xl text-zinc-100">House Rec</span>
+            <Link href="/" className="flex items-center gap-1.5 font-semibold flex-shrink-0">
+              <div className="flex items-baseline gap-0.5">
+                <span className="text-xl lg:text-2xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
+                <span className="text-base lg:text-lg text-zinc-100">House Rec</span>
               </div>
             </Link>
           </div>
 
-          {/* Zona 2: Links das páginas no meio (coluna auto = só o necessário) */}
-          <nav className="flex justify-center gap-3 xl:gap-6 text-sm lg:text-base items-center flex-shrink-0">
+          {/* Zona 2: Links das páginas no meio */}
+          <nav className="flex justify-center gap-2 xl:gap-4 text-xs lg:text-sm items-center flex-shrink-0">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -86,36 +86,36 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Zona 3: Admin + Olá + nome (ex: Victor P.) + Perfil + Minha Conta + Sair na extrema direita */}
-          <div className="flex justify-end items-center gap-3 text-sm flex-nowrap flex-shrink-0 ml-auto">
+          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair - compacto */}
+          <div className="flex justify-end items-center gap-2 text-xs flex-nowrap flex-shrink-0 ml-auto">
           {isAdmin && (
             <Link
               href="/admin"
-              className="rounded-full border-2 border-red-600 bg-red-600/10 px-4 py-2 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
+              className="rounded-full border-2 border-red-600 bg-red-600/10 px-3 py-1.5 font-bold text-red-400 hover:bg-red-600 hover:text-white transition-all whitespace-nowrap text-xs"
             >
               🔐 Admin
             </Link>
           )}
           {user ? (
             <>
-              <span className="text-zinc-300 text-sm whitespace-nowrap" title={user.nomeArtistico}>
+              <span className="text-zinc-300 text-xs whitespace-nowrap" title={user.nomeArtistico}>
                 Olá, <b>{displayName}</b>
               </span>
 
               <Link
                 href="/conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
+                className="rounded-full border border-zinc-600 px-2.5 py-1 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex-shrink-0"
               >
                 Perfil
               </Link>
 
               <Link
                 href="/minha-conta"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex items-center gap-2 flex-shrink-0"
+                className="rounded-full border border-zinc-600 px-2.5 py-1 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex items-center gap-1.5 flex-shrink-0"
               >
                 <span>Minha Conta</span>
                 {totalMinhaContaNotifications > 0 && (
-                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
+                  <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-600 text-white text-[9px] font-bold leading-none">
                     {totalMinhaContaNotifications > 99 ? "99+" : totalMinhaContaNotifications}
                   </span>
                 )}
@@ -123,7 +123,7 @@ export default function Header() {
 
               <button
                 onClick={logout}
-                className="rounded-full bg-zinc-800 px-3 py-1.5 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
+                className="rounded-full bg-zinc-800 px-2.5 py-1 hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs flex-shrink-0"
               >
                 Sair
               </button>
@@ -132,14 +132,14 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className="rounded-full border border-zinc-600 px-3 py-1.5 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
+                className="rounded-full border border-zinc-600 px-2.5 py-1 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex-shrink-0"
               >
                 Entrar
               </Link>
 
               <Link
                 href="/registro"
-                className="rounded-full bg-red-600 px-3 py-1.5 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs lg:text-sm flex-shrink-0"
+                className="rounded-full bg-red-600 px-2.5 py-1 text-white hover:bg-red-500 transition-colors whitespace-nowrap text-xs flex-shrink-0"
               >
                 Registrar
               </Link>
@@ -148,12 +148,12 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile: mesma barra, logo + hamburger */}
-        <div className="flex lg:hidden items-center justify-between mx-auto max-w-7xl w-full px-4 sm:px-6 py-3 sm:py-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold flex-shrink-0">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
-              <span className="text-lg text-zinc-100">House Rec</span>
+        {/* Mobile: barra compacta, logo + hamburger */}
+        <div className="flex lg:hidden items-center justify-between mx-auto max-w-7xl w-full h-full px-4 sm:px-6 py-2">
+          <Link href="/" className="flex items-center gap-1.5 font-semibold flex-shrink-0">
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl text-red-500" style={{ fontWeight: 900, letterSpacing: "-0.05em" }}>T</span>
+              <span className="text-base text-zinc-100">House Rec</span>
             </div>
           </Link>
           <div className="flex items-center gap-2">

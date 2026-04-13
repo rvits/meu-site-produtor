@@ -5,6 +5,12 @@ import Link from "next/link";
 
 type Stats = {
   appointments: number;
+  appointmentsPendente: number;
+  appointmentsAceitos: number;
+  appointmentsCancelados: number;
+  appointmentsRecusados: number;
+  appointmentsEmAndamento: number;
+  appointmentsConcluidos: number;
   users: number;
   payments: number;
   activePlans: number;
@@ -191,36 +197,106 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Agendamentos por status (substitui o card único) + demais métricas */}
       {!loading && stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.appointments}</div>
-            <div className="text-xs text-zinc-400 mt-1">Agendamentos</div>
+        <div className="space-y-6">
+          <div>
+            <p className="text-sm font-medium text-zinc-400 mb-3">Agendamentos por status</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 min-w-0">
+              <Link
+                href="/admin/agendamentos?status=pendente"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-orange-500/40 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-orange-500" />
+                  <span className="text-zinc-300 text-sm truncate">Pendentes</span>
+                </div>
+                <div className="text-2xl font-bold text-orange-400 mt-2 tabular-nums">{stats.appointmentsPendente}</div>
+              </Link>
+              <Link
+                href="/admin/agendamentos?status=aceitos"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-green-500/40 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-green-500" />
+                  <span className="text-zinc-300 text-sm truncate">Aceitos</span>
+                </div>
+                <div className="text-2xl font-bold text-green-400 mt-2 tabular-nums">{stats.appointmentsAceitos}</div>
+              </Link>
+              <Link
+                href="/admin/agendamentos?status=cancelado"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-red-500/40 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-red-500" />
+                  <span className="text-zinc-300 text-sm truncate">Cancelados</span>
+                </div>
+                <div className="text-2xl font-bold text-red-400 mt-2 tabular-nums">{stats.appointmentsCancelados}</div>
+              </Link>
+              <Link
+                href="/admin/agendamentos?status=recusado"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-zinc-500/50 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-zinc-500" />
+                  <span className="text-zinc-300 text-sm truncate">Recusados</span>
+                </div>
+                <div className="text-2xl font-bold text-zinc-400 mt-2 tabular-nums">{stats.appointmentsRecusados}</div>
+              </Link>
+              <Link
+                href="/admin/agendamentos?filtro=em_andamento"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-blue-500/40 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-blue-500" />
+                  <span className="text-zinc-300 text-sm truncate">Em andamento</span>
+                </div>
+                <div className="text-2xl font-bold text-blue-400 mt-2 tabular-nums">{stats.appointmentsEmAndamento}</div>
+              </Link>
+              <Link
+                href="/admin/agendamentos?filtro=concluidos"
+                className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 transition hover:border-purple-500/40 hover:bg-zinc-800 min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-purple-500" />
+                  <span className="text-zinc-300 text-sm truncate">Concluídos</span>
+                </div>
+                <div className="text-2xl font-bold text-purple-400 mt-2 tabular-nums">{stats.appointmentsConcluidos}</div>
+              </Link>
+            </div>
+            <p className="text-xs text-zinc-500 mt-2">
+              Total no sistema: <span className="text-zinc-400 tabular-nums">{stats.appointments}</span>
+            </p>
           </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.users}</div>
-            <div className="text-xs text-zinc-400 mt-1">Usuários</div>
-          </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.payments}</div>
-            <div className="text-xs text-zinc-400 mt-1">Pagamentos</div>
-          </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.activePlans}</div>
-            <div className="text-xs text-zinc-400 mt-1">Planos Ativos</div>
-          </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.services}</div>
-            <div className="text-xs text-zinc-400 mt-1">Serviços</div>
-          </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.pendingChats}</div>
-            <div className="text-xs text-zinc-400 mt-1">Chats Pendentes</div>
-          </div>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <div className="text-2xl font-bold text-red-400">{stats.pendingFaqs}</div>
-            <div className="text-xs text-zinc-400 mt-1">FAQs Pendentes</div>
+
+          <div>
+            <p className="text-sm font-medium text-zinc-400 mb-3">Outras métricas</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.users}</div>
+                <div className="text-xs text-zinc-400 mt-1">Usuários</div>
+              </div>
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.payments}</div>
+                <div className="text-xs text-zinc-400 mt-1">Pagamentos</div>
+              </div>
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.activePlans}</div>
+                <div className="text-xs text-zinc-400 mt-1">Planos Ativos</div>
+              </div>
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.services}</div>
+                <div className="text-xs text-zinc-400 mt-1">Serviços</div>
+              </div>
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.pendingChats}</div>
+                <div className="text-xs text-zinc-400 mt-1">Chats Pendentes</div>
+              </div>
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+                <div className="text-2xl font-bold text-red-400">{stats.pendingFaqs}</div>
+                <div className="text-xs text-zinc-400 mt-1">FAQs Pendentes</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

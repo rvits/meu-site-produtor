@@ -247,7 +247,7 @@ export default function CarrinhoPage() {
   if (!user) return null;
 
   return (
-    <main className="relative mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 text-zinc-100 overflow-x-hidden min-h-screen">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-5 sm:py-6 text-zinc-100 overflow-x-hidden min-h-screen">
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
         style={{
@@ -269,7 +269,7 @@ export default function CarrinhoPage() {
 
         {cart.length === 0 ? (
           <section className="mb-8 flex justify-center px-4">
-            <div className="relative w-full max-w-5xl border border-red-500 rounded-xl p-8 text-center" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
+            <div className="relative w-full max-w-4xl border border-red-500 rounded-xl p-5 text-center" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
               <p className="text-zinc-300 mb-4">Seu carrinho está vazio.</p>
               <Link
                 href="/agendamento"
@@ -283,9 +283,9 @@ export default function CarrinhoPage() {
           <>
             {/* Resumo dos agendamentos */}
             <section className="mb-8 flex justify-center px-4">
-              <div className="relative w-full max-w-5xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
+              <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
                 <div
-                  className="relative p-6 md:p-8 space-y-6"
+                  className="relative p-3 md:p-4 space-y-3"
                   style={{
                     background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
                     backdropFilter: "blur(16px)",
@@ -354,7 +354,7 @@ export default function CarrinhoPage() {
             </section>
 
             {/* Formulário e pagamento */}
-            <section className="mb-8 rounded-2xl border border-red-500 bg-zinc-900/50 p-4 sm:p-6 space-y-6">
+            <section className="mb-6 rounded-xl border border-red-500 bg-zinc-900/50 p-3 sm:p-4 space-y-4">
               <h2 className="text-lg font-semibold text-red-400">Informações para pagamento</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

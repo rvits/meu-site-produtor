@@ -116,7 +116,7 @@ export default function PlanosPage() {
   };
 
   return (
-    <main className="relative mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-12 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-3 sm:py-5 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de Planos */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -168,8 +168,8 @@ export default function PlanosPage() {
 
       {/* PLANOS */}
       <section className="mb-16 flex justify-center px-4">
-        <div className="relative w-full max-w-5xl">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
+        <div className="relative w-full max-w-4xl">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
             {PLANOS.map((plano) => {
               const valorBase =
                 modoPlano === "mensal" ? plano.mensal : plano.anual;
@@ -193,7 +193,7 @@ export default function PlanosPage() {
               return (
                 <div
                   key={plano.id}
-                  className={`flex h-full flex-col rounded-2xl border ${borderColor} bg-black/50 backdrop-blur-sm p-6 transition-all ${hoverBorderColor} hover:bg-black/70`}
+                  className={`flex h-full flex-col rounded-xl border ${borderColor} bg-black/50 backdrop-blur-sm p-4 transition-all ${hoverBorderColor} hover:bg-black/70`}
                   style={{ 
                     textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)", 
                     borderWidth: "1px",
@@ -295,7 +295,7 @@ export default function PlanosPage() {
       {/* BOX DE TESTE - APENAS PARA ADMIN */}
       {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
         <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-5xl border-2 border-yellow-500 rounded-2xl bg-yellow-950/20 backdrop-blur-sm p-6">
+          <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
             <div className="text-center space-y-4">
               <h3 className="text-xl font-semibold text-yellow-400">
                 🧪 Pagamento de Teste - Plano (Apenas Admin)
@@ -354,9 +354,9 @@ export default function PlanosPage() {
 
       {/* TEXTO FINAL */}
       <section className="mb-16 flex justify-center px-4">
-        <div className="relative w-full max-w-5xl border border-red-500 rounded-2xl" style={{ borderWidth: "1px" }}>
+        <div className="relative w-full max-w-4xl border border-red-500 rounded-xl" style={{ borderWidth: "1px" }}>
           <div
-            className="relative p-6 md:p-8 rounded-2xl"
+            className="relative p-3 md:p-4 rounded-xl"
             style={{
               background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
               backdropFilter: "blur(16px)",

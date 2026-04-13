@@ -38,7 +38,7 @@ function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
+      className="space-y-3 rounded-xl border border-red-700/40 bg-zinc-900 p-4"
     >
           <div className="space-y-1">
             <label className="text-xs text-zinc-300">Email</label>
@@ -152,7 +152,7 @@ export default function LoginPage() {
         </p>
 
         <Suspense fallback={
-          <div className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6">
+          <div className="space-y-3 rounded-xl border border-red-700/40 bg-zinc-900 p-4">
             <div className="animate-pulse space-y-4">
               <div className="h-10 bg-zinc-800 rounded"></div>
               <div className="h-10 bg-zinc-800 rounded"></div>

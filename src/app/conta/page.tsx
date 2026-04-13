@@ -122,9 +122,20 @@ export default function ContaPage() {
 
   if (loading || loadingConta) {
     return (
-      <p className="mt-20 text-center text-zinc-400">
-        Carregando sua conta...
-      </p>
+      <main className="relative flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100 overflow-x-hidden">
+        <div
+          className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900"
+          style={{
+            backgroundImage: "url(/login-bg.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center center",
+          }}
+          aria-hidden
+        />
+        <div className="relative z-10 text-center">
+          <p className="text-zinc-400">Carregando sua conta...</p>
+        </div>
+      </main>
     );
   }
 

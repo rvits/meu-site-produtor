@@ -104,7 +104,7 @@ export default function RegistroPage() {
   }
 
   return (
-    <main className="relative mx-auto max-w-xl px-6 py-12 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-xl px-4 sm:px-6 py-8 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página de Registro */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -127,7 +127,7 @@ export default function RegistroPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
+        className="space-y-4 rounded-xl border border-red-700/40 bg-zinc-900 p-4"
       >
         {/* Nome completo */}
         <Input
