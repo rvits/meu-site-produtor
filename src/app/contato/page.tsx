@@ -53,9 +53,17 @@ export default function ContatoPage() {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
           Contato
         </h1>
-        <p className="text-xs sm:text-sm md:text-base text-black max-w-4xl mx-auto px-2 text-center bg-white/90 rounded-lg py-2 sm:py-2.5">
-          Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
-        </p>
+        <div className="max-w-4xl mx-auto px-2 overflow-x-auto md:overflow-visible pb-1">
+          <p
+            className="text-black text-xs sm:text-sm md:text-base text-center whitespace-nowrap w-max max-w-none mx-auto"
+            style={{
+              textShadow:
+                "0 0 12px rgba(255,255,255,0.95), 0 0 4px rgba(255,255,255,0.85), 0 2px 10px rgba(0,0,0,0.75)",
+            }}
+          >
+            Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar projetos ou tratar de assuntos relacionados aos nossos serviços.
+          </p>
+        </div>
       </section>
 
       {/* BOX PRINCIPAL - INFORMAÇÕES DE CONTATO */}

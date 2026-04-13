@@ -157,7 +157,7 @@ export default function Home() {
           <div className="w-full max-w-4xl px-3 sm:px-6 flex flex-col items-center max-md:min-w-0">
             {/* TÍTULO — exatamente no meio; T vermelho, House Rec branco; desktop: maior (globals .hero-title) */}
             <h1
-              className="hero-title font-extrabold tracking-tight text-white text-center w-full max-w-full px-1 sm:px-0"
+              className="hero-title font-extrabold tracking-tight text-white text-center w-full max-w-full px-1 sm:px-0 md:whitespace-nowrap"
               style={{
                 fontSize: "clamp(3rem, 9.5vw, 6.25rem)",
                 letterSpacing: "-0.02em",
@@ -167,10 +167,10 @@ export default function Home() {
               <span className="text-red-500" style={{ fontSize: "1.12em", fontWeight: 800 }}>T</span>House Rec
             </h1>
 
-            {/* SERVIÇOS (texto vermelho) — centralizado; mobile: tracking menor e texto legível nas margens */}
-            <div className="mt-5 w-full max-w-full flex justify-center px-0.5">
+            {/* SERVIÇOS (texto vermelho) — mobile: inalterado; desktop: mesma coluna central da tagline (w-full text-center) */}
+            <div className="mt-5 w-full max-w-full px-0.5 md:px-0">
               <p
-                className="hero-services uppercase font-bold text-red-500 tracking-[0.1em] md:tracking-[0.2em] md:whitespace-nowrap text-center max-w-full shrink max-md:text-[clamp(0.7rem,3.2vw,0.85rem)]"
+                className="hero-services uppercase font-bold text-red-500 tracking-[0.1em] md:tracking-[0.2em] md:whitespace-nowrap text-center w-full max-md:text-[clamp(0.7rem,3.2vw,0.85rem)]"
                 style={{
                   fontSize: "clamp(0.9rem, 2.6vw, 1.2rem)",
                   textShadow: HERO_SERVICES_TEXT_SHADOW,
