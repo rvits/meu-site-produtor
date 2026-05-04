@@ -88,7 +88,10 @@ export default function AdminControleAgendamentoPage() {
 
     // Agendamentos aceitos/confirmados
     agendamentos
-      .filter((a) => a.status === "aceito" || a.status === "confirmado")
+      .filter(
+        (a) =>
+          a.status === "aceito" || a.status === "confirmado" || a.status === "em_andamento"
+      )
       .forEach((a) => {
         const data = new Date(a.data);
         const dataStr = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;

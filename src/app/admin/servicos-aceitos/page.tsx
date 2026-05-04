@@ -80,6 +80,13 @@ export default function AdminServicosGeraisPage() {
           textColor: "text-green-300",
           bgColor: "bg-green-500/20",
         };
+      case "em_andamento":
+        return {
+          label: "Em andamento",
+          color: "bg-blue-500",
+          textColor: "text-blue-300",
+          bgColor: "bg-blue-500/20",
+        };
       case "recusado":
         return {
           label: "Recusado",
@@ -149,9 +156,8 @@ export default function AdminServicosGeraisPage() {
           Serviços Gerais
         </h1>
         <p className="text-zinc-400">
-          Visão geral: serviços solicitados, aceitos, recusados e cancelados.
-          O status do serviço é atualizado automaticamente quando o agendamento
-          é aceito, recusado ou cancelado pelo admin.
+          Visão geral: solicitados, aceitos, em andamento, recusados, cancelados e concluídos.
+          O status de serviço acompanha o fluxo do agendamento no admin.
         </p>
       </div>
 
@@ -171,6 +177,7 @@ export default function AdminServicosGeraisPage() {
           <option value="todos">Todos os status</option>
           <option value="pendente">Solicitado</option>
           <option value="aceito">Aceito</option>
+          <option value="em_andamento">Em andamento</option>
           <option value="recusado">Recusado</option>
           <option value="cancelado">Cancelado</option>
           <option value="concluido">Concluído</option>

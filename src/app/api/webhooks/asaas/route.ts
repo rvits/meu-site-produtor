@@ -158,10 +158,29 @@ export async function POST(req: Request) {
               { mercadopagoId: paymentId }, // Fallback
             ],
           },
+          orderBy: { createdAt: "desc" },
         });
 
         if (existingPayment) {
           console.log("[Asaas Webhook] Pagamento já processado:", paymentId);
+          try {
+            const { reconcileAgendamentoPaymentArtifacts } = await import(
+              "@/app/lib/asaas-agendamento-reconcile"
+            );
+            await reconcileAgendamentoPaymentArtifacts({
+              paymentDbId: existingPayment.id,
+              userId,
+              asaasPaymentId: paymentId,
+            });
+          } catch (reconcileErr: any) {
+            console.error("[Asaas Webhook] Reconcile pós-duplicata falhou:", {
+              paymentDbId: existingPayment.id,
+              asaasPaymentId: paymentId,
+              userId,
+              message: reconcileErr?.message,
+              stack: reconcileErr?.stack,
+            });
+          }
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
@@ -619,89 +638,32 @@ export async function POST(req: Request) {
           const services = metadata.servicos ? (typeof metadata.servicos === "string" ? JSON.parse(metadata.servicos) : metadata.servicos) : [];
           const beats = metadata.beats ? (typeof metadata.beats === "string" ? JSON.parse(metadata.beats) : metadata.beats) : [];
 
-          // Pagamento de teste SEM agendamento: só gerar cupons; usuário agenda depois pela página do cupom
-          if (metadata.isTest === true) {
+          const hasAgendamentoNoMetadata = !!(
+            metadata.appointmentId ||
+            (metadata.data && metadata.hora)
+          );
+
+          // Pagamento de teste SEM agendamento: só gerar cupons (um por item); usuário agenda depois pela Minha Conta
+          if (metadata.isTest === true && !hasAgendamentoNoMetadata) {
             await prisma.payment.update({
               where: { id: newPayment.id },
               data: { type: "agendamento" },
             });
-            const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + 30);
-            const payPrefix = newPayment.id.replace(/-/g, "").slice(0, 8);
-            let couponIndex = 0;
-            const makeCode = (tipo: string) => `TESTE_PAY_${payPrefix}_${tipo}_${couponIndex++}`;
             try {
-              if (Array.isArray(services) && services.length > 0) {
-                for (const svc of services) {
-                  const serviceType = (svc.id || svc.nome || "sessao").toString();
-                  const qty = Math.max(1, Number(svc.quantidade) || 1);
-                  for (let q = 0; q < qty; q++) {
-                    const code = makeCode(serviceType);
-                    const existing = await prisma.coupon.findUnique({ where: { code } });
-                    if (existing) continue;
-                    await prisma.coupon.create({
-                      data: {
-                        code,
-                        couponType: "plano",
-                        discountType: "service",
-                        discountValue: 0,
-                        serviceType,
-                        paymentId: newPayment.id,
-                        expiresAt,
-                      },
-                    });
-                    console.log("[Asaas Webhook] Cupom de teste (sem agendamento) criado:", code);
-                  }
-                }
-              }
-              if (Array.isArray(beats) && beats.length > 0) {
-                for (const b of beats) {
-                  const serviceType = (b.id || b.nome || "beat1").toString();
-                  const qty = Math.max(1, Number(b.quantidade) || 1);
-                  for (let q = 0; q < qty; q++) {
-                    const code = makeCode(serviceType);
-                    const existing = await prisma.coupon.findUnique({ where: { code } });
-                    if (existing) continue;
-                    await prisma.coupon.create({
-                      data: {
-                        code,
-                        couponType: "plano",
-                        discountType: "service",
-                        discountValue: 0,
-                        serviceType,
-                        paymentId: newPayment.id,
-                        expiresAt,
-                      },
-                    });
-                    console.log("[Asaas Webhook] Cupom de teste (sem agendamento) criado:", code);
-                  }
-                }
-              }
-              const totalServicos = Array.isArray(services) ? services.reduce((acc: number, s: any) => acc + (Math.max(1, Number(s.quantidade) || 1)), 0) : 0;
-              const totalBeats = Array.isArray(beats) ? beats.reduce((acc: number, b: any) => acc + (Math.max(1, Number(b.quantidade) || 1)), 0) : 0;
-              if (totalServicos === 0 && totalBeats === 0) {
-                const code = makeCode("sessao");
-                const existing = await prisma.coupon.findUnique({ where: { code } });
-                if (!existing) {
-                  await prisma.coupon.create({
-                    data: {
-                      code,
-                      couponType: "plano",
-                      discountType: "service",
-                      discountValue: 0,
-                      serviceType: "sessao",
-                      paymentId: newPayment.id,
-                      expiresAt,
-                    },
-                  });
-                  console.log("[Asaas Webhook] Cupom de teste (sem agendamento) criado (genérico):", code);
-                }
-              }
+              const { createCouponsForAgendamentoItems } = await import("@/app/lib/agendamento-payment-coupons");
+              await createCouponsForAgendamentoItems({
+                userId,
+                paymentId: newPayment.id,
+                appointmentId: null,
+                services: Array.isArray(services) ? services : [],
+                beats: Array.isArray(beats) ? beats : [],
+                isTestPayment: true,
+              });
+              console.log("[Asaas Webhook] Cupons de teste (sem agendamento) criados via createCouponsForAgendamentoItems");
             } catch (couponErr: any) {
               console.error("[Asaas Webhook] Erro ao criar cupons de teste (não crítico):", couponErr);
             }
             console.log("[Asaas Webhook] Pagamento de teste processado: cupons gerados, sem agendamento. Agende pela Minha Conta.");
-            // Fim do fluxo isTest — não criar agendamento nem enviar email de agendamento
           } else {
           // Fluxo com agendamento: atualizar existente ou criar novo
           const appointmentId = metadata.appointmentId;
@@ -805,11 +767,12 @@ export async function POST(req: Request) {
               if (appointment) {
                 const services = metadata.servicos ? (typeof metadata.servicos === "string" ? JSON.parse(metadata.servicos) : metadata.servicos) : [];
                 const beats = metadata.beats ? (typeof metadata.beats === "string" ? JSON.parse(metadata.beats) : metadata.beats) : [];
+                const { normalizeServiceTypeId } = await import("@/app/lib/service-catalog");
 
                 // Criar registros em Service (serviços solicitados) para o admin, vinculados ao agendamento
                 if (Array.isArray(services) && services.length > 0) {
                   for (const svc of services) {
-                    const tipo = svc.id || svc.nome || "sessao";
+                    const tipo = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
                     const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
                     for (let q = 0; q < (svc.quantidade || 1); q++) {
                       try {
@@ -833,7 +796,7 @@ export async function POST(req: Request) {
                 // Beats/pacotes: criar Service para cada um para aparecer no admin (Serviços Solicitados)
                 if (Array.isArray(beats) && beats.length > 0) {
                   for (const b of beats) {
-                    const tipoBeat = b.id || b.nome || "beat";
+                    const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
                     const descBeat = [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoBeat;
                     for (let q = 0; q < (b.quantidade || 1); q++) {
                       try {
@@ -854,86 +817,25 @@ export async function POST(req: Request) {
                   console.log("[Asaas Webhook] Beats/pacotes criados para agendamento:", agendamentoFinalId);
                 }
 
-                // Pagamento de teste: gerar um cupom por serviço/beat selecionado (como nos planos), válido 30 dias
-                // Cada cupom zera o valor do serviço específico; aparecem em Minha Conta e integram com admin
-                if (metadata.isTest === true && agendamentoFinalId) {
-                  const expiresAt = new Date();
-                  expiresAt.setDate(expiresAt.getDate() + 30);
-                  let couponIndex = 0;
-                  const makeCode = (tipo: string) => `TESTE_AGEND_${agendamentoFinalId}_${tipo}_${couponIndex++}`;
-                  try {
-                    // Um cupom por item de serviço (sessão, captação, mix, master, etc.)
-                    if (Array.isArray(services) && services.length > 0) {
-                      for (const svc of services) {
-                        const serviceType = (svc.id || svc.nome || "sessao").toString();
-                        const qty = Math.max(1, Number(svc.quantidade) || 1);
-                        for (let q = 0; q < qty; q++) {
-                          const code = makeCode(serviceType);
-                          const existing = await prisma.coupon.findUnique({ where: { code } });
-                          if (existing) continue;
-                          await prisma.coupon.create({
-                            data: {
-                              code,
-                              couponType: "plano",
-                              discountType: "service",
-                              discountValue: 0,
-                              serviceType,
-                              appointmentId: agendamentoFinalId,
-                              expiresAt,
-                            },
-                          });
-                          console.log("[Asaas Webhook] Cupom de teste criado:", code, "serviço:", serviceType);
-                        }
-                      }
-                    }
-                    // Um cupom por item de beat/pacote
-                    if (Array.isArray(beats) && beats.length > 0) {
-                      for (const b of beats) {
-                        const serviceType = (b.id || b.nome || "beat1").toString();
-                        const qty = Math.max(1, Number(b.quantidade) || 1);
-                        for (let q = 0; q < qty; q++) {
-                          const code = makeCode(serviceType);
-                          const existing = await prisma.coupon.findUnique({ where: { code } });
-                          if (existing) continue;
-                          await prisma.coupon.create({
-                            data: {
-                              code,
-                              couponType: "plano",
-                              discountType: "service",
-                              discountValue: 0,
-                              serviceType,
-                              appointmentId: agendamentoFinalId,
-                              expiresAt,
-                            },
-                          });
-                          console.log("[Asaas Webhook] Cupom de teste criado:", code, "beat:", serviceType);
-                        }
-                      }
-                    }
-                    // Se não havia serviços nem beats, criar um cupom genérico (sessão) para o teste
-                    const totalServicos = Array.isArray(services) ? services.reduce((acc, s) => acc + (Math.max(1, Number(s.quantidade) || 1)), 0) : 0;
-                    const totalBeats = Array.isArray(beats) ? beats.reduce((acc, b) => acc + (Math.max(1, Number(b.quantidade) || 1)), 0) : 0;
-                    if (totalServicos === 0 && totalBeats === 0) {
-                      const code = makeCode("sessao");
-                      const existing = await prisma.coupon.findUnique({ where: { code } });
-                      if (!existing) {
-                        await prisma.coupon.create({
-                          data: {
-                            code,
-                            couponType: "plano",
-                            discountType: "service",
-                            discountValue: 0,
-                            serviceType: "sessao",
-                            appointmentId: agendamentoFinalId,
-                            expiresAt,
-                          },
-                        });
-                        console.log("[Asaas Webhook] Cupom de teste criado (genérico):", code);
-                      }
-                    }
-                  } catch (couponErr: any) {
-                    console.error("[Asaas Webhook] Erro ao criar cupons de teste (não crítico):", couponErr);
-                  }
+                // Um cupom por item pago (serviço/beat), código único, tipo = id do front (sessao, captacao, beat1…); idempotente por paymentId
+                try {
+                  const { createCouponsForAgendamentoItems } = await import("@/app/lib/agendamento-payment-coupons");
+                  await createCouponsForAgendamentoItems({
+                    userId,
+                    paymentId: newPayment.id,
+                    appointmentId: agendamentoFinalId,
+                    services: Array.isArray(services) ? services : [],
+                    beats: Array.isArray(beats) ? beats : [],
+                    isTestPayment: !!metadata.isTest,
+                  });
+                  console.log(
+                    "[Asaas Webhook] Cupons de agendamento criados (teste ou produção):",
+                    newPayment.id,
+                    "isTest:",
+                    !!metadata.isTest
+                  );
+                } catch (couponErr: any) {
+                  console.error("[Asaas Webhook] Erro ao criar cupons do agendamento (não crítico):", couponErr);
                 }
 
                 // Email para usuário

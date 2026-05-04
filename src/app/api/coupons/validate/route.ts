@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
+import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
+import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
 
 export async function POST(req: Request) {
   try {
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
       : 0;
 
     // Buscar cupom
-    const coupon = await prisma.coupon.findUnique({
+    let coupon = await prisma.coupon.findUnique({
       where: { code: code.toUpperCase() },
     });
 
@@ -39,6 +41,15 @@ export async function POST(req: Request) {
       );
     }
 
+    await normalizeStaleCouponAppointmentLink(coupon.id);
+    coupon =
+      (await prisma.coupon.findUnique({
+        where: { code: code.toUpperCase() },
+      })) ?? null;
+    if (!coupon) {
+      return NextResponse.json({ error: "Cupom inexistente." }, { status: 404 });
+    }
+
     // Verificar se já foi usado
     if (coupon.used) {
       return NextResponse.json(
@@ -47,15 +58,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar se está associado a um agendamento pendente (não pode ser usado em outro agendamento)
+    // Cupom já reservado a agendamento em fluxo ativo (pendente, aceito, confirmado, em andamento)
     if (coupon.appointmentId) {
       const agendamentoAssociado = await prisma.appointment.findUnique({
         where: { id: coupon.appointmentId },
       });
-      
-      if (agendamentoAssociado && agendamentoAssociado.status === "pendente") {
+      if (agendamentoAssociado && agendamentoBloqueiaReusoCupom(agendamentoAssociado.status)) {
         return NextResponse.json(
-          { error: "Este cupom já está sendo usado em um agendamento pendente. Aguarde a confirmação ou cancele o agendamento anterior." },
+          {
+            error:
+              "Este cupom já está vinculado a um agendamento em andamento. Aguarde a conclusão, cancele ou aguarde recusa antes de usar novamente.",
+          },
           { status: 400 }
         );
       }

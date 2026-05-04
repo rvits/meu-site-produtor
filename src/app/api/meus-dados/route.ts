@@ -342,7 +342,7 @@ export async function GET() {
       // Cupom de plano: cupom ainda vinculado OU cancelado sem pagamento (cupom foi liberado ao cancelar)
       const foiComCupomPlano =
         agendamentosIdsComCupomPlano.has(agendamento.id) ||
-        (agendamento.status === "cancelado" && !pagamento);
+        ((agendamento.status === "cancelado" || agendamento.status === "recusado") && !pagamento);
       return {
         ...agendamento,
         pagamento: pagamento ? {
@@ -509,6 +509,53 @@ export async function GET() {
       })),
     });
 
+    const entregasPorAgendamento = new Map<
+      number,
+      {
+        id: string;
+        tipo: string;
+        description: string | null;
+        deliveryAudioUrl: string;
+        deliveryAudioFormat: string | null;
+      }[]
+    >();
+    try {
+      const aptIds = agendamentosComPagamento.map((a) => a.id);
+      if (aptIds.length > 0) {
+        const servicosComArquivo = await prisma.service.findMany({
+          where: {
+            userId: user.id,
+            appointmentId: { in: aptIds },
+            status: "concluido",
+            deliveryAudioUrl: { not: null },
+          },
+          select: {
+            id: true,
+            appointmentId: true,
+            tipo: true,
+            description: true,
+            deliveryAudioUrl: true,
+            deliveryAudioFormat: true,
+          },
+        });
+        for (const s of servicosComArquivo) {
+          if (s.appointmentId == null || !s.deliveryAudioUrl) continue;
+          const row = {
+            id: s.id,
+            tipo: s.tipo,
+            description: s.description,
+            deliveryAudioUrl: s.deliveryAudioUrl,
+            deliveryAudioFormat: s.deliveryAudioFormat,
+          };
+          const list = entregasPorAgendamento.get(s.appointmentId) || [];
+          list.push(row);
+          entregasPorAgendamento.set(s.appointmentId, list);
+        }
+      }
+    } catch (e) {
+      console.warn("[meus-dados] Busca de entregas (Service) falhou:", e);
+    }
+
     // Serializar agendamentos e buscar readAt usando query raw adaptada para PostgreSQL
     const agendamentosSerializados = await Promise.all(
       agendamentosComPagamento.map(async (a) => {
@@ -541,6 +588,7 @@ export async function GET() {
           data: a.data instanceof Date ? a.data.toISOString() : a.data,
           createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
           readAt: readAt,
+          entregas: entregasPorAgendamento.get(a.id) ?? [],
           pagamento: a.pagamento ? {
             ...a.pagamento,
             createdAt: a.pagamento.createdAt instanceof Date ? a.pagamento.createdAt.toISOString() : a.pagamento.createdAt,

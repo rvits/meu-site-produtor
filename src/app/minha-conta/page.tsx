@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 
+interface EntregaServico {
+  id: string;
+  tipo: string;
+  description: string | null;
+  deliveryAudioUrl: string;
+  deliveryAudioFormat: string | null;
+}
+
 interface Agendamento {
   id: number;
   data: string;
@@ -15,6 +23,7 @@ interface Agendamento {
   cancelRefundOption?: string | null;
   refundProcessedAt?: string | null;
   cancelCouponCode?: string | null;
+  entregas?: EntregaServico[];
   pagamento: {
     id: string;
     amount: number;
@@ -218,6 +227,8 @@ export default function MinhaContaPage() {
   function getStatusColor(status: string) {
     if (status === "pendente") return "bg-orange-500";
     if (status === "aceito" || status === "confirmado") return "bg-green-500";
+    if (status === "em_andamento") return "bg-blue-500";
+    if (status === "concluido") return "bg-purple-500";
     if (status === "recusado" || status === "cancelado") return "bg-red-500";
     return "bg-gray-500";
   }
@@ -227,6 +238,8 @@ export default function MinhaContaPage() {
       pendente: "Pendente",
       aceito: "Aceito",
       confirmado: "Confirmado",
+      em_andamento: "Em andamento",
+      concluido: "Concluído",
       recusado: "Recusado",
       cancelado: "Cancelado",
     };
@@ -827,6 +840,10 @@ export default function MinhaContaPage() {
                             ? "bg-orange-500/20 text-orange-300"
                             : agendamento.status === "aceito" || agendamento.status === "confirmado"
                             ? "bg-green-500/20 text-green-300"
+                            : agendamento.status === "em_andamento"
+                            ? "bg-blue-500/20 text-blue-300"
+                            : agendamento.status === "concluido"
+                            ? "bg-purple-500/20 text-purple-300"
                             : "bg-red-500/20 text-red-300"
                         }`}>
                           {getStatusLabel(agendamento.status)}
@@ -857,12 +874,53 @@ export default function MinhaContaPage() {
                             </div>
                           </div>
                         )}
-                        {/* Cancelado pelo admin: justificativa e opção reembolso/cupom */}
-                        {agendamento.status === "cancelado" && (
+                        {(agendamento.status === "concluido" ||
+                          (agendamento.entregas && agendamento.entregas.length > 0)) && (
+                          <div className="mt-3 pt-3 border-t border-zinc-700">
+                            <strong className="text-zinc-300">Entrega de áudio</strong>
+                            {agendamento.entregas && agendamento.entregas.length > 0 ? (
+                              <ul className="mt-2 space-y-2">
+                                {agendamento.entregas.map((e) => (
+                                  <li key={e.id} className="text-sm text-zinc-400">
+                                    <span className="text-zinc-200 font-medium">{e.tipo}</span>
+                                    {e.description && (
+                                      <span className="text-zinc-500"> — {e.description}</span>
+                                    )}
+                                    {e.deliveryAudioFormat && (
+                                      <span className="ml-2 uppercase text-xs text-zinc-500">
+                                        ({e.deliveryAudioFormat})
+                                      </span>
+                                    )}
+                                    <div className="mt-1">
+                                      <a
+                                        href={e.deliveryAudioUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center rounded-lg bg-red-600/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                                      >
+                                        Abrir / baixar arquivo
+                                      </a>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-zinc-500 mt-1">
+                                Aguardando envio do arquivo pelo estúdio.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {/* Cancelado ou recusado: mesma política de reembolso/cupom */}
+                        {(agendamento.status === "cancelado" || agendamento.status === "recusado") && (
                           <div className="mt-3 pt-3 border-t border-zinc-700">
                             {agendamento.cancelReason && (
                               <div className="mb-2">
-                                <strong className="text-zinc-300">Justificativa do cancelamento:</strong>
+                                <strong className="text-zinc-300">
+                                  {agendamento.status === "recusado"
+                                    ? "Motivo da recusa:"
+                                    : "Justificativa do cancelamento:"}
+                                </strong>
                                 <p className="text-zinc-400 text-sm mt-1">{agendamento.cancelReason}</p>
                               </div>
                             )}

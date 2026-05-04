@@ -22,9 +22,6 @@ export async function GET() {
     let pendingFaqs = 0;
 
     try {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
       const [
         total,
         pendente,
@@ -41,18 +38,8 @@ export async function GET() {
         }),
         prisma.appointment.count({ where: { status: "cancelado" } }),
         prisma.appointment.count({ where: { status: "recusado" } }),
-        prisma.appointment.count({
-          where: {
-            status: { in: ["aceito", "confirmado"] },
-            data: { gte: startOfToday },
-          },
-        }),
-        prisma.appointment.count({
-          where: {
-            status: { in: ["aceito", "confirmado"] },
-            data: { lt: startOfToday },
-          },
-        }),
+        prisma.appointment.count({ where: { status: "em_andamento" } }),
+        prisma.appointment.count({ where: { status: "concluido" } }),
       ]);
       appointments = total;
       appointmentsPendente = pendente;

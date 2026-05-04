@@ -7,7 +7,7 @@ export async function GET() {
     // Buscar apenas agendamentos aceitos/confirmados futuros
     const agendamentos = await prisma.appointment.findMany({
       where: {
-        status: { in: ["aceito", "confirmado"] },
+        status: { in: ["aceito", "confirmado", "em_andamento"] },
         data: { gte: new Date() },
       },
       select: {

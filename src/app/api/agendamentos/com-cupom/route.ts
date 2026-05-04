@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { z } from "zod";
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
+import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
+import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 
 const agendamentoComCupomSchema = z.object({
   data: z.string(),
@@ -54,44 +59,59 @@ export async function POST(req: Request) {
       cupomCode,
     });
 
-    // Validar cupom diretamente no banco (sem fazer fetch interno)
-    const coupon = await prisma.coupon.findUnique({
+    let couponRow = await prisma.coupon.findUnique({
       where: { code: cupomCode.toUpperCase() },
     });
 
-    if (!coupon) {
+    if (!couponRow) {
       return NextResponse.json(
         { error: "Cupom inexistente. Verifique o código e tente novamente." },
         { status: 404 }
       );
     }
 
-    // Verificar se já foi usado
-    if (coupon.used) {
+    await normalizeStaleCouponAppointmentLink(couponRow.id);
+    const couponReload = await prisma.coupon.findUnique({
+      where: { code: cupomCode.toUpperCase() },
+    });
+    if (!couponReload) {
+      return NextResponse.json({ error: "Cupom inexistente." }, { status: 404 });
+    }
+    couponRow = couponReload;
+
+    if (couponRow.used) {
       return NextResponse.json(
         { error: "Este cupom já foi utilizado e não pode ser usado novamente." },
         { status: 400 }
       );
     }
 
-    // Verificar se está associado a um agendamento pendente (não pode ser usado em outro agendamento)
-    if (coupon.appointmentId) {
+    if (couponRow.appointmentId) {
       const agendamentoAssociado = await prisma.appointment.findUnique({
-        where: { id: coupon.appointmentId },
+        where: { id: couponRow.appointmentId },
         select: { id: true, status: true },
       });
-      
-      if (agendamentoAssociado && agendamentoAssociado.status === "pendente") {
+      if (agendamentoAssociado && agendamentoBloqueiaReusoCupom(agendamentoAssociado.status)) {
         return NextResponse.json(
-          { error: "Este cupom já está sendo usado em um agendamento pendente. Aguarde a confirmação ou cancele o agendamento anterior." },
+          {
+            error:
+              "Este cupom já está vinculado a um agendamento em andamento. Aguarde o desfecho ou use outro cupom.",
+          },
           { status: 400 }
         );
       }
+      return NextResponse.json(
+        {
+          error:
+            "Este cupom ainda está reservado a outro agendamento. Atualize a página ou contate o suporte.",
+        },
+        { status: 409 }
+      );
     }
 
     // Verificar se expirou
     const agora = new Date();
-    if (coupon.expiresAt && new Date(coupon.expiresAt) < agora) {
+    if (couponRow.expiresAt && new Date(couponRow.expiresAt) < agora) {
       return NextResponse.json(
         { error: "Este cupom expirou" },
         { status: 400 }
@@ -99,9 +119,9 @@ export async function POST(req: Request) {
     }
 
     // Verificar regra especial: cupons de plano expiram 1 mês após expiração do plano
-    if (coupon.userPlanId && coupon.discountType === "service") {
+    if (couponRow.userPlanId && couponRow.discountType === "service") {
       const userPlan = await prisma.userPlan.findUnique({
-        where: { id: coupon.userPlanId },
+        where: { id: couponRow.userPlanId },
       });
 
       if (userPlan && userPlan.endDate) {
@@ -118,15 +138,15 @@ export async function POST(req: Request) {
     }
 
     // Verificar valor mínimo
-    if (coupon.minValue && total < coupon.minValue) {
+    if (couponRow.minValue && total < couponRow.minValue) {
       return NextResponse.json(
-        { error: `Valor mínimo para usar este cupom é R$ ${coupon.minValue.toFixed(2).replace(".", ",")}` },
+        { error: `Valor mínimo para usar este cupom é R$ ${couponRow.minValue.toFixed(2).replace(".", ",")}` },
         { status: 400 }
       );
     }
 
     // Cupom 10% serviços: NÃO permite uso em beats
-    if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
+    if (couponRow.serviceType === "percent_servicos" && totalBeats > 0) {
       return NextResponse.json(
         { error: "Este cupom de 10% é válido apenas para serviços avulsos. Não pode ser usado em beats." },
         { status: 400 }
@@ -134,7 +154,7 @@ export async function POST(req: Request) {
     }
 
     // Cupom 10% beats: NÃO permite uso em outros serviços
-    if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
+    if (couponRow.serviceType === "percent_beats" && totalServicos > 0) {
       return NextResponse.json(
         { error: "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos." },
         { status: 400 }
@@ -145,42 +165,42 @@ export async function POST(req: Request) {
     let discount = 0;
     let finalTotal = total;
     
-    if (coupon.discountType === "service") {
+    if (couponRow.discountType === "service") {
       // Cupom de serviço - zera o valor
       discount = total;
       finalTotal = 0;
-    } else if (coupon.discountType === "percent") {
-      discount = (total * coupon.discountValue) / 100;
-      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
-        discount = coupon.maxDiscount;
+    } else if (couponRow.discountType === "percent") {
+      discount = (total * couponRow.discountValue) / 100;
+      if (couponRow.maxDiscount && discount > couponRow.maxDiscount) {
+        discount = couponRow.maxDiscount;
       }
       finalTotal = total - discount;
     } else {
       // Fixed discount
-      if (coupon.couponType === "reembolso") {
-        if (coupon.discountValue >= total) {
+      if (couponRow.couponType === "reembolso") {
+        if (couponRow.discountValue >= total) {
           discount = total;
           finalTotal = 0;
         } else {
-          discount = coupon.discountValue;
+          discount = couponRow.discountValue;
           finalTotal = total - discount;
         }
       } else {
-        discount = coupon.discountValue;
+        discount = couponRow.discountValue;
         finalTotal = total - discount;
       }
     }
 
     console.log("[API Agendamento com Cupom] Cupom validado:", {
-      code: coupon.code,
-      discountType: coupon.discountType,
-      serviceType: coupon.serviceType,
+      code: couponRow.code,
+      discountType: couponRow.discountType,
+      serviceType: couponRow.serviceType,
       discount,
       finalTotal,
     });
 
     // Verificar se cupom de serviço corresponde aos serviços selecionados
-    if (coupon.discountType === "service" && coupon.serviceType) {
+    if (couponRow.discountType === "service" && couponRow.serviceType) {
       const servicosIds = (servicos || []).map((s: any) => s.id);
       const beatsIds = (beats || []).map((b: any) => b.id);
       const todosServicos = [...servicosIds, ...beatsIds];
@@ -201,12 +221,12 @@ export async function POST(req: Request) {
         "producao_completa": ["producao_completa"],
       };
 
-      const tiposPermitidos = serviceTypeMap[coupon.serviceType] || [coupon.serviceType];
+      const tiposPermitidos = serviceTypeMap[couponRow.serviceType] || [couponRow.serviceType];
       const temServicoValido = todosServicos.some((id: string) => tiposPermitidos.includes(id));
 
       if (!temServicoValido) {
         return NextResponse.json(
-          { error: `Este cupom é válido apenas para o serviço: ${coupon.serviceType}. Selecione o serviço correspondente.` },
+          { error: `Este cupom é válido apenas para o serviço: ${couponRow.serviceType}. Selecione o serviço correspondente.` },
           { status: 400 }
         );
       }
@@ -216,70 +236,140 @@ export async function POST(req: Request) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const duracao = duracaoMinutos || 60;
 
-    // Verificar conflitos. select só id para não depender de colunas cancelReason/etc
-    const conflito = await prisma.appointment.findFirst({
-      where: {
-        status: { not: "cancelado" },
-        AND: [
-          { data: { lt: new Date(dataHoraISO.getTime() + (duracao * 60000)) } },
-          { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
-        ],
-      },
-      select: { id: true },
-    });
+    let appointment!: {
+      id: number;
+      data: Date;
+      tipo: string;
+      duracaoMinutos: number;
+      observacoes: string | null;
+      status: string;
+    };
 
-    if (conflito) {
-      return NextResponse.json(
-        { error: "Já existe um agendamento neste horário." },
-        { status: 409 }
-      );
-    }
-
-    // Criar agendamento com status "pendente" (aguardando confirmação do admin)
-    const appointment = await prisma.appointment.create({
-      data: {
-        userId: user.id,
-        data: dataHoraISO,
-        duracaoMinutos: duracao,
-        tipo: tipo || "sessao",
-        observacoes: observacoes || null,
-        status: "pendente", // Pendente para admin confirmar
-      },
-    });
-
-    // Associar cupom ao agendamento (mas NÃO marcar como usado ainda)
-    // O cupom só será marcado como usado quando o agendamento for confirmado pelo admin
-    await prisma.coupon.update({
-      where: { id: coupon.id },
-      data: {
-        appointmentId: appointment.id,
-        // NÃO marcar como usado ainda - só quando admin confirmar
-      },
-    });
-
-    // Criar registros de serviços solicitados vinculados ao agendamento (admin: Serviços selecionados / Serviços gerais)
-    if (Array.isArray(servicos) && servicos.length > 0) {
-      for (const svc of servicos) {
-        const tipo = svc.id || "sessao";
-        const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
-        for (let q = 0; q < (svc.quantidade || 1); q++) {
-          try {
-            await prisma.service.create({
-              data: {
-                userId: user.id,
-                appointmentId: appointment.id,
-                tipo,
-                description: desc,
-                status: "pendente",
-              },
-            });
-          } catch (serviceErr: any) {
-            console.error("[API Agendamento com Cupom] Erro ao criar Service (não crítico):", serviceErr);
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          const conflito = await tx.appointment.findFirst({
+            where: {
+              status: { not: "cancelado" },
+              AND: [
+                { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
+                { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
+              ],
+            },
+            select: { id: true },
+          });
+          if (conflito) {
+            const err = new Error("SLOT_CONFLICT");
+            (err as { code?: string }).code = "SLOT_CONFLICT";
+            throw err;
           }
+
+          const apt = await tx.appointment.create({
+            data: {
+              userId: user.id,
+              data: dataHoraISO,
+              duracaoMinutos: duracao,
+              tipo: tipo || "sessao",
+              observacoes: observacoes || null,
+              status: "pendente",
+            },
+          });
+
+          const claimed = await tx.coupon.updateMany({
+            where: {
+              id: couponRow.id,
+              used: false,
+              appointmentId: null,
+            },
+            data: { appointmentId: apt.id },
+          });
+
+          if (claimed.count !== 1) {
+            const err = new Error("COUPON_CLAIM_CONFLICT");
+            (err as { code?: string }).code = "COUPON_CLAIM_CONFLICT";
+            throw err;
+          }
+
+          appointment = {
+            id: apt.id,
+            data: apt.data,
+            tipo: apt.tipo,
+            duracaoMinutos: apt.duracaoMinutos,
+            observacoes: apt.observacoes,
+            status: apt.status,
+          };
+
+          if (Array.isArray(servicos) && servicos.length > 0) {
+            for (const svc of servicos) {
+              const tipoSvc = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
+              const desc =
+                [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") ||
+                tipoSvc;
+              for (let q = 0; q < (svc.quantidade || 1); q++) {
+                await tx.service.create({
+                  data: {
+                    userId: user.id,
+                    appointmentId: apt.id,
+                    tipo: tipoSvc,
+                    description: desc,
+                    status: "pendente",
+                  },
+                });
+              }
+            }
+          }
+
+          if (Array.isArray(beats) && beats.length > 0) {
+            for (const b of beats) {
+              const tipoB = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
+              const descB =
+                [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoB;
+              for (let q = 0; q < (b.quantidade || 1); q++) {
+                await tx.service.create({
+                  data: {
+                    userId: user.id,
+                    appointmentId: apt.id,
+                    tipo: tipoB,
+                    description: descB,
+                    status: "pendente",
+                  },
+                });
+              }
+            }
+          }
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          maxWait: 5000,
+          timeout: 20000,
         }
+      );
+    } catch (e: unknown) {
+      const code = (e as { code?: string })?.code;
+      const msg = (e as Error)?.message;
+      if (code === "SLOT_CONFLICT" || msg === "SLOT_CONFLICT") {
+        return NextResponse.json({ error: "Já existe um agendamento neste horário." }, { status: 409 });
       }
-      console.log("[API Agendamento com Cupom] Serviços solicitados criados para agendamento:", appointment.id);
+      if (code === "COUPON_CLAIM_CONFLICT" || msg === "COUPON_CLAIM_CONFLICT") {
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível reservar este cupom (pode ter sido usado por outra requisição). Atualize e tente novamente.",
+          },
+          { status: 409 }
+        );
+      }
+      if (code === "P2034") {
+        return NextResponse.json(
+          { error: "Concorrência ao gravar o agendamento. Tente novamente." },
+          { status: 409 }
+        );
+      }
+      throw e;
     }
+
+    await reconcileAppointmentWithServices(appointment.id);
+    console.log("[API Agendamento com Cupom] Agendamento e vínculo criados:", appointment.id);
 
     // Enviar email de notificação para o admin
     try {

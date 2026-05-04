@@ -17,6 +17,8 @@ interface Service {
   status: string;
   appointmentId: number | null;
   appointment: Appointment | null;
+  deliveryAudioUrl?: string | null;
+  deliveryAudioFormat?: string | null;
   user: {
     nomeArtistico: string;
     email: string;
@@ -32,6 +34,12 @@ export default function AdminServicosSelecionadosPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [concluirModal, setConcluirModal] = useState<{
+    id: string;
+    tipo: string;
+    audioUrl: string;
+    formato: "wav" | "mp3";
+  } | null>(null);
 
   useEffect(() => {
     carregarServicos();
@@ -43,7 +51,6 @@ export default function AdminServicosSelecionadosPage() {
       const res = await fetch("/api/admin/servicos");
       if (res.ok) {
         const data = await res.json();
-        // Apenas serviços vinculados a agendamento (selecionados no agendamento)
         const comAgendamento = (data.servicos || []).filter(
           (s: Service) => s.appointmentId != null
         );
@@ -56,19 +63,43 @@ export default function AdminServicosSelecionadosPage() {
     }
   }
 
-  async function marcarComoFeito(id: string) {
+  function abrirModalConcluir(s: Service) {
+    setConcluirModal({
+      id: s.id,
+      tipo: s.tipo,
+      audioUrl: s.deliveryAudioUrl || "",
+      formato: (s.deliveryAudioFormat === "mp3" ? "mp3" : "wav"),
+    });
+  }
+
+  async function confirmarConcluir() {
+    if (!concluirModal) return;
+    const url = concluirModal.audioUrl.trim();
+    if (!url) {
+      alert("Informe a URL do arquivo de áudio (link público para download).");
+      return;
+    }
     try {
-      setUpdatingId(id);
-      const res = await fetch(`/api/admin/servicos?id=${id}`, {
+      setUpdatingId(concluirModal.id);
+      const res = await fetch(`/api/admin/servicos?id=${concluirModal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "concluido" }),
+        body: JSON.stringify({
+          status: "concluido",
+          deliveryAudioUrl: url,
+          deliveryAudioFormat: concluirModal.formato,
+        }),
       });
-      if (res.ok) await carregarServicos();
-      else alert("Erro ao atualizar. Tente novamente.");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setConcluirModal(null);
+        await carregarServicos();
+      } else {
+        alert(data.error || "Erro ao concluir. Verifique URL e formato.");
+      }
     } catch (err) {
       console.error("Erro ao atualizar serviço", err);
-      alert("Erro ao atualizar serviço. Tente novamente.");
+      alert("Erro ao atualizar serviço.");
     } finally {
       setUpdatingId(null);
     }
@@ -86,7 +117,7 @@ export default function AdminServicosSelecionadosPage() {
       else alert("Erro ao atualizar. Tente novamente.");
     } catch (err) {
       console.error("Erro ao atualizar serviço", err);
-      alert("Erro ao atualizar serviço. Tente novamente.");
+      alert("Erro ao atualizar serviço.");
     } finally {
       setUpdatingId(null);
     }
@@ -101,19 +132,19 @@ export default function AdminServicosSelecionadosPage() {
       )
     : servicos;
 
-  // Agrupar por agendamento (appointmentId + appointment.data para ordenar)
   const grupos = filtrados.reduce<Record<GroupKey, Service[]>>((acc, s) => {
-    const key: GroupKey = s.appointmentId != null
-      ? `ag-${s.appointmentId}`
-      : "sem-agendamento";
+    const key: GroupKey =
+      s.appointmentId != null ? `ag-${s.appointmentId}` : "sem-agendamento";
     if (!acc[key]) acc[key] = [];
     acc[key].push(s);
     return acc;
   }, {});
 
   const gruposOrdenados = Object.entries(grupos).sort(([, a], [, b]) => {
-    const dataA = a[0]?.appointment?.data;
-    const dataB = b[0]?.appointment?.data;
+    const headOf = (arr: Service[]) =>
+      [...arr].sort((x, y) => x.id.localeCompare(y.id))[0];
+    const dataA = headOf(a)?.appointment?.data;
+    const dataB = headOf(b)?.appointment?.data;
     if (!dataA || !dataB) return 0;
     return new Date(dataB).getTime() - new Date(dataA).getTime();
   });
@@ -138,8 +169,7 @@ export default function AdminServicosSelecionadosPage() {
             Serviços Selecionados
           </h1>
           <p className="text-zinc-400">
-            Serviços por agendamento: quais já foram feitos e quais ainda estão a
-            fazer. Use &quot;Registrar como feito&quot; quando concluir o serviço.
+            Ao concluir, informe o link público do arquivo (WAV ou MP3). O cliente verá o download na Minha Conta.
           </p>
         </div>
         <button
@@ -151,6 +181,63 @@ export default function AdminServicosSelecionadosPage() {
           {refreshing ? "Atualizando..." : "Atualizar"}
         </button>
       </div>
+
+      {concluirModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-zinc-600 bg-zinc-900 p-6 shadow-xl space-y-4">
+            <h2 className="text-lg font-bold text-zinc-100">Concluir serviço</h2>
+            <p className="text-sm text-zinc-400">
+              Serviço: <span className="text-zinc-200">{concluirModal.tipo}</span>
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                URL do arquivo (link direto ou página de download)
+              </label>
+              <input
+                type="url"
+                value={concluirModal.audioUrl}
+                onChange={(e) =>
+                  setConcluirModal((m) => (m ? { ...m, audioUrl: e.target.value } : null))
+                }
+                placeholder="https://..."
+                className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Formato</label>
+              <select
+                value={concluirModal.formato}
+                onChange={(e) =>
+                  setConcluirModal((m) =>
+                    m ? { ...m, formato: e.target.value as "wav" | "mp3" } : null
+                  )
+                }
+                className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+              >
+                <option value="wav">WAV</option>
+                <option value="mp3">MP3</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConcluirModal(null)}
+                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarConcluir}
+                disabled={updatingId === concluirModal.id}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-50"
+              >
+                {updatingId === concluirModal.id ? "Salvando..." : "Concluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
         <input
@@ -176,11 +263,16 @@ export default function AdminServicosSelecionadosPage() {
       ) : (
         <div className="space-y-6">
           {gruposOrdenados.map(([key, items]) => {
-            const apt = items[0]?.appointment;
-            const agendamentoId = items[0]?.appointmentId;
-            const user = items[0]?.user;
+            const sorted = [...items].sort((x, y) => x.id.localeCompare(y.id));
+            const head = sorted[0];
+            const apt = head?.appointment;
+            const agendamentoId = head?.appointmentId;
+            const user = head?.user;
             const pendentes = items.filter(
-              (s) => s.status !== "concluido" && s.status !== "cancelado" && s.status !== "recusado"
+              (s) =>
+                s.status !== "concluido" &&
+                s.status !== "cancelado" &&
+                s.status !== "recusado"
             );
             const feitos = items.filter((s) => s.status === "concluido");
 
@@ -233,7 +325,7 @@ export default function AdminServicosSelecionadosPage() {
                     return (
                       <div
                         key={s.id}
-                        className="flex items-center justify-between gap-4 py-2 border-b border-zinc-700/50 last:border-0"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2 border-b border-zinc-700/50 last:border-0"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -257,28 +349,35 @@ export default function AdminServicosSelecionadosPage() {
                           </div>
                           <div className="text-xs text-zinc-500 mt-0.5">
                             {isFeito
-                              ? "Feito"
+                              ? s.deliveryAudioUrl
+                                ? `Feito · ${(s.deliveryAudioFormat || "").toUpperCase()} · link registrado`
+                                : "Feito"
                               : isCanceladoOuRecusado
                                 ? s.status === "cancelado"
                                   ? "Cancelado (agendamento cancelado)"
                                   : "Recusado"
                                 : "A fazer"}
                           </div>
+                          {isFeito && s.deliveryAudioUrl && (
+                            <p className="text-xs text-zinc-600 truncate mt-1">
+                              {s.deliveryAudioUrl}
+                            </p>
+                          )}
                         </div>
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 flex flex-wrap gap-2">
                           {!isFeito && !isCanceladoOuRecusado && (
                             <button
-                              onClick={() => marcarComoFeito(s.id)}
+                              type="button"
+                              onClick={() => abrirModalConcluir(s)}
                               disabled={updatingId === s.id}
                               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition disabled:opacity-50"
                             >
-                              {updatingId === s.id
-                                ? "Salvando..."
-                                : "Registrar como feito"}
+                              Concluir com entrega
                             </button>
                           )}
                           {isFeito && (
                             <button
+                              type="button"
                               onClick={() => marcarComoPendente(s.id)}
                               disabled={updatingId === s.id}
                               className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-500 transition disabled:opacity-50"

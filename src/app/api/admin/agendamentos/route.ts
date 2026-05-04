@@ -3,7 +3,9 @@ import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
 import { z } from "zod";
 import { sendAppointmentAcceptedEmail, sendAppointmentRejectedEmail } from "@/app/lib/sendEmail";
-import { generateCouponCode } from "@/app/lib/coupons";
+import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
+import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
+import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 
 const updateSchema = z.object({
   status: z.string().optional(),
@@ -20,8 +22,16 @@ export async function GET() {
     const agendamentos = await prisma.appointment.findMany({
       where: {
         status: {
-          in: ["pendente", "aceito", "recusado", "confirmado", "cancelado"]
-        }
+          in: [
+            "pendente",
+            "aceito",
+            "recusado",
+            "confirmado",
+            "cancelado",
+            "em_andamento",
+            "concluido",
+          ],
+        },
       },
       orderBy: { data: "desc" },
       include: {
@@ -40,26 +50,61 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    // Buscar cupons por agendamento
-    const cuponsPorAgendamento = await Promise.all(
-      agendamentos.map((a) =>
-        prisma.coupon.findFirst({ where: { appointmentId: a.id } })
-      )
-    );
-    const cuponsMap = new Map(agendamentos.map((a, i) => [a.id, cuponsPorAgendamento[i]]));
+    function pagamentoLigaAoAgendamento(
+      p: (typeof pagamentosAgendamento)[0],
+      aptId: number
+    ): boolean {
+      if (p.appointmentId === aptId) return true;
+      if (p.appointmentIds == null) return false;
+      const ids = Array.isArray(p.appointmentIds)
+        ? p.appointmentIds
+        : typeof p.appointmentIds === "string"
+          ? JSON.parse(p.appointmentIds)
+          : [];
+      return Array.isArray(ids) && ids.includes(aptId);
+    }
+
+    const aptIds = agendamentos.map((a) => a.id);
+    const payIds = pagamentosAgendamento.map((p) => p.id);
+    let todosCuponsRelacionados: Awaited<ReturnType<typeof prisma.coupon.findMany>> = [];
+    if (aptIds.length > 0 || payIds.length > 0) {
+      const OR: { appointmentId?: { in: number[] }; paymentId?: { in: string[] } }[] = [];
+      if (aptIds.length > 0) OR.push({ appointmentId: { in: aptIds } });
+      if (payIds.length > 0) OR.push({ paymentId: { in: payIds } });
+      todosCuponsRelacionados = await prisma.coupon.findMany({
+        where: { OR },
+        orderBy: { createdAt: "asc" },
+      });
+    }
+
+    const listaCuponsPorAgendamento = (aptId: number): typeof todosCuponsRelacionados => {
+      const map = new Map<string, (typeof todosCuponsRelacionados)[0]>();
+      for (const c of todosCuponsRelacionados) {
+        if (c.appointmentId === aptId) {
+          map.set(c.id, c);
+          continue;
+        }
+        if (!c.paymentId) continue;
+        const p = pagamentosAgendamento.find((x) => x.id === c.paymentId);
+        if (p && pagamentoLigaAoAgendamento(p, aptId)) {
+          map.set(c.id, c);
+        }
+      }
+      return [...map.values()].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    };
 
     const agendamentosComPagamento = agendamentos.map((agendamento) => {
       let pagamento = pagamentosAgendamento.find((p) => p.appointmentId === agendamento.id);
       if (!pagamento && agendamento.userId) {
         pagamento = pagamentosAgendamento.find((p) => {
           if (p.userId !== agendamento.userId) return false;
-          if (p.appointmentId === agendamento.id) return true;
-          if (p.appointmentIds == null) return false;
-          const ids = Array.isArray(p.appointmentIds) ? p.appointmentIds : (typeof p.appointmentIds === "string" ? JSON.parse(p.appointmentIds) : []);
-          return Array.isArray(ids) && ids.includes(agendamento.id);
+          return pagamentoLigaAoAgendamento(p, agendamento.id);
         });
       }
-      const cupom = cuponsMap.get(agendamento.id) ?? null;
+      const lista = listaCuponsPorAgendamento(agendamento.id);
+      const cupom = pickPrimaryCouponForDisplay(lista);
       return {
         ...agendamento,
         pagamentoConfirmado: pagamento ? {
@@ -70,12 +115,26 @@ export async function GET() {
           asaasId: pagamento.asaasId,
           createdAt: pagamento.createdAt,
         } : null,
-        cupomAssociado: cupom ? {
-          code: cupom.code,
-          serviceType: cupom.serviceType,
-          discountType: cupom.discountType,
-          used: cupom.used,
-        } : null,
+        cupomAssociado: cupom
+          ? {
+              id: cupom.id,
+              code: cupom.code,
+              serviceType: cupom.serviceType,
+              discountType: cupom.discountType,
+              used: cupom.used,
+              couponType: cupom.couponType,
+              paymentId: cupom.paymentId,
+            }
+          : null,
+        cuponsAssociados: lista.map((c) => ({
+          id: c.id,
+          code: c.code,
+          serviceType: c.serviceType,
+          discountType: c.discountType,
+          used: c.used,
+          couponType: c.couponType,
+          paymentId: c.paymentId,
+        })),
       };
     });
 
@@ -123,63 +182,185 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
-    const updateData: any = {};
-    if (validation.data.status !== undefined) {
-      updateData.status = validation.data.status;
-    }
-    if (validation.data.blocked !== undefined) {
-      updateData.blocked = validation.data.blocked;
-      if (validation.data.blocked) {
-        updateData.blockedAt = new Date();
-        updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
-      } else {
-        updateData.blockedAt = null;
-        updateData.blockedReason = null;
-      }
-    }
-
-    const agendamento = await prisma.appointment.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            nomeArtistico: true,
-            email: true,
-          },
+    const idNum = parseInt(id, 10);
+    const userInclude = {
+      user: {
+        select: {
+          nomeArtistico: true,
+          email: true,
         },
       },
-    });
+    } as const;
 
-    // Enviar emails baseado na mudança de status
+    const rejectionMsg =
+      validation.data.status === "recusado"
+        ? (validation.data.rejectionComment || "").trim() || "Agendamento recusado."
+        : "";
+
+    const statusIncoming = validation.data.status;
+    const blockedIncoming = validation.data.blocked;
+
+    const acceptFromPending =
+      (statusIncoming === "aceito" || statusIncoming === "confirmado") &&
+      agendamentoAntes.status === "pendente" &&
+      blockedIncoming === undefined;
+
+    const rejectFromPending =
+      statusIncoming === "recusado" &&
+      agendamentoAntes.status === "pendente" &&
+      blockedIncoming === undefined;
+
+    const startWorkTransition =
+      statusIncoming === "em_andamento" &&
+      (agendamentoAntes.status === "aceito" || agendamentoAntes.status === "confirmado") &&
+      blockedIncoming === undefined;
+
+    let agendamento:
+      | (typeof agendamentoAntes & {
+          user: { nomeArtistico: string; email: string };
+        })
+      | null;
+    let ranAcceptSideEffects = false;
+    let ranRejectSideEffects = false;
+    let ranStartSideEffects = false;
+
+    if (acceptFromPending && statusIncoming) {
+      const cnt = await prisma.appointment.updateMany({
+        where: { id: idNum, status: "pendente" },
+        data: { status: statusIncoming },
+      });
+      if (cnt.count === 0) {
+        agendamento = await prisma.appointment.findUnique({
+          where: { id: idNum },
+          include: userInclude,
+        });
+        if (
+          agendamento &&
+          (agendamento.status === "aceito" || agendamento.status === "confirmado")
+        ) {
+          await reconcileAppointmentWithServices(idNum);
+          return NextResponse.json({ agendamento, alreadyProcessed: true });
+        }
+        return NextResponse.json(
+          { error: "Não foi possível aceitar: estado do agendamento mudou. Atualize a lista." },
+          { status: 409 }
+        );
+      }
+      ranAcceptSideEffects = true;
+      agendamento = await prisma.appointment.findUnique({
+        where: { id: idNum },
+        include: userInclude,
+      });
+    } else if (rejectFromPending) {
+      const cnt = await prisma.appointment.updateMany({
+        where: { id: idNum, status: "pendente" },
+        data: {
+          status: "recusado",
+          cancelReason: rejectionMsg,
+          cancelledAt: new Date(),
+        },
+      });
+      if (cnt.count === 0) {
+        agendamento = await prisma.appointment.findUnique({
+          where: { id: idNum },
+          include: userInclude,
+        });
+        if (agendamento?.status === "recusado") {
+          await reconcileAppointmentWithServices(idNum);
+          return NextResponse.json({ agendamento, alreadyProcessed: true });
+        }
+        return NextResponse.json(
+          { error: "Não foi possível recusar: estado do agendamento mudou." },
+          { status: 409 }
+        );
+      }
+      ranRejectSideEffects = true;
+      agendamento = await prisma.appointment.findUnique({
+        where: { id: idNum },
+        include: userInclude,
+      });
+    } else if (startWorkTransition) {
+      const cnt = await prisma.appointment.updateMany({
+        where: { id: idNum, status: { in: ["aceito", "confirmado"] } },
+        data: { status: "em_andamento" },
+      });
+      if (cnt.count === 0) {
+        agendamento = await prisma.appointment.findUnique({
+          where: { id: idNum },
+          include: userInclude,
+        });
+        if (agendamento?.status === "em_andamento") {
+          await prisma.service.updateMany({
+            where: {
+              appointmentId: idNum,
+              status: { in: ["aceito", "pendente"] },
+            },
+            data: { status: "em_andamento" },
+          });
+          await reconcileAppointmentWithServices(idNum);
+          return NextResponse.json({ agendamento, alreadyProcessed: true });
+        }
+        return NextResponse.json(
+          { error: "Não foi possível iniciar: agendamento não está aceito/confirmado." },
+          { status: 409 }
+        );
+      }
+      ranStartSideEffects = true;
+      agendamento = await prisma.appointment.findUnique({
+        where: { id: idNum },
+        include: userInclude,
+      });
+    } else {
+      const updateData: Record<string, unknown> = {};
+      if (validation.data.status !== undefined) {
+        updateData.status = validation.data.status;
+      }
+      if (validation.data.status === "recusado") {
+        updateData.cancelReason = rejectionMsg;
+        updateData.cancelledAt = new Date();
+      }
+      if (validation.data.blocked !== undefined) {
+        updateData.blocked = validation.data.blocked;
+        if (validation.data.blocked) {
+          updateData.blockedAt = new Date();
+          updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
+        } else {
+          updateData.blockedAt = null;
+          updateData.blockedReason = null;
+        }
+      }
+
+      agendamento = await prisma.appointment.update({
+        where: { id: idNum },
+        data: updateData as any,
+        include: userInclude,
+      });
+    }
+
+    if (!agendamento) {
+      return NextResponse.json({ error: "Agendamento não encontrado após atualização." }, { status: 500 });
+    }
+
     try {
-      const statusAnterior = agendamentoAntes.status;
-      const statusNovo = agendamento.status;
-
-      // Se foi aceito ou confirmado
-      if ((statusNovo === "aceito" || statusNovo === "confirmado") && statusAnterior !== statusNovo) {
-        // Atualizar serviços vinculados ao agendamento para "aceito" (Serviços gerais)
+      if (ranAcceptSideEffects) {
         await prisma.service.updateMany({
-          where: { appointmentId: parseInt(id) },
+          where: { appointmentId: idNum },
           data: { status: "aceito", acceptedAt: new Date() },
         });
 
-        // Marcar cupom como usado se houver cupom associado ao agendamento
-        const cupomAssociado = await prisma.coupon.findFirst({
-          where: { appointmentId: parseInt(id) },
+        await prisma.coupon.updateMany({
+          where: {
+            appointmentId: idNum,
+            used: false,
+            paymentId: null,
+            couponType: { not: "reembolso" },
+          },
+          data: {
+            used: true,
+            usedAt: new Date(),
+            usedBy: agendamento.userId,
+          },
         });
-
-        if (cupomAssociado && !cupomAssociado.used) {
-          await prisma.coupon.update({
-            where: { id: cupomAssociado.id },
-            data: {
-              used: true,
-              usedAt: new Date(),
-              usedBy: agendamento.userId,
-            },
-          });
-          console.log(`[Admin] Cupom ${cupomAssociado.code} marcado como usado após confirmação do agendamento`);
-        }
 
         await sendAppointmentAcceptedEmail(
           agendamento.user.email,
@@ -190,70 +371,42 @@ export async function PATCH(req: Request) {
         console.log(`[Admin] Email de aceitação enviado para ${agendamento.user.email}`);
       }
 
-      // Se foi recusado
-      if (statusNovo === "recusado" && statusAnterior !== statusNovo) {
-        // Atualizar serviços vinculados ao agendamento para "recusado" (Serviços gerais)
+      if (ranStartSideEffects) {
         await prisma.service.updateMany({
-          where: { appointmentId: parseInt(id) },
+          where: {
+            appointmentId: idNum,
+            status: { in: ["aceito", "pendente"] },
+          },
+          data: { status: "em_andamento" },
+        });
+      }
+
+      if (ranRejectSideEffects) {
+        await prisma.service.updateMany({
+          where: { appointmentId: idNum },
           data: { status: "recusado" },
         });
 
-        // Liberar cupom se houver cupom associado (desfazer associação)
-        const cupomAssociado = await prisma.coupon.findFirst({
-          where: { appointmentId: parseInt(id) },
-        });
+        await releaseBookingCouponsForAppointment(idNum);
 
-        if (cupomAssociado) {
-          await prisma.coupon.update({
-            where: { id: cupomAssociado.id },
-            data: {
-              appointmentId: null, // Remover associação
-              // Cupom volta a ficar disponível para uso
-            },
-          });
-          console.log(`[Admin] Cupom ${cupomAssociado.code} liberado após recusa do agendamento`);
-        }
-
-        // Buscar pagamento associado para gerar cupom no valor correto (se houver pagamento)
-        const payment = await prisma.payment.findFirst({
-          where: { appointmentId: parseInt(id) },
-        });
-
-        const rejectionComment = validation.data.rejectionComment || "Agendamento recusado.";
-
-        // Gerar cupom de desconto apenas se houver pagamento (não para cupons de serviço)
-        let couponCode: string | undefined;
-        if (payment) {
-          try {
-            const coupon = await prisma.coupon.create({
-              data: {
-                code: generateCouponCode(),
-                couponType: "reembolso", // Cupom de reembolso
-                discountType: "fixed",
-                discountValue: payment.amount,
-                appointmentId: parseInt(id),
-                expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 dias
-              },
-            });
-            couponCode = coupon.code;
-            console.log(`[Admin] Cupom gerado para agendamento recusado: ${couponCode}`);
-          } catch (couponError: any) {
-            console.error("[Admin] Erro ao gerar cupom (não crítico):", couponError);
-          }
-        }
+        const rejectionComment =
+          agendamento.cancelReason ||
+          validation.data.rejectionComment ||
+          "Agendamento recusado.";
 
         await sendAppointmentRejectedEmail(
           agendamento.user.email,
           agendamento.user.nomeArtistico,
           rejectionComment,
-          couponCode
+          undefined
         );
         console.log(`[Admin] Email de recusa enviado para ${agendamento.user.email}`);
       }
     } catch (emailError: any) {
-      console.error("[Admin] Erro ao enviar emails (não crítico):", emailError);
-      // Não falhar a atualização por erro de email
+      console.error("[Admin] Erro ao enviar emails ou efeitos (não crítico):", emailError);
     }
+
+    await reconcileAppointmentWithServices(idNum);
 
     return NextResponse.json({ agendamento });
   } catch (err: any) {

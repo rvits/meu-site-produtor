@@ -4,6 +4,8 @@ import { requireAuth } from "@/app/lib/auth";
 import { sendAppointmentCancelledEmail } from "@/app/lib/sendEmail";
 import { generateCouponCode } from "@/app/lib/coupons";
 import { refundAsaasPayment } from "@/app/lib/asaas-refund";
+import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
+import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 
 export async function POST(req: Request) {
   try {
@@ -32,22 +34,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
+    if (agendamento.status === "cancelado") {
+      return NextResponse.json({
+        message: "Este agendamento já estava cancelado.",
+        alreadyProcessed: true,
+        agendamento: { id: agendamento.id, status: "cancelado" },
+      });
+    }
+
     // Verificar se o agendamento pertence ao usuário
     if (agendamento.userId !== user.id) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    // Verificar se o agendamento está confirmado e pago
-    if (agendamento.status !== "aceito" && agendamento.status !== "confirmado") {
+    // Agendamento aceito, confirmado ou já em andamento (cliente pode solicitar cancelamento conforme política)
+    if (
+      agendamento.status !== "aceito" &&
+      agendamento.status !== "confirmado" &&
+      agendamento.status !== "em_andamento"
+    ) {
       return NextResponse.json(
-        { error: "Apenas agendamentos confirmados podem ser cancelados" },
+        { error: "Apenas agendamentos aceitos ou em andamento podem ser cancelados por aqui" },
         { status: 400 }
       );
     }
 
     // Buscar pagamento associado
     const payment = await prisma.payment.findFirst({
-      where: { appointmentId: parseInt(appointmentId) },
+      where: { appointmentId: parseInt(appointmentId), status: "approved" },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!payment) {
@@ -65,40 +80,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Liberar cupom se houver cupom associado (desfazer associação)
-    let cupomAssociado = await prisma.coupon.findFirst({
-      where: { appointmentId: parseInt(appointmentId) },
-    });
-
-    if (!cupomAssociado) {
-      // Tentar buscar por usedBy e usado recentemente
-      const cuponsUsados = await prisma.coupon.findMany({
-        where: {
-          usedBy: agendamento.userId,
-          used: true,
-          usedAt: {
-            gte: new Date(Date.now() - 48 * 60 * 60 * 1000), // Últimas 48 horas
-          },
-        },
-        orderBy: { usedAt: "desc" },
-      });
-
-      if (cuponsUsados.length > 0) {
-        cupomAssociado = cuponsUsados[0];
-      }
-    }
-
-    if (cupomAssociado) {
-      await prisma.coupon.update({
-        where: { id: cupomAssociado.id },
-        data: {
-          appointmentId: null,
-          used: false,
-          usedAt: null,
-          usedBy: null,
-        },
-      });
-      console.log(`[Cancelar Agendamento] Cupom ${cupomAssociado.code} liberado após cancelamento`);
+    const liberados = await releaseBookingCouponsForAppointment(parseInt(appointmentId, 10));
+    if (liberados > 0) {
+      console.log(`[Cancelar Agendamento] ${liberados} cupom(ns) de uso liberado(s)`);
     }
 
     // Calcular valor de reembolso
@@ -152,13 +136,36 @@ export async function POST(req: Request) {
       }
     }
 
-    // Atualizar status para cancelado
-    await prisma.appointment.update({
-      where: { id: parseInt(appointmentId) },
-      data: {
-        status: "cancelado",
+    const aptIdNum = parseInt(appointmentId, 10);
+    const cancelRows = await prisma.appointment.updateMany({
+      where: {
+        id: aptIdNum,
+        userId: user.id,
+        status: { in: ["aceito", "confirmado", "em_andamento"] },
       },
+      data: { status: "cancelado" },
     });
+    if (cancelRows.count === 0) {
+      const cur = await prisma.appointment.findUnique({ where: { id: aptIdNum } });
+      if (cur?.status === "cancelado") {
+        return NextResponse.json({
+          message: "Agendamento já cancelado.",
+          alreadyProcessed: true,
+          agendamento: { id: cur.id, status: "cancelado" },
+        });
+      }
+      return NextResponse.json(
+        { error: "Não foi possível cancelar o agendamento no estado atual." },
+        { status: 409 }
+      );
+    }
+
+    await prisma.service.updateMany({
+      where: { appointmentId: aptIdNum },
+      data: { status: "cancelado" },
+    });
+
+    await reconcileAppointmentWithServices(aptIdNum);
 
     console.log(`[Cancelar Agendamento] Agendamento ${appointmentId} cancelado. Horário liberado.`);
 

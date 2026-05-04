@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { refundAsaasPayment } from "@/app/lib/asaas-refund";
+import { fetchAsaasPayment, asaasPaymentIsRefundedStatus } from "@/app/lib/asaas-get-payment";
 import { listAsaasPaymentsReceived } from "@/app/lib/asaas-list-payments";
 import { generateCouponCode } from "@/app/lib/coupons";
 
 /**
- * Para agendamentos cancelados pelo admin: usuário escolhe reembolso direto (Asaas) ou cupom para remarcar.
+ * Para agendamentos cancelados ou recusados pelo admin: usuário escolhe reembolso direto (Asaas) ou cupom para remarcar.
  */
 export async function POST(req: Request) {
   try {
@@ -36,15 +37,40 @@ export async function POST(req: Request) {
     if (agendamento.userId !== user.id) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
-    if (agendamento.status !== "cancelado") {
+    if (agendamento.status !== "cancelado" && agendamento.status !== "recusado") {
       return NextResponse.json(
-        { error: "Esta opção só está disponível para agendamentos cancelados." },
+        { error: "Esta opção só está disponível para agendamentos cancelados ou recusados." },
         { status: 400 }
       );
     }
-    if (agendamento.cancelRefundOption) {
+
+    if (
+      opcao === "reembolso" &&
+      agendamento.cancelRefundOption === "reembolso" &&
+      agendamento.refundProcessedAt
+    ) {
+      return NextResponse.json({
+        message: "Reembolso já registrado anteriormente.",
+        opcao: "reembolso",
+        alreadyProcessed: true,
+      });
+    }
+    if (opcao === "cupom" && agendamento.cancelRefundOption === "cupom" && agendamento.refundCouponId) {
+      const cupomExistente = await prisma.coupon.findUnique({
+        where: { id: agendamento.refundCouponId },
+        select: { code: true },
+      });
+      return NextResponse.json({
+        message: "Cupom já gerado para esta solicitação.",
+        opcao: "cupom",
+        couponCode: cupomExistente?.code,
+        alreadyProcessed: true,
+      });
+    }
+
+    if (agendamento.cancelRefundOption && agendamento.cancelRefundOption !== opcao) {
       return NextResponse.json(
-        { error: "Você já escolheu a opção para este cancelamento." },
+        { error: "Você já escolheu outra opção para este cancelamento ou recusa." },
         { status: 400 }
       );
     }
@@ -53,6 +79,7 @@ export async function POST(req: Request) {
     // Ou cancelado sem pagamento (cupom foi liberado ao cancelar, então tratamos como cupom de plano)
     let cupomPlanoDoAgendamento = await prisma.coupon.findFirst({
       where: { appointmentId: id, userPlanId: { not: null } },
+      orderBy: { createdAt: "desc" },
       select: { id: true, serviceType: true, discountType: true, discountValue: true },
     });
     let foiComCupomPlano = !!cupomPlanoDoAgendamento;
@@ -173,8 +200,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Cancelado sem pagamento = provavelmente foi com cupom de plano (cupom foi liberado ao cancelar)
-    if (!payment && agendamento.status === "cancelado") {
+    // Cancelado/recusado sem pagamento = provavelmente foi com cupom de plano (cupom foi liberado ao cancelar/recusar)
+    if (!payment && (agendamento.status === "cancelado" || agendamento.status === "recusado")) {
       foiComCupomPlano = true;
     }
     if (foiComCupomPlano && opcao === "reembolso") {
@@ -201,29 +228,93 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      // Valor: se pagamento tem vários agendamentos, reembolsar parte proporcional; se amount for 0, Asaas reembolsa o total
+
       const ids = payment.appointmentIds != null
         ? (Array.isArray(payment.appointmentIds) ? payment.appointmentIds : JSON.parse(String(payment.appointmentIds)))
         : [payment.appointmentId].filter(Boolean);
       refundAmount = payment.amount > 0 && ids.length > 0 ? payment.amount / ids.length : payment.amount;
-      const valueToRefund = refundAmount > 0 ? refundAmount : undefined; // undefined = reembolso total no Asaas
+      const valueToRefund = refundAmount > 0 ? refundAmount : undefined;
+
+      const remoteBefore = await fetchAsaasPayment(payment.asaasId);
+      if (remoteBefore && asaasPaymentIsRefundedStatus(remoteBefore.status)) {
+        const sync = await prisma.appointment.updateMany({
+          where: {
+            id,
+            cancelRefundOption: null,
+            status: { in: ["cancelado", "recusado"] },
+          },
+          data: { cancelRefundOption: "reembolso", refundProcessedAt: now },
+        });
+        return NextResponse.json({
+          message:
+            sync.count > 0
+              ? "Pagamento já estava reembolsado no Asaas; registro local foi atualizado."
+              : "Reembolso já registrado anteriormente.",
+          opcao: "reembolso",
+          alreadyProcessed: true,
+          refundAmount: refundAmount > 0 ? refundAmount : undefined,
+        });
+      }
+
+      const reserve = await prisma.appointment.updateMany({
+        where: {
+          id,
+          cancelRefundOption: null,
+          status: { in: ["cancelado", "recusado"] },
+        },
+        data: { cancelRefundOption: "reembolso", refundProcessedAt: now },
+      });
+
+      if (reserve.count === 0) {
+        const apt2 = await prisma.appointment.findUnique({ where: { id } });
+        if (
+          apt2?.cancelRefundOption === "reembolso" &&
+          apt2.refundProcessedAt
+        ) {
+          return NextResponse.json({
+            message: "Reembolso já registrado anteriormente.",
+            opcao: "reembolso",
+            alreadyProcessed: true,
+          });
+        }
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível iniciar o reembolso. Atualize a página ou entre em contato com o suporte.",
+          },
+          { status: 409 }
+        );
+      }
+
+      const remoteAfterReserve = await fetchAsaasPayment(payment.asaasId);
+      if (remoteAfterReserve && asaasPaymentIsRefundedStatus(remoteAfterReserve.status)) {
+        return NextResponse.json({
+          message:
+            "Pagamento já consta como reembolsado no Asaas após reserva local; nenhuma nova solicitação de estorno foi enviada.",
+          opcao: "reembolso",
+          alreadyProcessed: true,
+          refundAmount: refundAmount > 0 ? refundAmount : undefined,
+        });
+      }
+
       try {
         await refundAsaasPayment(
           payment.asaasId,
           valueToRefund,
-          `Reembolso de cancelamento de agendamento #${id}`
+          `Reembolso de agendamento #${id} (${agendamento.status === "recusado" ? "recusa" : "cancelamento"})`
         );
       } catch (err: any) {
         console.error("[Escolher Reembolso] Erro Asaas:", err);
+        await prisma.appointment.updateMany({
+          where: { id, cancelRefundOption: "reembolso" },
+          data: { cancelRefundOption: null, refundProcessedAt: null },
+        });
         return NextResponse.json(
           { error: err.message || "Erro ao processar reembolso no Asaas. Tente a opção cupom." },
           { status: 502 }
         );
       }
-      await prisma.appointment.update({
-        where: { id },
-        data: { cancelRefundOption: "reembolso", refundProcessedAt: now },
-      });
+
       return NextResponse.json({
         message: refundAmount > 0
           ? "Reembolso direto solicitado com sucesso. O valor será creditado em até 5 dias úteis."
@@ -245,9 +336,43 @@ export async function POST(req: Request) {
 
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
+    async function amarrarCupomOuIdempotente(couponId: string): Promise<
+      | { ok: true }
+      | { ok: false; response: ReturnType<typeof NextResponse.json> }
+    > {
+      const bind = await prisma.appointment.updateMany({
+        where: { id, cancelRefundOption: null },
+        data: { cancelRefundOption: "cupom", refundCouponId: couponId },
+      });
+      if (bind.count > 0) return { ok: true };
+
+      const apt3 = await prisma.appointment.findUnique({ where: { id } });
+      if (apt3?.cancelRefundOption === "cupom" && apt3.refundCouponId === couponId) {
+        const c = await prisma.coupon.findUnique({
+          where: { id: couponId },
+          select: { code: true },
+        });
+        return {
+          ok: false,
+          response: NextResponse.json({
+            message: "Cupom já gerado para esta solicitação.",
+            opcao: "cupom",
+            couponCode: c?.code,
+            alreadyProcessed: true,
+          }),
+        };
+      }
+      await prisma.coupon.delete({ where: { id: couponId } }).catch(() => {});
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Conflito ao registrar cupom. Atualize a página e tente novamente." },
+          { status: 409 }
+        ),
+      };
+    }
+
     if (foiComCupomPlano) {
-      // Novo cupom com as mesmas regras do cupom de plano (mesmo serviço): funciona como cupom do plano para remarcar
-      // Se o cupom original foi liberado no cancelamento, usar tipo do agendamento (ex.: sessao, captacao)
       const serviceType = cupomPlanoDoAgendamento?.serviceType || agendamento.tipo || "sessao";
       const coupon = await prisma.coupon.create({
         data: {
@@ -261,10 +386,8 @@ export async function POST(req: Request) {
         },
       });
       couponCode = coupon.code;
-      await prisma.appointment.update({
-        where: { id },
-        data: { cancelRefundOption: "cupom", refundCouponId: coupon.id },
-      });
+      const ar = await amarrarCupomOuIdempotente(coupon.id);
+      if (!ar.ok) return ar.response;
       return NextResponse.json({
         message: `Cupom gerado para remarcar (serviço: ${serviceType}). Use-o ao agendar novamente o mesmo tipo de serviço.`,
         opcao: "cupom",
@@ -296,10 +419,8 @@ export async function POST(req: Request) {
     });
     couponCode = coupon.code;
 
-    await prisma.appointment.update({
-      where: { id },
-      data: { cancelRefundOption: "cupom", refundCouponId: coupon.id },
-    });
+    const ar2 = await amarrarCupomOuIdempotente(coupon.id);
+    if (!ar2.ok) return ar2.response;
 
     return NextResponse.json({
       message: "Cupom de reembolso gerado. Use-o ao remarcar seu serviço.",

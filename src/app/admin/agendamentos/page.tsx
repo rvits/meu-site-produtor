@@ -4,12 +4,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 interface PagamentoConfirmado {
   id: string;
   amount: number;
@@ -20,10 +14,13 @@ interface PagamentoConfirmado {
 }
 
 interface CupomAssociado {
+  id?: string;
   code: string;
   serviceType: string | null;
   discountType: string;
   used: boolean;
+  couponType?: string;
+  paymentId?: string | null;
 }
 
 interface Agendamento {
@@ -48,6 +45,7 @@ interface Agendamento {
   createdAt: string;
   pagamentoConfirmado: PagamentoConfirmado | null;
   cupomAssociado: CupomAssociado | null;
+  cuponsAssociados?: CupomAssociado[];
 }
 
 function AdminAgendamentosContent() {
@@ -79,20 +77,13 @@ function AdminAgendamentosContent() {
 
   const listaExibida = useMemo(() => {
     if (!statusParam && !filtroParam) return porBusca;
-    const start = startOfToday();
     return porBusca.filter((a) => {
       if (statusParam === "pendente") return a.status === "pendente";
       if (statusParam === "aceitos") return a.status === "aceito" || a.status === "confirmado";
       if (statusParam === "cancelado") return a.status === "cancelado";
       if (statusParam === "recusado") return a.status === "recusado";
-      if (filtroParam === "em_andamento") {
-        if (a.status !== "aceito" && a.status !== "confirmado") return false;
-        return new Date(a.data) >= start;
-      }
-      if (filtroParam === "concluidos") {
-        if (a.status !== "aceito" && a.status !== "confirmado") return false;
-        return new Date(a.data) < start;
-      }
+      if (filtroParam === "em_andamento") return a.status === "em_andamento";
+      if (filtroParam === "concluidos") return a.status === "concluido";
       return true;
     });
   }, [porBusca, statusParam, filtroParam]);
@@ -224,21 +215,16 @@ function AdminAgendamentosContent() {
   const agendamentosAceitos = porBusca.filter((a) => a.status === "aceito" || a.status === "confirmado");
   const agendamentosCancelados = porBusca.filter((a) => a.status === "cancelado");
   const agendamentosRecusados = porBusca.filter((a) => a.status === "recusado");
-  const start = startOfToday();
-  const agendamentosEmAndamento = porBusca.filter(
-    (a) =>
-      (a.status === "aceito" || a.status === "confirmado") && new Date(a.data) >= start
-  );
-  const agendamentosConcluidos = porBusca.filter(
-    (a) =>
-      (a.status === "aceito" || a.status === "confirmado") && new Date(a.data) < start
-  );
+  const agendamentosEmAndamento = porBusca.filter((a) => a.status === "em_andamento");
+  const agendamentosConcluidos = porBusca.filter((a) => a.status === "concluido");
 
   const filtroAtivo = Boolean(statusParam || filtroParam);
 
   function getStatusColor(status: string) {
     if (status === "pendente") return "bg-orange-500";
     if (status === "aceito" || status === "confirmado") return "bg-green-500";
+    if (status === "em_andamento") return "bg-blue-500";
+    if (status === "concluido") return "bg-purple-500";
     if (status === "recusado" || status === "cancelado") return "bg-red-500";
     return "bg-gray-500";
   }
@@ -246,6 +232,8 @@ function AdminAgendamentosContent() {
   function getStatusLabel(status: string) {
     if (status === "pendente") return "Pendente";
     if (status === "aceito" || status === "confirmado") return "Aceito";
+    if (status === "em_andamento") return "Em andamento";
+    if (status === "concluido") return "Concluído";
     if (status === "cancelado") return "Cancelado";
     if (status === "recusado") return "Recusado";
     return status;
@@ -426,6 +414,10 @@ function AdminAgendamentosContent() {
                         ? "bg-orange-500/20 text-orange-300"
                         : a.status === "aceito" || a.status === "confirmado"
                         ? "bg-green-500/20 text-green-300"
+                        : a.status === "em_andamento"
+                        ? "bg-blue-500/20 text-blue-300"
+                        : a.status === "concluido"
+                        ? "bg-purple-500/20 text-purple-300"
                         : a.status === "cancelado"
                         ? "bg-red-500/20 text-red-300"
                         : "bg-gray-500/20 text-gray-300"
@@ -444,7 +436,7 @@ function AdminAgendamentosContent() {
                     <div><strong className="text-zinc-300">Criado em:</strong> {new Date(a.createdAt).toLocaleString("pt-BR")}</div>
                     {/* Status de Pagamento */}
                     <div className="mt-3 pt-3 border-t border-zinc-700">
-                      {a.cupomAssociado ? (
+                      {(a.cuponsAssociados && a.cuponsAssociados.length > 0) || a.cupomAssociado ? (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-green-500"></div>
                           <span className="text-green-400 font-semibold">✅ Pago com Cupom</span>
@@ -460,15 +452,20 @@ function AdminAgendamentosContent() {
                           <span className="text-red-400 font-semibold">⚠️ Pagamento Não Confirmado</span>
                         </div>
                       )}
-                      {a.cupomAssociado && (
-                        <div className="mt-2 ml-4 text-xs text-zinc-500 space-y-1">
-                          <div><strong>Cupom:</strong> {a.cupomAssociado.code}</div>
-                          {a.cupomAssociado.serviceType && (
-                            <div><strong>Serviço:</strong> {a.cupomAssociado.serviceType}</div>
+                      {(a.cuponsAssociados && a.cuponsAssociados.length > 0
+                        ? a.cuponsAssociados
+                        : a.cupomAssociado
+                          ? [a.cupomAssociado]
+                          : []
+                      ).map((c, idx) => (
+                        <div key={c.id ?? `${c.code}-${idx}`} className="mt-2 ml-4 text-xs text-zinc-500 space-y-1 border-l border-zinc-600 pl-2">
+                          <div><strong>Cupom:</strong> {c.code}</div>
+                          {c.serviceType && (
+                            <div><strong>Serviço:</strong> {c.serviceType}</div>
                           )}
-                          <div><strong>Status do Cupom:</strong> {a.cupomAssociado.used ? "Usado" : "Pendente"}</div>
+                          <div><strong>Status do Cupom:</strong> {c.used ? "Usado" : "Pendente"}</div>
                         </div>
-                      )}
+                      ))}
                       {a.pagamentoConfirmado && (
                         <div className="mt-2 ml-4 text-xs text-zinc-500 space-y-1">
                           <div><strong>Valor:</strong> R$ {a.pagamentoConfirmado.amount.toFixed(2)}</div>
@@ -522,6 +519,13 @@ function AdminAgendamentosContent() {
                   )}
                   {(a.status === "aceito" || a.status === "confirmado") && (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => atualizarAgendamento(a.id, { status: "em_andamento" })}
+                        className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition"
+                      >
+                        Começar
+                      </button>
                       <select
                         value={a.status}
                         onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
@@ -529,6 +533,7 @@ function AdminAgendamentosContent() {
                       >
                         <option value="pendente">Pendente</option>
                         <option value="aceito">Aceito</option>
+                        <option value="confirmado">Confirmado</option>
                         <option value="cancelado">Cancelado</option>
                         <option value="recusado">Recusado</option>
                       </select>
@@ -539,6 +544,35 @@ function AdminAgendamentosContent() {
                         ❌ Cancelar Agendamento
                       </button>
                     </>
+                  )}
+                  {a.status === "em_andamento" && (
+                    <>
+                      <Link
+                        href="/admin/servicos-solicitados"
+                        className="text-center rounded bg-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-600 transition"
+                      >
+                        Serviços selecionados
+                      </Link>
+                      <select
+                        value={a.status}
+                        onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
+                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300"
+                      >
+                        <option value="em_andamento">Em andamento</option>
+                        <option value="aceito">Aceito</option>
+                        <option value="confirmado">Confirmado</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                      <button
+                        onClick={() => abrirModalCancelar(a.id)}
+                        className="rounded bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 transition"
+                      >
+                        ❌ Cancelar Agendamento
+                      </button>
+                    </>
+                  )}
+                  {a.status === "concluido" && (
+                    <p className="text-sm text-purple-300/90">Agendamento concluído</p>
                   )}
                   {a.status === "cancelado" && (
                     <>

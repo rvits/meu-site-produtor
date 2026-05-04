@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
 
 export async function POST(req: Request) {
   try {
@@ -186,7 +187,7 @@ export async function POST(req: Request) {
 
     let servicesCreated = 0;
     for (const svc of services) {
-      const tipo = svc.id || svc.nome || "sessao";
+      const tipo = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
       const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
       for (let q = 0; q < (svc.quantidade || 1); q++) {
         try {
@@ -194,7 +195,7 @@ export async function POST(req: Request) {
             data: {
               userId: userIdApt,
               appointmentId: agendamentoFinalId,
-              tipo: String(tipo),
+              tipo,
               description: desc,
               status: "pendente",
             },
@@ -206,7 +207,7 @@ export async function POST(req: Request) {
       }
     }
     for (const b of beats) {
-      const tipoBeat = b.id || b.nome || "beat";
+      const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
       const descBeat = [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoBeat;
       for (let q = 0; q < (b.quantidade || 1); q++) {
         try {
@@ -214,7 +215,7 @@ export async function POST(req: Request) {
             data: {
               userId: userIdApt,
               appointmentId: agendamentoFinalId,
-              tipo: String(tipoBeat),
+              tipo: tipoBeat,
               description: descBeat,
               status: "pendente",
             },
@@ -225,54 +226,7 @@ export async function POST(req: Request) {
         }
       }
     }
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-    let couponIndex = 0;
-    const makeCode = (tipo: string) => `TESTE_AGEND_${agendamentoFinalId}_${tipo}_${couponIndex++}`;
-    let couponsCreated = 0;
-
-    for (const svc of services) {
-      const serviceType = String(svc.id || svc.nome || "sessao");
-      for (let q = 0; q < Math.max(1, Number(svc.quantidade) || 1); q++) {
-        const code = makeCode(serviceType);
-        const existing = await prisma.coupon.findUnique({ where: { code } });
-        if (existing) continue;
-        await prisma.coupon.create({
-          data: {
-            code,
-            couponType: "plano",
-            discountType: "service",
-            discountValue: 0,
-            serviceType: serviceType,
-            appointmentId: agendamentoFinalId,
-            expiresAt,
-          },
-        });
-        couponsCreated++;
-      }
-    }
-    for (const b of beats) {
-      const tipoBeat = String(b.id || b.nome || "beat1");
-      for (let q = 0; q < Math.max(1, Number(b.quantidade) || 1); q++) {
-        const code = makeCode(tipoBeat);
-        const existing = await prisma.coupon.findUnique({ where: { code } });
-        if (existing) continue;
-        await prisma.coupon.create({
-          data: {
-            code,
-            couponType: "plano",
-            discountType: "service",
-            discountValue: 0,
-            serviceType: tipoBeat,
-            appointmentId: agendamentoFinalId,
-            expiresAt,
-          },
-        });
-        couponsCreated++;
-      }
-    }
-    // Sem metadata (servicos/beats): criar 1 sessão + 1 beat (serviços e cupons) para concluir a rota do teste
+    // Sem metadata (servicos/beats): criar 1 sessão + 1 beat (serviços) para concluir a rota do teste
     if (services.length === 0 && beats.length === 0) {
       try {
         await prisma.service.create({
@@ -302,24 +256,28 @@ export async function POST(req: Request) {
       } catch (e) {
         console.warn("[Reprocessar Teste] Service beat já existe?", e);
       }
-      for (const tipo of ["sessao", "beat1"]) {
-        const code = makeCode(tipo);
-        const existing = await prisma.coupon.findUnique({ where: { code } });
-        if (!existing) {
-          await prisma.coupon.create({
-            data: {
-              code,
-              couponType: "plano",
-              discountType: "service",
-              discountValue: 0,
-              serviceType: tipo,
-              appointmentId: agendamentoFinalId,
-              expiresAt,
-            },
-          });
-          couponsCreated++;
-        }
-      }
+    }
+
+    let couponsCreated = 0;
+    try {
+      const { createCouponsForAgendamentoItems } = await import("@/app/lib/agendamento-payment-coupons");
+      const arrS = Array.isArray(services) ? services : [];
+      const arrB = Array.isArray(beats) ? beats : [];
+      const lista =
+        arrS.length === 0 && arrB.length === 0
+          ? { services: [{ id: "sessao", nome: "Sessão", quantidade: 1 }], beats: [{ id: "beat1", nome: "1 Beat", quantidade: 1 }] }
+          : { services: arrS, beats: arrB };
+      const coupons = await createCouponsForAgendamentoItems({
+        userId: userIdApt,
+        paymentId: pagamento.id,
+        appointmentId: agendamentoFinalId,
+        services: lista.services,
+        beats: lista.beats,
+        isTestPayment: true,
+      });
+      couponsCreated = coupons.length;
+    } catch (e) {
+      console.error("[Reprocessar Teste] Cupons:", e);
     }
 
     const owner = await prisma.user.findUnique({

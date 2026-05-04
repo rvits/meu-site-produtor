@@ -238,8 +238,10 @@ model Service {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   tipo          String
   description   String?
-  status        String      @default("pendente") // pendente | aceito | recusado | cancelado | concluido
+  status        String      @default("pendente") // pendente | aceito | em_andamento | recusado | cancelado | concluido
   acceptedAt    DateTime?
+  deliveryAudioUrl    String? // Link do arquivo entregue (WAV/MP3) após conclusão
+  deliveryAudioFormat String? // "wav" | "mp3"
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

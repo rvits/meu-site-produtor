@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
 import { sendAppointmentCancelledEmail } from "@/app/lib/sendEmail";
+import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
+import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 
 export async function POST(req: Request) {
   try {
@@ -48,77 +50,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
-    // Pode cancelar agendamentos pendentes, aceitos ou confirmados
-    // Agendamentos pendentes podem ser cancelados (especialmente os feitos com cupom)
-    if (agendamento.status === "cancelado" || agendamento.status === "recusado") {
+    const idNum = parseInt(id, 10);
+
+    if (agendamento.status === "cancelado") {
+      return NextResponse.json({
+        message: "Este agendamento já estava cancelado.",
+        alreadyProcessed: true,
+        agendamento: { id: agendamento.id, status: "cancelado" },
+      });
+    }
+    if (agendamento.status === "recusado") {
       return NextResponse.json(
-        { error: "Este agendamento já foi cancelado ou recusado" },
+        { error: "Agendamento já foi recusado; não é possível cancelar novamente por este fluxo." },
         { status: 400 }
       );
-    }
-
-    // Liberar cupom se houver cupom associado (desfazer associação)
-    // IMPORTANTE: Quando um agendamento é cancelado, SEMPRE liberar o cupom associado
-    // Buscar cupom associado ao agendamento
-    let cupomAssociado = await prisma.coupon.findFirst({
-      where: { appointmentId: parseInt(id) },
-    });
-    
-    // Se não encontrou pelo appointmentId, tentar buscar por usedBy e usado recentemente
-    // (pode ser um cupom criado com código antigo que foi marcado como usado mas não tem appointmentId)
-    // OU um cupom que foi usado diretamente sem passar pela aprovação
-    if (!cupomAssociado) {
-      console.log(`[Admin] 🔍 Cupom não encontrado pelo appointmentId, tentando buscar por usedBy...`);
-      // Buscar cupons usados recentemente pelo mesmo usuário (últimas 48 horas)
-      const cuponsUsados = await prisma.coupon.findMany({
-        where: {
-          usedBy: agendamento.userId,
-          used: true,
-          usedAt: {
-            gte: new Date(Date.now() - 48 * 60 * 60 * 1000), // Últimas 48 horas
-          },
-        },
-        orderBy: { usedAt: "desc" },
-      });
-      
-      // Se encontrou cupons usados, verificar se algum pode estar relacionado a este agendamento
-      // (por data/hora aproximada ou por ser o mais recente)
-      if (cuponsUsados.length > 0) {
-        // Pegar o cupom mais recente que foi usado
-        cupomAssociado = cuponsUsados[0];
-        console.log(`[Admin] 🔍 Cupom encontrado por usedBy (mais recente): ${cupomAssociado.code}, usado em: ${cupomAssociado.usedAt}`);
-      }
-    }
-
-    if (cupomAssociado) {
-      // Guardar o status ANTES de cancelar para verificar
-      const statusAntesCancelamento = agendamento.status;
-      
-      console.log(`[Admin] 🔍 Cupom encontrado: ${cupomAssociado.code}, usado: ${cupomAssociado.used}, status agendamento: ${statusAntesCancelamento}`);
-      
-      // IMPORTANTE: Se o agendamento foi cancelado, SEMPRE liberar o cupom
-      // Independente do status anterior (pendente, aceito, confirmado)
-      // O cupom só deve ser consumido quando o agendamento é realmente realizado
-      // Se foi cancelado, o cupom deve voltar a ficar disponível
-      const deveLiberar = true; // Sempre liberar quando cancelar
-      
-      console.log(`[Admin] 🔍 Liberando cupom após cancelamento (status anterior: ${statusAntesCancelamento}, usado: ${cupomAssociado.used})`);
-      
-      if (deveLiberar) {
-        const cupomAtualizado = await prisma.coupon.update({
-          where: { id: cupomAssociado.id },
-          data: {
-            appointmentId: null, // Remover associação
-            used: false, // Marcar como não usado
-            usedAt: null, // Limpar data de uso
-            usedBy: null, // Limpar usuário que usou
-          },
-        });
-        console.log(`[Admin] ✅ Cupom ${cupomAssociado.code} liberado após cancelamento do agendamento (status anterior: ${statusAntesCancelamento})`);
-        console.log(`[Admin] ✅ Cupom atualizado: usado=${cupomAtualizado.used}, appointmentId=${cupomAtualizado.appointmentId}`);
-      }
-    } else {
-      console.log(`[Admin] ℹ️ Nenhum cupom associado ao agendamento ${id}`);
     }
 
     const cancelledAt = new Date();
@@ -129,24 +74,64 @@ export async function POST(req: Request) {
     };
 
     try {
-      await prisma.appointment.update({
-        where: { id: parseInt(id) },
+      const rows = await prisma.appointment.updateMany({
+        where: {
+          id: idNum,
+          status: { notIn: ["cancelado", "recusado"] },
+        },
         data: updatePayload,
       });
-      // Atualizar serviços vinculados ao agendamento para "cancelado" (Serviços gerais)
+      if (rows.count === 0) {
+        const cur = await prisma.appointment.findUnique({ where: { id: idNum } });
+        if (cur?.status === "cancelado") {
+          return NextResponse.json({
+            message: "Este agendamento já estava cancelado.",
+            alreadyProcessed: true,
+            agendamento: { id: cur.id, status: "cancelado" },
+          });
+        }
+        return NextResponse.json(
+          { error: "Não foi possível cancelar no estado atual." },
+          { status: 409 }
+        );
+      }
+
       await prisma.service.updateMany({
-        where: { appointmentId: parseInt(id) },
+        where: { appointmentId: idNum },
         data: { status: "cancelado" },
       });
+
+      const liberados = await releaseBookingCouponsForAppointment(idNum);
+      if (liberados === 0) {
+        console.log(`[Admin] Nenhum cupom de uso para liberar no agendamento ${id}`);
+      }
+
+      await reconcileAppointmentWithServices(idNum);
     } catch (updateErr: any) {
       // Se falhar por coluna inexistente (banco desatualizado), tentar só status
       const msg = String(updateErr?.message || "").toLowerCase();
       if (msg.includes("invalid") || msg.includes("unknown column") || msg.includes("does not exist")) {
         try {
-          await prisma.appointment.update({
-            where: { id: parseInt(id) },
+          const fb = await prisma.appointment.updateMany({
+            where: { id: idNum, status: { notIn: ["cancelado", "recusado"] } },
             data: { status: "cancelado" },
           });
+          if (fb.count === 0) {
+            const cur = await prisma.appointment.findUnique({ where: { id: idNum } });
+            if (cur?.status === "cancelado") {
+              return NextResponse.json({
+                message: "Este agendamento já estava cancelado.",
+                alreadyProcessed: true,
+                agendamento: { id: cur.id, status: "cancelado" },
+              });
+            }
+          }
+          await prisma.service.updateMany({
+            where: { appointmentId: idNum },
+            data: { status: "cancelado" },
+          });
+          await releaseBookingCouponsForAppointment(idNum);
+          await reconcileAppointmentWithServices(idNum);
           console.warn("[Admin] Cancelamento salvo só com status (colunas cancelReason/cancelledAt podem não existir no banco). Rode: npx prisma db push");
         } catch (fallbackErr: any) {
           console.error("[Admin] Erro no update (fallback):", fallbackErr);
