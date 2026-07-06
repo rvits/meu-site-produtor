@@ -105,6 +105,15 @@ const MENU_ITEMS = [
     hoverColor: "hover:from-indigo-500/30 hover:to-indigo-600/30",
   },
   {
+    id: "engenharia",
+    title: "Engenharia",
+    description: "Dashboard Guardian, Health, CTO e agentes",
+    icon: "🔬",
+    href: "/admin/engenharia",
+    color: "from-violet-500/20 to-violet-600/20 border-violet-500/30",
+    hoverColor: "hover:from-violet-500/30 hover:to-violet-600/30",
+  },
+  {
     id: "chats-pendentes",
     title: "Chats Pendentes",
     description: "Solicitações de atendimento humano",
