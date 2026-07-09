@@ -5,14 +5,16 @@ import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-admin-archive";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
 
 const itemSchema = z.object({
-  data: z.string(),
-  hora: z.string(),
+  data: z.string().optional(),
+  hora: z.string().optional(),
+  somenteCupons: z.boolean().optional(),
   duracaoMinutos: z.number().optional(),
   tipo: z.string().optional(),
   servicos: z.array(z.object({
@@ -73,12 +75,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar conflitos de horário para cada item
     for (const item of items) {
+      if (!item.data?.trim() || !item.hora?.trim() || item.somenteCupons) continue;
       const dataHoraISO = new Date(`${item.data}T${item.hora}:00`);
       const duracao = item.duracaoMinutos ?? 60;
       const conflito = await prisma.appointment.findFirst({
         where: {
+          ...appointmentOperationalFilter,
           status: { not: "cancelado" },
           AND: [
             { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
@@ -95,7 +98,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Salvar metadata em PaymentMetadata para o webhook encontrar após o pagamento
+    let paymentMetadataRow: { id: string } | null = null;
     try {
       const metadataCompleto = {
         tipo: "carrinho",
@@ -106,7 +109,7 @@ export async function POST(req: Request) {
       };
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
-      await prisma.paymentMetadata.create({
+      paymentMetadataRow = await prisma.paymentMetadata.create({
         data: {
           userId: user.id,
           metadata: JSON.stringify(metadataCompleto),
@@ -137,11 +140,7 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined,
       metadata: {
-        tipo: "carrinho",
         userId: user.id,
-        items: JSON.stringify(items),
-        total: total.toString(),
-        paymentMethod: paymentMethod || null,
       },
       backUrls: {
         success: `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`,
@@ -149,6 +148,19 @@ export async function POST(req: Request) {
         pending: `${SITE_URL}/pagamentos/pendente`,
       },
     });
+
+    const asaasPaymentId = checkoutResponse.preferenceId;
+    if (asaasPaymentId && paymentMetadataRow?.id) {
+      try {
+        await prisma.paymentMetadata.update({
+          where: { id: paymentMetadataRow.id },
+          data: { asaasId: asaasPaymentId },
+        });
+        console.log("[Asaas Checkout Carrinho] PaymentMetadata.asaasId atualizado:", asaasPaymentId);
+      } catch (e) {
+        console.warn("[Asaas Checkout Carrinho] Erro ao atualizar PaymentMetadata.asaasId:", e);
+      }
+    }
 
     return NextResponse.json({
       initPoint: checkoutResponse.initPoint,

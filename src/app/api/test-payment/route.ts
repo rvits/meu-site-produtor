@@ -5,6 +5,7 @@ import { AsaasProvider, InfinityPayProvider } from "@/app/lib/payment-providers"
 import { prisma } from "@/app/lib/prisma";
 
 import { getAsaasApiKey, getEnv } from "@/app/lib/env";
+import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const INFINITYPAY_API_KEY = getEnv('INFINITYPAY_API_KEY');
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     const user = await requireAuth();
     
     // Apenas admin pode usar pagamento de teste
-    if (user.email !== "thouse.rec.tremv@gmail.com" && user.role !== "ADMIN") {
+    if (!canUseSymbolicSimulation(user)) {
       return NextResponse.json(
         { error: "Acesso negado. Apenas administradores podem usar pagamento de teste." },
         { status: 403 }
@@ -58,7 +59,27 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { tipo, data, hora, observacoes, duracaoMinutos, servicos, beats } = body; // "plano" ou "agendamento"
+    const { tipo } = body;
+
+    if (tipo === "agendamento") {
+      return NextResponse.json(
+        {
+          error:
+            "Pagamento simbólico de agendamento usa o mesmo checkout do fluxo real. Chame POST /api/asaas/checkout-agendamento com symbolicAgendamento: true e o mesmo corpo (data, hora, servicos, beats, total, etc.).",
+        },
+        { status: 410 }
+      );
+    }
+
+    if (tipo === "plano") {
+      return NextResponse.json(
+        {
+          error:
+            "Pagamento simbólico de plano é simulado localmente. Chame POST /api/admin/reprocessar-pagamento-plano-teste com simulacao: { planId, modo }.",
+        },
+        { status: 410 }
+      );
+    }
 
     let metadata: any = {
       tipo: tipo || "teste",
@@ -66,54 +87,19 @@ export async function POST(req: Request) {
       isTest: true,
     };
 
-    // Serviços e beats: normalizar como array para o webhook registrar em Serviços Solicitados
-    const servicosArray = Array.isArray(servicos) ? servicos : [];
-    const beatsArray = Array.isArray(beats) ? beats : [];
-    const primeiroServico = servicosArray[0];
-    const primeiroBeat = beatsArray[0];
-    const tipoAgendamento = primeiroServico?.id || primeiroBeat?.id || "sessao";
-
-    // Teste de agendamento: não criar agendamento. Após o pagamento só geramos cupons;
-    // o usuário agenda depois pela página do cupom (Minha Conta).
-    if (tipo === "agendamento") {
-      metadata.servicos = servicosArray;
-      metadata.beats = beatsArray;
-      metadata.paymentMethod = "pix";
-      metadata.tipoAgendamento = tipoAgendamento;
-      console.log("[Test Payment] Pagamento de teste (agendamento): cupons serão gerados após pagamento; sem agendamento prévio. servicos:", servicosArray.length, "beats:", beatsArray.length);
-    }
-
-    // Se for teste de plano, NÃO criar plano antes do pagamento
-    // O plano será criado apenas após pagamento confirmado no webhook
-    if (tipo === "plano") {
-      // Adicionar informações do plano de teste no metadata
-      metadata.planId = "teste";
-      metadata.planName = "Plano de Teste";
-      metadata.modo = "mensal";
-      metadata.amount = "5.00";
-      metadata.billingDay = new Date().getDate().toString();
-      metadata.paymentMethod = "pix";
-      console.log("[Test Payment] Dados do plano de teste preparados para criação após pagamento");
-    }
-
-    // Criar checkout de teste com R$ 5,00
     const items = [
       {
         id: "teste-pagamento",
-        title: tipo === "agendamento" 
-          ? "Pagamento de Teste - Agendamento THouse Rec"
-          : tipo === "plano"
-          ? "Pagamento de Teste - Plano THouse Rec"
-          : "Pagamento de Teste - THouse Rec",
+        title: "Pagamento de Teste - THouse Rec",
         quantity: 1,
-        unit_price: 5.00,
+        unit_price: SYMBOLIC_AGENDAMENTO_BRL,
       },
     ];
 
     console.log(`[Test Payment] Criando checkout de teste com ${providerName}...`, {
       userEmail: user.email,
       tipo,
-      valor: 5.00,
+      valor: SYMBOLIC_AGENDAMENTO_BRL,
     });
 
     // Buscar CPF do usuário (obrigatório para Asaas em produção)
@@ -164,7 +150,7 @@ export async function POST(req: Request) {
         userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
       },
       backUrls: {
-        success: `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=${tipo || 'agendamento'}`,
+        success: `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=${tipo === "plano" ? "plano" : "teste"}`,
         failure: `${SITE_URL}/pagamentos/falha?teste=true`,
         pending: `${SITE_URL}/pagamentos/pendente?teste=true`,
       },

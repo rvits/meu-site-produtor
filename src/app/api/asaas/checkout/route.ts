@@ -12,6 +12,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
 
 import { PLAN_PRICES } from "@/app/lib/plan-prices";
+import { findActiveUserPlan, ACTIVE_PLAN_BLOCK_MESSAGE } from "@/app/lib/active-user-plan";
 
 type ModoPlano = "mensal" | "anual";
 
@@ -72,6 +73,17 @@ export async function POST(req: Request) {
     }
 
     const valor = modo === "mensal" ? plano.mensal : plano.anual;
+
+    const planoAtivo = await findActiveUserPlan(user.id);
+    if (planoAtivo) {
+      return NextResponse.json(
+        {
+          error: ACTIVE_PLAN_BLOCK_MESSAGE,
+          planoAtivo: { id: planoAtivo.id, planName: planoAtivo.planName },
+        },
+        { status: 409 }
+      );
+    }
 
     // 📋 NÃO criar plano antes do pagamento
     // Os dados serão armazenados no metadata e o plano será criado apenas após pagamento confirmado no webhook
@@ -149,6 +161,19 @@ export async function POST(req: Request) {
         pending: `${SITE_URL}/pagamentos/pendente`,
       },
     });
+
+    const asaasPaymentId = (checkoutResponse as { preferenceId?: string }).preferenceId;
+    if (asaasPaymentId && paymentMetadata?.id) {
+      try {
+        await prisma.paymentMetadata.update({
+          where: { id: paymentMetadata.id },
+          data: { asaasId: asaasPaymentId },
+        });
+        console.log("[Asaas Checkout] PaymentMetadata.asaasId atualizado:", asaasPaymentId);
+      } catch (e) {
+        console.warn("[Asaas Checkout] Erro ao atualizar PaymentMetadata.asaasId:", e);
+      }
+    }
 
     console.log("[Asaas] Checkout criado com sucesso:", checkoutResponse.initPoint);
     
