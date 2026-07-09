@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { couponOriginLabel, type CouponOrigin } from "@/app/lib/coupon-origin";
+import {
+  paymentRefundStatusClass,
+  type PaymentRefundStatus,
+} from "@/app/lib/payment-refund-status";
 
 interface UserInfo {
   id: string;
@@ -32,10 +37,26 @@ interface Payment {
   planId?: string | null;
   serviceId?: string | null;
   mercadopagoId?: string | null;
+  asaasId?: string | null;
   user: UserInfo;
   createdAt: string;
   updatedAt: string;
+  modoTransacao?: "teste" | "real";
+  statusReembolso?: PaymentRefundStatus;
+  label?: string;
+  refundAmount?: number | null;
+  refundProcessedAt?: string | null;
+  refundUserConfirmedAt?: string | null;
+  refundAsaasStatus?: string | null;
+  pagamentoComCupom?: boolean;
+  cupomUtilizado?: {
+    id: string;
+    code: string;
+    origem: CouponOrigin;
+  } | null;
 }
+
+type ReprocessTarget = { paymentId: string; kind: "agendamento" | "plano" };
 
 export default function AdminPagamentosPage() {
   const [pagamentos, setPagamentos] = useState<Payment[]>([]);
@@ -44,7 +65,7 @@ export default function AdminPagamentosPage() {
   const [loading, setLoading] = useState(true);
   const [pagamentoExpandido, setPagamentoExpandido] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
-  const [reprocessandoId, setReprocessandoId] = useState<string | null>(null);
+  const [reprocessando, setReprocessando] = useState<ReprocessTarget | null>(null);
 
   useEffect(() => {
     carregarPagamentos();
@@ -53,18 +74,21 @@ export default function AdminPagamentosPage() {
   useEffect(() => {
     if (busca.trim() === "") {
       setPagamentosFiltrados(pagamentos);
-    } else {
-      const termo = busca.toLowerCase();
-      const filtrados = pagamentos.filter(
+      return;
+    }
+    const termo = busca.toLowerCase();
+    setPagamentosFiltrados(
+      pagamentos.filter(
         (p) =>
           p.user.nomeArtistico.toLowerCase().includes(termo) ||
           p.user.email.toLowerCase().includes(termo) ||
           (p.user.cpf && p.user.cpf.toLowerCase().includes(termo)) ||
           (p.user.telefone && p.user.telefone.toLowerCase().includes(termo)) ||
-          (p.mercadopagoId && p.mercadopagoId.toLowerCase().includes(termo))
-      );
-      setPagamentosFiltrados(filtrados);
-    }
+          (p.mercadopagoId && p.mercadopagoId.toLowerCase().includes(termo)) ||
+          (p.asaasId && p.asaasId.toLowerCase().includes(termo)) ||
+          p.id.toLowerCase().includes(termo)
+      )
+    );
   }, [busca, pagamentos]);
 
   async function carregarPagamentos() {
@@ -111,7 +135,11 @@ export default function AdminPagamentosPage() {
   };
 
   async function excluirPagamento(id: string) {
-    if (!confirm("Excluir este pagamento aprovado do banco de dados? Esta ação não pode ser desfeita.")) {
+    if (
+      !confirm(
+        "Excluir este pagamento do banco de dados? Pagamentos reais ou vinculados serão bloqueados pela API (422). Esta ação não pode ser desfeita."
+      )
+    ) {
       return;
     }
     try {
@@ -133,6 +161,37 @@ export default function AdminPagamentosPage() {
     }
   }
 
+  async function reprocessarPagamento(paymentId: string, kind: "agendamento" | "plano") {
+    const endpoint =
+      kind === "agendamento"
+        ? "/api/admin/reprocessar-pagamento-teste"
+        : "/api/admin/reprocessar-pagamento-plano-teste";
+
+    setReprocessando({ paymentId, kind });
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const detalhe =
+          kind === "agendamento"
+            ? `Agendamento: ${data.appointmentId ?? "—"} · Cupons: ${data.couponsCount ?? 0} · Serviços: ${data.servicesCreatedThisRun ?? 0}`
+            : `UserPlan: ${data.userPlanId ?? "—"} · Cupons: ${data.couponsCount ?? 0}`;
+        alert(`${data.message || "Reprocessamento concluído."}\n${detalhe}\n${data.hint || ""}`);
+        await carregarPagamentos();
+      } else {
+        alert(data.error || "Erro ao reprocessar pagamento.");
+      }
+    } catch {
+      alert("Erro ao reprocessar pagamento.");
+    } finally {
+      setReprocessando(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -145,16 +204,15 @@ export default function AdminPagamentosPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-zinc-100 mb-2">Pagamentos</h1>
-        <p className="text-zinc-400">Visualizar todas as transações e informações dos clientes</p>
+        <p className="text-zinc-400">Visualizar transações e acionar ações administrativas via API</p>
       </div>
 
-      {/* Input de Busca */}
       <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
         <input
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome, email, CPF, telefone ou ID do Mercado Pago..."
+          placeholder="Buscar por nome, email, CPF, telefone, ID do pagamento ou Asaas..."
           className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
         />
         {busca && (
@@ -174,13 +232,17 @@ export default function AdminPagamentosPage() {
             const idade = calcularIdade(p.user.dataNascimento);
             const isMenor = idade !== null && idade < 18;
             const isExpandido = pagamentoExpandido === p.id;
+            const modoTransacao = p.modoTransacao ?? "real";
+            const statusReembolso = p.statusReembolso ?? "nao_reembolsado";
+            const labelReembolso = p.label ?? "Sem reembolso";
+            const reprocessandoEste =
+              reprocessando?.paymentId === p.id ? reprocessando.kind : null;
 
-  return (
+            return (
               <div
                 key={p.id}
                 className="rounded-xl border border-zinc-700 bg-zinc-800/50 overflow-hidden"
               >
-                {/* Cabeçalho - Informações Principais */}
                 <div
                   className="p-4 cursor-pointer hover:bg-zinc-800/70 transition-colors"
                   onClick={() => setPagamentoExpandido(isExpandido ? null : p.id)}
@@ -196,6 +258,27 @@ export default function AdminPagamentosPage() {
                         )}
                       </div>
                       <p className="text-sm text-zinc-400">{p.user.email}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            modoTransacao === "teste"
+                              ? "bg-violet-500/20 text-violet-200"
+                              : "bg-sky-500/20 text-sky-200"
+                          }`}
+                        >
+                          {modoTransacao === "teste" ? "Teste" : "Real"}
+                        </span>
+                        {p.pagamentoComCupom && p.cupomUtilizado ? (
+                          <span className="text-xs text-amber-300">
+                            Cupom: <span className="font-mono">{p.cupomUtilizado.code}</span>
+                            <span className="text-zinc-500 ml-1">
+                              ({couponOriginLabel(p.cupomUtilizado.origem)})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-500">Pagamento direto (sem cupom)</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-4 flex-wrap">
@@ -206,20 +289,35 @@ export default function AdminPagamentosPage() {
                         <p className="text-xs text-zinc-400 capitalize">{p.type}</p>
                       </div>
 
-                      <div className="text-right">
-                        <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          p.status === "approved" || p.status === "approved" ? "bg-green-500/20 text-green-300" :
-                          p.status === "pending" ? "bg-yellow-500/20 text-yellow-300" :
-                          p.status === "rejected" || p.status === "rejected" ? "bg-red-500/20 text-red-300" :
-                          "bg-gray-500/20 text-gray-300"
-                        }`}>
-                          {p.status === "approved" ? "Aprovado" :
-                           p.status === "pending" ? "Pendente" :
-                           p.status === "rejected" ? "Rejeitado" :
-                           p.status}
+                      <div className="text-right space-y-1">
+                        <span
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                            p.status === "approved"
+                              ? "bg-green-500/20 text-green-300"
+                              : p.status === "pending"
+                                ? "bg-yellow-500/20 text-yellow-300"
+                                : p.status === "rejected"
+                                  ? "bg-red-500/20 text-red-300"
+                                  : "bg-gray-500/20 text-gray-300"
+                          }`}
+                        >
+                          {p.status === "approved"
+                            ? "Aprovado"
+                            : p.status === "pending"
+                              ? "Pendente"
+                              : p.status === "rejected"
+                                ? "Rejeitado"
+                                : p.status}
                         </span>
-                        <p className="text-xs text-zinc-400 mt-1">
-                          {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                        {statusReembolso !== "nao_reembolsado" && (
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${paymentRefundStatusClass(statusReembolso)}`}
+                          >
+                            {labelReembolso}
+                          </span>
+                        )}
+                        <p className="text-xs text-zinc-400">
+                          {new Date(p.createdAt).toLocaleString("pt-BR")}
                         </p>
                       </div>
 
@@ -248,16 +346,18 @@ export default function AdminPagamentosPage() {
                   </div>
                 </div>
 
-                {/* Detalhes Expandidos */}
                 {isExpandido && (
                   <div className="border-t border-zinc-700 p-4 space-y-4">
-                    {/* Informações do Pagamento */}
                     <div>
                       <h4 className="text-sm font-semibold text-red-400 mb-2">Informações do Pagamento</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                         <div>
                           <span className="text-zinc-400">ID do Pagamento:</span>
                           <p className="text-zinc-200 font-mono text-xs">{p.id}</p>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400">ID Asaas:</span>
+                          <p className="text-zinc-200 font-mono text-xs">{p.asaasId || "-"}</p>
                         </div>
                         <div>
                           <span className="text-zinc-400">ID Mercado Pago:</span>
@@ -277,15 +377,62 @@ export default function AdminPagamentosPage() {
                           <span className="text-zinc-400">Tipo:</span>
                           <p className="text-zinc-200 capitalize">{p.type}</p>
                         </div>
+                        <div>
+                          <span className="text-zinc-400">Modo:</span>
+                          <p className="text-zinc-200">
+                            {modoTransacao === "teste" ? "Teste (simulado)" : "Real (Asaas)"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400">Reembolso:</span>
+                          <p className="text-zinc-200">
+                            {statusReembolso === "nao_reembolsado" ? (
+                              "Não reembolsado"
+                            ) : (
+                              <>
+                                {labelReembolso}
+                                {p.refundAmount != null && p.refundAmount > 0 && (
+                                  <span className="text-zinc-500 ml-1">
+                                    (R$ {p.refundAmount.toFixed(2).replace(".", ",")})
+                                  </span>
+                                )}
+                                {p.refundAsaasStatus && (
+                                  <span className="text-zinc-500 ml-1">
+                                    · Asaas: {p.refundAsaasStatus}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-zinc-400">Cupom utilizado:</span>
+                          <p className="text-zinc-200">
+                            {p.cupomUtilizado ? (
+                              <>
+                                <span className="font-mono">{p.cupomUtilizado.code}</span>
+                                <span className="text-zinc-500 ml-1">
+                                  ({couponOriginLabel(p.cupomUtilizado.origem)})
+                                </span>
+                              </>
+                            ) : (
+                              "Não"
+                            )}
+                          </p>
+                        </div>
                         {p.paymentMethod && (
                           <div>
                             <span className="text-zinc-400">Forma de Pagamento:</span>
                             <p className="text-zinc-200 capitalize">
-                              {p.paymentMethod === "cartao_credito" ? "Cartão de Crédito" :
-                               p.paymentMethod === "cartao_debito" ? "Cartão de Débito" :
-                               p.paymentMethod === "pix" ? "Pix" :
-                               p.paymentMethod === "boleto" ? "Boleto Bancário" :
-                               p.paymentMethod}
+                              {p.paymentMethod === "cartao_credito"
+                                ? "Cartão de Crédito"
+                                : p.paymentMethod === "cartao_debito"
+                                  ? "Cartão de Débito"
+                                  : p.paymentMethod === "pix"
+                                    ? "Pix"
+                                    : p.paymentMethod === "boleto"
+                                      ? "Boleto Bancário"
+                                      : p.paymentMethod}
                             </p>
                           </div>
                         )}
@@ -316,44 +463,50 @@ export default function AdminPagamentosPage() {
                       </div>
                     </div>
 
-                    {/* Pagamento teste (R$ 5 agendamento): associar agendamento e gerar cupons (1 sessão + 1 beat) */}
-                    {p.status === "approved" && p.type === "agendamento" && p.amount === 5 && (
+                    {modoTransacao === "teste" && p.type === "agendamento" && p.status === "approved" && (
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
                         <p className="text-sm text-zinc-300 mb-2">
-                          Pagamento de teste: associe um agendamento a este pagamento e gere cupons (1 Sessão + 1 Beat) para o cliente usar em Minha Conta.
+                          Pagamento simbólico de agendamento: reprocessar efeitos (cupons/serviços) via API
+                          administrativa.
                         </p>
                         <button
                           type="button"
-                          disabled={reprocessandoId === p.id}
-                          onClick={async (e) => {
+                          disabled={reprocessandoEste === "agendamento"}
+                          onClick={(e) => {
                             e.stopPropagation();
-                            setReprocessandoId(p.id);
-                            try {
-                              const res = await fetch("/api/admin/reprocessar-pagamento-teste", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ paymentId: p.id }),
-                              });
-                              const data = await res.json().catch(() => ({}));
-                              if (res.ok && data.success) {
-                                alert(`Pronto: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados. Agendamento ID: ${data.appointmentId}. ${data.hint || "Peça ao cliente acessar Minha Conta e usar os cupons para agendar. No admin, use Atualizar em Agendamentos e Serviços."}`);
-                              } else {
-                                alert(data.error || "Erro ao associar.");
-                              }
-                            } catch {
-                              alert("Erro ao reprocessar.");
-                            } finally {
-                              setReprocessandoId(null);
-                            }
+                            reprocessarPagamento(p.id, "agendamento");
                           }}
                           className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
                         >
-                          {reprocessandoId === p.id ? "Associando..." : "Associar agendamento e gerar cupons (1 sessão + 1 beat)"}
+                          {reprocessandoEste === "agendamento"
+                            ? "Reprocessando..."
+                            : "Reprocessar agendamento (teste)"}
                         </button>
                       </div>
                     )}
 
-                    {/* Informações do Usuário */}
+                    {modoTransacao === "teste" && p.type === "plano" && p.status === "approved" && (
+                      <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3">
+                        <p className="text-sm text-zinc-300 mb-2">
+                          Pagamento simbólico de plano: reprocessar efeitos (UserPlan/cupons) via API
+                          administrativa.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={reprocessandoEste === "plano"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reprocessarPagamento(p.id, "plano");
+                          }}
+                          className="rounded-lg border border-violet-500/50 bg-violet-600/30 px-4 py-2 text-sm font-medium text-violet-100 hover:bg-violet-600/50 disabled:opacity-50"
+                        >
+                          {reprocessandoEste === "plano"
+                            ? "Reprocessando..."
+                            : "Reprocessar plano (teste)"}
+                        </button>
+                      </div>
+                    )}
+
                     <div>
                       <h4 className="text-sm font-semibold text-red-400 mb-2">Informações do Cliente</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
@@ -466,6 +619,6 @@ export default function AdminPagamentosPage() {
           })}
         </div>
       )}
-      </div>
+    </div>
   );
 }
