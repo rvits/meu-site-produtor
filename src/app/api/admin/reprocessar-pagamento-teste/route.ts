@@ -1,283 +1,218 @@
 /**
  * POST /api/admin/reprocessar-pagamento-teste
- * Reprocessa um pagamento de teste (R$ 5): associa ao agendamento, cria Services e cupons
- * (1 sessão + 1 beat por padrão) para aparecer em Minha Conta, Admin (Agendamentos, Serviços).
- * Aceita body: { paymentId?: string } para reprocessar um pagamento específico (ex.: da tela de Pagamentos).
- * Só admin.
+ * Simula processamento de pagamento RECEIVED para agendamento (mesmo pipeline do webhook).
+ * Body opcional: { paymentId?: string, sendEmails?: boolean, simulacao?: { data, hora, ... } }
+ * Só admin. Requer Payment simbólico existente — não cria nem atualiza Payment na rota.
  */
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import {
+  parseAgendamentoMetadataItems,
+  processAgendamentoPaymentEffects,
+} from "@/app/lib/asaas-agendamento-payment-effects";
+import {
+  countAgendamentoItemLines,
+  exigeAgendamentoDataHora,
+  isCouponsOnlyAgendamentoPayment,
+} from "@/app/lib/agendamento-payment-rules";
+import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
+import {
+  findFirstSymbolicAgendamentoPayment,
+  resolvePaymentMetadata,
+} from "@/app/lib/symbolic-payment-resolve";
+
+const itemSchema = z.object({
+  id: z.string(),
+  nome: z.string(),
+  quantidade: z.number(),
+  preco: z.number(),
+});
+
+const simulacaoSchema = z
+  .object({
+    data: z.string().optional(),
+    hora: z.string().optional(),
+    observacoes: z.string().optional(),
+    duracaoMinutos: z.number().optional(),
+    tipo: z.string().optional(),
+    servicos: z.array(itemSchema).optional(),
+    beats: z.array(itemSchema).optional(),
+    total: z.number().optional(),
+    cupomCode: z.string().optional(),
+  })
+  .superRefine((payload, ctx) => {
+    const lines = countAgendamentoItemLines(payload.servicos, payload.beats);
+    if (lines === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione ao menos um serviço ou pacote na simulação.",
+      });
+    }
+    if (!exigeAgendamentoDataHora(payload.servicos, payload.beats)) return;
+    if (!payload.data?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe a data do agendamento para um único item.",
+        path: ["data"],
+      });
+    }
+    if (!payload.hora?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o horário do agendamento para um único item.",
+        path: ["hora"],
+      });
+    }
+  });
+
+const bodySchema = z.object({
+  paymentId: z.string().optional(),
+  sendEmails: z.boolean().optional(),
+  simulacao: simulacaoSchema.optional(),
+});
+
+function buildMetadataFromSimulacao(
+  userId: string,
+  simulacao: z.infer<typeof simulacaoSchema>
+): Record<string, unknown> {
+  return {
+    tipo: "agendamento",
+    userId,
+    ...(simulacao.data?.trim() && simulacao.hora?.trim()
+      ? { data: simulacao.data, hora: simulacao.hora }
+      : {}),
+    duracaoMinutos: simulacao.duracaoMinutos ?? 60,
+    tipoAgendamento: simulacao.tipo ?? "sessao",
+    observacoes: simulacao.observacoes ?? "",
+    servicos: simulacao.servicos ?? [],
+    beats: simulacao.beats ?? [],
+    total: String(simulacao.total ?? SYMBOLIC_AGENDAMENTO_BRL),
+    chargedAmount: String(SYMBOLIC_AGENDAMENTO_BRL),
+    symbolicAgendamento: true,
+    cupomCode: simulacao.cupomCode,
+  };
+}
+
+async function persistSimulacaoMetadata(
+  userId: string,
+  metadata: Record<string, unknown>,
+  asaasId: string | null
+): Promise<void> {
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+  await prisma.paymentMetadata.create({
+    data: {
+      userId,
+      metadata: JSON.stringify(metadata),
+      expiresAt,
+      ...(asaasId ? { asaasId } : {}),
+    },
+  });
+}
 
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
-    if (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com") {
+    if (!canUseSymbolicSimulation(user)) {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores." }, { status: 403 });
     }
 
-    let body: { paymentId?: string } = {};
+    let body: z.infer<typeof bodySchema> = {};
     try {
-      body = await req.json().catch(() => ({}));
+      const raw = await req.json().catch(() => ({}));
+      const parsed = bodySchema.safeParse(raw);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: parsed.error.errors[0]?.message || "Dados de simulação inválidos.",
+          },
+          { status: 400 }
+        );
+      }
+      body = parsed.data;
     } catch {
       // ignore
     }
     const paymentIdParam = body.paymentId;
+    const sendEmails = body.sendEmails === true;
+    const simulacao = body.simulacao;
 
-    const selectPayment = {
-      id: true,
-      userId: true,
-      amount: true,
-      type: true,
-      status: true,
-      asaasId: true,
-      appointmentId: true,
-      createdAt: true,
-    };
-
-    // Se veio paymentId, usar esse pagamento (desde que seja R$ 5 e agendamento)
-    let pagamento: { id: string; userId: string; amount: number; type: string; status: string; asaasId: string | null; appointmentId: number | null; createdAt: Date } | null = null;
-    if (paymentIdParam) {
-      const p = await prisma.payment.findUnique({
-        where: { id: paymentIdParam },
-        select: selectPayment,
-      });
-      if (p && p.amount === 5 && p.type === "agendamento" && p.status === "approved") {
-        pagamento = p;
-      }
-    }
-
-    if (!pagamento) {
-      pagamento = await prisma.payment.findFirst({
-        where: {
-          userId: user.id,
-          amount: 5,
-          type: "agendamento",
-          status: "approved",
-        },
-        orderBy: { createdAt: "desc" },
-        select: selectPayment,
-      });
-    }
-    if (!pagamento && (user.role === "ADMIN" || user.email === "thouse.rec.tremv@gmail.com")) {
-      pagamento = await prisma.payment.findFirst({
-        where: { amount: 5, type: "agendamento", status: "approved" },
-        orderBy: { createdAt: "desc" },
-        select: selectPayment,
-      });
-    }
-
-    // Se ainda não existe pagamento (webhook não rodou), criar a partir do último metadata do usuário logado
-    const paymentMetadataRecente = await prisma.paymentMetadata.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
+    const pagamento = await findFirstSymbolicAgendamentoPayment({
+      paymentId: paymentIdParam,
+      userId: user.id,
+      email: user.email,
     });
 
-    if (!pagamento && paymentMetadataRecente) {
-      pagamento = await prisma.payment.create({
-        data: {
-          userId: user.id,
-          amount: 5,
-          status: "approved",
-          type: "agendamento",
-          currency: "BRL",
-          asaasId: paymentMetadataRecente.asaasId,
-        },
-      });
-    }
-
     if (!pagamento) {
-      return NextResponse.json({
-        error: "Nenhum pagamento de teste (R$ 5, agendamento) encontrado. Faça um pagamento de teste ou peça ao dono do pagamento para reprocessar.",
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: simulacao
+            ? "Nenhum pagamento simbólico de agendamento existente. Conclua o checkout simbólico antes de simular itens, ou informe paymentId."
+            : "Nenhum pagamento de teste (R$ 5, agendamento) encontrado. Informe paymentId ou faça um pagamento simbólico antes.",
+        },
+        { status: 404 }
+      );
     }
 
-    // Metadata do DONO do pagamento (quem fez o teste), não do admin logado
-    const ownerId = pagamento.userId;
-    let paymentMetadata = pagamento.asaasId
-      ? await prisma.paymentMetadata.findFirst({
-          where: { userId: ownerId, asaasId: pagamento.asaasId },
-          orderBy: { createdAt: "desc" },
-        })
-      : null;
-    if (!paymentMetadata) {
-      paymentMetadata = await prisma.paymentMetadata.findFirst({
-        where: { userId: ownerId },
-        orderBy: { createdAt: "desc" },
-      });
-    }
-    if (!paymentMetadata && ownerId === user.id && paymentMetadataRecente) {
-      paymentMetadata = paymentMetadataRecente;
-    }
+    let metadata: Record<string, unknown>;
 
-    let metadata: Record<string, any> = {};
-    if (paymentMetadata) {
-      try {
-        metadata = JSON.parse(paymentMetadata.metadata);
-      } catch {
-        // ignore
+    if (simulacao) {
+      metadata = buildMetadataFromSimulacao(pagamento.userId, simulacao);
+      await persistSimulacaoMetadata(pagamento.userId, metadata, pagamento.asaasId);
+    } else {
+      const resolved = await resolvePaymentMetadata(pagamento);
+      if (!resolved || Object.keys(resolved).length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Metadata do pagamento não encontrada. Envie simulacao ou confira PaymentMetadata.",
+          },
+          { status: 400 }
+        );
       }
+      metadata = resolved;
     }
 
-    const appointmentId = metadata.appointmentId ? parseInt(String(metadata.appointmentId), 10) : null;
-    let agendamentoFinalId: number | null = null;
+    const { services: metaServicos, beats: metaBeats } = parseAgendamentoMetadataItems(metadata);
+    const fluxoSomenteCupons = isCouponsOnlyAgendamentoPayment(metadata, metaServicos, metaBeats);
 
-    if (appointmentId) {
-      const apt = await prisma.appointment.findUnique({
-        where: { id: appointmentId },
-        select: { id: true, userId: true },
-      });
-      if (apt) agendamentoFinalId = apt.id;
-    }
-
-    if (!agendamentoFinalId && metadata.data && metadata.hora) {
-      const dataHoraISO = new Date(`${metadata.data}T${metadata.hora}:00`);
-      const duracao = parseInt(metadata.duracaoMinutos || "60", 10);
-      const novo = await prisma.appointment.create({
-        data: {
-          userId: pagamento.userId,
-          data: dataHoraISO,
-          duracaoMinutos: duracao,
-          tipo: metadata.tipoAgendamento || "sessao",
-          observacoes: metadata.observacoes || "Agendamento de teste - Pagamento R$ 5,00",
-          status: "pendente",
+    if (
+      !fluxoSomenteCupons &&
+      !metadata.data &&
+      !metadata.hora &&
+      !metadata.appointmentId &&
+      !pagamento.appointmentId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Metadata sem data/hora nem appointmentId. Para um único serviço com horário, informe data e hora; para vários serviços ou teste simbólico, basta selecionar os itens.",
         },
-      });
-      agendamentoFinalId = novo.id;
+        { status: 400 }
+      );
     }
 
-    // Sem metadata data/hora: criar agendamento padrão para o pagamento aparecer no admin (pendente)
-    if (!agendamentoFinalId) {
-      const amanha = new Date();
-      amanha.setDate(amanha.getDate() + 1);
-      amanha.setHours(10, 0, 0, 0);
-      const duracao = parseInt(metadata.duracaoMinutos || "60", 10);
-      const novo = await prisma.appointment.create({
-        data: {
-          userId: pagamento.userId,
-          data: amanha,
-          duracaoMinutos: duracao,
-          tipo: metadata.tipoAgendamento || "sessao",
-          observacoes: metadata.observacoes || "Agendamento de teste - Pagamento R$ 5,00 (data padrão)",
-          status: "pendente",
-        },
-      });
-      agendamentoFinalId = novo.id;
-    }
-
-    // Garantir que o agendamento pertence ao usuário do pagamento (para cupons e Minha Conta aparecerem)
-    // SQL bruto para não depender de colunas que podem não existir no banco (ex.: cancelReason)
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Appointment" SET "userId" = $1 WHERE id = $2`,
-      pagamento.userId,
-      agendamentoFinalId,
-    );
-
-    // Vincular pagamento ao agendamento (select só colunas que existem em todos os bancos)
-    await prisma.payment.update({
-      where: { id: pagamento.id },
-      data: { appointmentId: agendamentoFinalId, type: "agendamento" },
+    const fx = await processAgendamentoPaymentEffects({
+      paymentDbId: pagamento.id,
+      value: Number(pagamento.amount),
+      metadata,
+      options: { sendEmails, source: "admin_reprocess" },
     });
 
-    const services = metadata.servicos ? (Array.isArray(metadata.servicos) ? metadata.servicos : JSON.parse(metadata.servicos)) : [];
-    const beats = metadata.beats ? (Array.isArray(metadata.beats) ? metadata.beats : JSON.parse(metadata.beats)) : [];
-
-    const userIdApt = pagamento.userId;
-
-    let servicesCreated = 0;
-    for (const svc of services) {
-      const tipo = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
-      const desc = [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") || tipo;
-      for (let q = 0; q < (svc.quantidade || 1); q++) {
-        try {
-          await prisma.service.create({
-            data: {
-              userId: userIdApt,
-              appointmentId: agendamentoFinalId,
-              tipo,
-              description: desc,
-              status: "pendente",
-            },
-          });
-          servicesCreated++;
-        } catch (e) {
-          console.warn("[Reprocessar Teste] Service já existe?", e);
-        }
-      }
-    }
-    for (const b of beats) {
-      const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
-      const descBeat = [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoBeat;
-      for (let q = 0; q < (b.quantidade || 1); q++) {
-        try {
-          await prisma.service.create({
-            data: {
-              userId: userIdApt,
-              appointmentId: agendamentoFinalId,
-              tipo: tipoBeat,
-              description: descBeat,
-              status: "pendente",
-            },
-          });
-          servicesCreated++;
-        } catch (e) {
-          console.warn("[Reprocessar Teste] Service beat já existe?", e);
-        }
-      }
-    }
-    // Sem metadata (servicos/beats): criar 1 sessão + 1 beat (serviços) para concluir a rota do teste
-    if (services.length === 0 && beats.length === 0) {
-      try {
-        await prisma.service.create({
-          data: {
-            userId: userIdApt,
-            appointmentId: agendamentoFinalId,
-            tipo: "sessao",
-            description: "Agendamento de teste - 1 Sessão",
-            status: "pendente",
-          },
-        });
-        servicesCreated++;
-      } catch (e) {
-        console.warn("[Reprocessar Teste] Service sessão já existe?", e);
-      }
-      try {
-        await prisma.service.create({
-          data: {
-            userId: userIdApt,
-            appointmentId: agendamentoFinalId,
-            tipo: "beat1",
-            description: "Agendamento de teste - 1 Beat",
-            status: "pendente",
-          },
-        });
-        servicesCreated++;
-      } catch (e) {
-        console.warn("[Reprocessar Teste] Service beat já existe?", e);
-      }
-    }
-
-    let couponsCreated = 0;
-    try {
-      const { createCouponsForAgendamentoItems } = await import("@/app/lib/agendamento-payment-coupons");
-      const arrS = Array.isArray(services) ? services : [];
-      const arrB = Array.isArray(beats) ? beats : [];
-      const lista =
-        arrS.length === 0 && arrB.length === 0
-          ? { services: [{ id: "sessao", nome: "Sessão", quantidade: 1 }], beats: [{ id: "beat1", nome: "1 Beat", quantidade: 1 }] }
-          : { services: arrS, beats: arrB };
-      const coupons = await createCouponsForAgendamentoItems({
-        userId: userIdApt,
-        paymentId: pagamento.id,
-        appointmentId: agendamentoFinalId,
-        services: lista.services,
-        beats: lista.beats,
-        isTestPayment: true,
-      });
-      couponsCreated = coupons.length;
-    } catch (e) {
-      console.error("[Reprocessar Teste] Cupons:", e);
+    if (!fx.agendamentoFinalId && fx.couponsCount === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: fx.skippedReason || "Não foi possível aplicar efeitos de agendamento.",
+          details: fx,
+        },
+        { status: 409 }
+      );
     }
 
     const owner = await prisma.user.findUnique({
@@ -287,19 +222,21 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Pagamento de teste reprocessado. Agendamento, serviços e cupons foram criados/vinculados.",
-      appointmentId: agendamentoFinalId,
+      message: fx.agendamentoFinalId
+        ? "Simulação concluída com agendamento único e serviços vinculados."
+        : "Simulação concluída: cupons gerados em Minha Conta sem criar agendamento.",
+      appointmentId: fx.agendamentoFinalId,
       paymentId: pagamento.id,
-      servicesCreated,
-      couponsCreated,
+      servicesCreatedThisRun: fx.servicesCreatedThisRun,
+      couponsCount: fx.couponsCount,
+      emailsSent: fx.emailsSent,
+      paymentLinked: fx.paymentLinked,
       forUser: owner ? { email: owner.email, nome: owner.nomeArtistico } : null,
-      hint: "Quem fez o pagamento deve acessar Minha Conta e clicar em Atualizar para ver agendamento e cupons. No admin, use os botões Atualizar em Agendamentos e Serviços.",
+      hint: "Quem fez o pagamento pode atualizar Minha Conta. No admin, atualize Agendamentos e Serviços.",
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Reprocessar Pagamento Teste]", err);
-    return NextResponse.json(
-      { error: err?.message || "Erro ao reprocessar pagamento de teste." },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : "Erro ao reprocessar pagamento de teste.";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
