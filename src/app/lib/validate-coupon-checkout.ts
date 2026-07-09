@@ -1,86 +1,150 @@
+/**
+ * Validação centralizada de cupom no checkout (read-only).
+ * Gates: existência, tipo permitido, usado, refund lock, plano (C5), agendamento pendente, expiração, valor mínimo, mix serviço/beat.
+ */
+import type { Coupon } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
+import { isCupomPermitidoNoAgendamentoComum } from "@/app/lib/coupon-scheduling-rules";
+import { COUPON_REFUND_USAGE_ERROR, isCouponRefundLocked } from "@/app/lib/coupon-refund";
+import { getPlanCouponUsageBlockMessage } from "@/app/lib/plan-refund";
 
 type ServicoItem = { preco?: number; quantidade?: number };
 type BeatItem = { preco?: number; quantidade?: number };
 
-/**
- * Valida cupom e retorna o total final a ser cobrado.
- * Usado pelos checkouts para garantir que o valor está correto.
- */
-export async function validateCouponAndGetTotal(
-  code: string,
-  totalRaw: number,
-  servicos: ServicoItem[] = [],
-  beats: BeatItem[] = []
-): Promise<
-  | { ok: true; finalTotal: number }
-  | { ok: false; error: string }
-> {
+type CartTotals = {
+  total: number;
+  totalServicos: number;
+  totalBeats: number;
+};
+
+function computeCartTotals(servicos: ServicoItem[], beats: BeatItem[]): CartTotals {
   const totalServicos = Array.isArray(servicos)
-    ? servicos.reduce((acc, s) => acc + ((s.preco || 0) * (s.quantidade || 0)), 0)
+    ? servicos.reduce((acc, s) => acc + (s.preco || 0) * (s.quantidade || 0), 0)
     : 0;
   const totalBeats = Array.isArray(beats)
-    ? beats.reduce((acc, b) => acc + ((b.preco || 0) * (b.quantidade || 0)), 0)
+    ? beats.reduce((acc, b) => acc + (b.preco || 0) * (b.quantidade || 0), 0)
     : 0;
-  const total = totalServicos + totalBeats;
+  return { total: totalServicos + totalBeats, totalServicos, totalBeats };
+}
 
-  const coupon = await prisma.coupon.findUnique({
+async function loadCoupon(code: string): Promise<Coupon | null> {
+  return prisma.coupon.findUnique({
     where: { code: code.toUpperCase() },
   });
+}
 
+function validateCouponExists(coupon: Coupon | null): { ok: false; error: string } | null {
   if (!coupon) {
     return { ok: false, error: "Cupom inexistente. Verifique o código e tente novamente." };
   }
+  return null;
+}
 
+function validateSchedulingType(coupon: Coupon): { ok: false; error: string } | null {
+  if (!isCupomPermitidoNoAgendamentoComum(coupon)) {
+    return {
+      ok: false,
+      error:
+        "Este cupom é de serviço ou foi gerado após um pagamento. Use o botão Agendar com este cupom em Minha Conta.",
+    };
+  }
+  return null;
+}
+
+function validateUsed(coupon: Coupon): { ok: false; error: string } | null {
   if (coupon.used) {
     return { ok: false, error: "Este cupom já foi utilizado e não pode ser usado novamente." };
   }
+  return null;
+}
 
-  if (coupon.appointmentId) {
-    const agendamentoAssociado = await prisma.appointment.findUnique({
-      where: { id: coupon.appointmentId },
-    });
-    if (agendamentoAssociado && agendamentoAssociado.status === "pendente") {
-      return {
-        ok: false,
-        error:
-          "Este cupom já está sendo usado em um agendamento pendente. Aguarde a confirmação ou cancele o agendamento anterior.",
-      };
-    }
+function validateRefundLock(coupon: Coupon): { ok: false; error: string } | null {
+  if (isCouponRefundLocked(coupon)) {
+    return { ok: false, error: COUPON_REFUND_USAGE_ERROR };
   }
+  return null;
+}
 
-  const agora = new Date();
-  if (coupon.expiresAt && new Date(coupon.expiresAt) < agora) {
+async function validatePlanBlock(coupon: Coupon): Promise<{ ok: false; error: string } | null> {
+  const planBlockMessage = await getPlanCouponUsageBlockMessage(coupon);
+  if (planBlockMessage) {
+    return { ok: false, error: planBlockMessage };
+  }
+  return null;
+}
+
+async function validateAppointmentBlock(
+  coupon: Coupon
+): Promise<{ ok: false; error: string } | null> {
+  if (!coupon.appointmentId) return null;
+
+  const agendamentoAssociado = await prisma.appointment.findUnique({
+    where: { id: coupon.appointmentId },
+    select: { status: true },
+  });
+  if (agendamentoAssociado?.status === "pendente") {
+    return {
+      ok: false,
+      error:
+        "Este cupom já está sendo usado em um agendamento pendente. Aguarde a confirmação ou cancele o agendamento anterior.",
+    };
+  }
+  return null;
+}
+
+function validateExpiresAt(coupon: Coupon): { ok: false; error: string } | null {
+  if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
     return { ok: false, error: "Este cupom expirou" };
   }
+  return null;
+}
 
+async function validatePlanCouponWindow(
+  coupon: Coupon
+): Promise<{ ok: false; error: string } | null> {
   if (
-    coupon.userPlanId &&
-    (coupon.discountType === "service" || coupon.discountType === "percent")
+    !coupon.userPlanId ||
+    (coupon.discountType !== "service" && coupon.discountType !== "percent")
   ) {
-    const userPlan = await prisma.userPlan.findUnique({
-      where: { id: coupon.userPlanId },
-    });
-    if (userPlan && userPlan.endDate) {
-      const umMesAposPlano = new Date(userPlan.endDate);
-      umMesAposPlano.setMonth(umMesAposPlano.getMonth() + 1);
-      if (agora > umMesAposPlano) {
-        return {
-          ok: false,
-          error:
-            "Este cupom expirou. Cupons de plano são válidos até 1 mês após a expiração do plano.",
-        };
-      }
-    }
+    return null;
   }
 
+  const userPlan = await prisma.userPlan.findUnique({
+    where: { id: coupon.userPlanId },
+    select: { endDate: true },
+  });
+  if (!userPlan?.endDate) return null;
+
+  const umMesAposPlano = new Date(userPlan.endDate);
+  umMesAposPlano.setMonth(umMesAposPlano.getMonth() + 1);
+  if (new Date() > umMesAposPlano) {
+    return {
+      ok: false,
+      error:
+        "Este cupom expirou. Cupons de plano são válidos até 1 mês após a expiração do plano.",
+    };
+  }
+  return null;
+}
+
+function validateMinValue(
+  coupon: Coupon,
+  total: number
+): { ok: false; error: string } | null {
   if (coupon.minValue && total < coupon.minValue) {
     return {
       ok: false,
       error: `Valor mínimo para usar este cupom é R$ ${coupon.minValue.toFixed(2).replace(".", ",")}`,
     };
   }
+  return null;
+}
 
+function validateServiceBeatMix(
+  coupon: Coupon,
+  totalServicos: number,
+  totalBeats: number
+): { ok: false; error: string } | null {
   if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
     return {
       ok: false,
@@ -88,7 +152,6 @@ export async function validateCouponAndGetTotal(
         "Este cupom de 10% é válido apenas para serviços avulsos (captação, mix, master, etc.). Não pode ser usado em beats. Para beats, use o cupom de desconto específico para beats.",
     };
   }
-
   if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
     return {
       ok: false,
@@ -96,7 +159,14 @@ export async function validateCouponAndGetTotal(
         "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos (captação, mix, master, etc.). Para serviços, use o cupom de desconto específico para serviços.",
     };
   }
+  return null;
+}
 
+function computeDiscountedTotal(
+  coupon: Coupon,
+  totals: CartTotals
+): number {
+  const { total, totalServicos, totalBeats } = totals;
   let discount = 0;
   let finalTotal = total;
   let isServiceCoupon = false;
@@ -118,25 +188,66 @@ export async function validateCouponAndGetTotal(
       discount = coupon.maxDiscount;
     }
     finalTotal = total - discount;
-  } else {
-    if (isRefundCoupon) {
-      if (coupon.discountValue >= total) {
-        discount = total;
-        finalTotal = 0;
-      } else {
-        discount = coupon.discountValue;
-        finalTotal = total - discount;
-      }
+  } else if (isRefundCoupon) {
+    if (coupon.discountValue >= total) {
+      discount = total;
+      finalTotal = 0;
     } else {
       discount = coupon.discountValue;
       finalTotal = total - discount;
     }
+  } else {
+    discount = coupon.discountValue;
+    finalTotal = total - discount;
   }
 
   if (!isServiceCoupon && discount > total) {
-    discount = total;
     finalTotal = 0;
   }
 
-  return { ok: true, finalTotal: Math.round(finalTotal * 100) / 100 };
+  return Math.round(finalTotal * 100) / 100;
+}
+
+/**
+ * Valida cupom e retorna o total final a ser cobrado.
+ * Usado pelos checkouts para garantir que o valor está correto antes da cobrança.
+ */
+export async function validateCouponAndGetTotal(
+  code: string,
+  _totalRaw: number,
+  servicos: ServicoItem[] = [],
+  beats: BeatItem[] = []
+): Promise<{ ok: true; finalTotal: number } | { ok: false; error: string }> {
+  const totals = computeCartTotals(servicos, beats);
+  const coupon = await loadCoupon(code);
+
+  const gates: Array<
+    | { ok: false; error: string }
+    | null
+    | Promise<{ ok: false; error: string } | null>
+  > = [
+    validateCouponExists(coupon),
+    coupon ? validateSchedulingType(coupon) : null,
+    coupon ? validateUsed(coupon) : null,
+    coupon ? validateRefundLock(coupon) : null,
+    coupon ? validatePlanBlock(coupon) : null,
+    coupon ? validateAppointmentBlock(coupon) : null,
+    coupon ? validateExpiresAt(coupon) : null,
+    coupon ? validatePlanCouponWindow(coupon) : null,
+    coupon ? validateMinValue(coupon, totals.total) : null,
+    coupon
+      ? validateServiceBeatMix(coupon, totals.totalServicos, totals.totalBeats)
+      : null,
+  ];
+
+  for (const gate of gates) {
+    const result = gate instanceof Promise ? await gate : gate;
+    if (result) return result;
+  }
+
+  if (!coupon) {
+    return { ok: false, error: "Cupom inexistente. Verifique o código e tente novamente." };
+  }
+
+  return { ok: true, finalTotal: computeDiscountedTotal(coupon, totals) };
 }
