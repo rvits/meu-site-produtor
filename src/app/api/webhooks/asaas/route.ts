@@ -238,16 +238,6 @@ export async function POST(req: Request) {
               console.log("[Asaas Webhook] UserPlan ID:", fx.userPlanId);
             }
           }
-        } else if (tipo === "agendamento" || isAgendamentoDesc) {
-          const fx = await processAgendamentoPaymentEffects({
-            paymentDbId: newPayment.id,
-            value,
-            metadata,
-            options: { sendEmails: true, source: "webhook" },
-          });
-          if (fx.skippedReason) {
-            console.warn("[Asaas Webhook] Agendamento — efeitos não aplicados:", fx.skippedReason);
-          }
         } else if (tipo === "carrinho") {
           const fx = await processCarrinhoPaymentEffects({
             paymentDbId: newPayment.id,
@@ -258,6 +248,16 @@ export async function POST(req: Request) {
           });
           if (fx.skippedReason) {
             console.warn("[Asaas Webhook] Carrinho — efeitos não aplicados:", fx.skippedReason);
+          }
+        } else if (tipo === "agendamento" || isAgendamentoDesc) {
+          const fx = await processAgendamentoPaymentEffects({
+            paymentDbId: newPayment.id,
+            value,
+            metadata,
+            options: { sendEmails: true, source: "webhook" },
+          });
+          if (fx.skippedReason) {
+            console.warn("[Asaas Webhook] Agendamento — efeitos não aplicados:", fx.skippedReason);
           }
         }
       } catch (dbError: any) {
