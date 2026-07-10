@@ -684,10 +684,14 @@ function classifyBuckets(items: BacklogItem[]): EngineeringBacklog["buckets"] {
 
 function buildEngineeringScores(sources: SourceBundle): EngineeringBacklog["engineeringScore"] {
   const cto = sources.cto as { scores?: Record<string, { score?: number }> } | null;
-  const health = sources.health as { scores?: Record<string, number>; engineeringScore?: { overall?: number } } | null;
+  const health = sources.health as {
+    scores?: Record<string, number>;
+    engineeringScore?: { overall?: number };
+    modules?: Array<{ id?: string; healthScore?: number }>;
+  } | null;
   const refactor = sources.refactor as { summary?: { technicalDebtScore?: number } } | null;
   const debt = refactor?.summary?.technicalDebtScore ?? 100;
-  const financeModule = (health?.modules as Array<{ id?: string; healthScore?: number }>)?.find((m) => m.id === "Financeiro");
+  const financeModule = health?.modules?.find((m) => m.id === "Financeiro");
 
   return {
     overall: health?.engineeringScore?.overall ?? cto?.scores?.overall?.score ?? 50,

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-admin-archive";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";

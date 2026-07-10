@@ -13,7 +13,7 @@ import {
   isSingleScheduledAgendamentoPayment,
 } from "@/app/lib/agendamento-payment-rules";
 import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse } from "@/app/lib/sendEmail";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-admin-archive";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 
 export type AgendamentoItemLine = { id?: string; nome?: string; quantidade?: number };
 

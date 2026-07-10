@@ -4,9 +4,12 @@
  */
 import type { Coupon } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
-import { isCupomPermitidoNoAgendamentoComum } from "@/app/lib/coupon-scheduling-rules";
-import { COUPON_REFUND_USAGE_ERROR, isCouponRefundLocked } from "@/app/lib/coupon-refund";
-import { getPlanCouponUsageBlockMessage } from "@/app/lib/plan-refund";
+import {
+  COUPON_REFUND_USAGE_ERROR,
+  getPlanCouponUsageBlockMessage,
+  isCouponRefundLocked,
+  isCupomPermitidoNoAgendamentoComum,
+} from "@/app/lib/checkout-coupon-gates";
 
 type ServicoItem = { preco?: number; quantidade?: number };
 type BeatItem = { preco?: number; quantidade?: number };

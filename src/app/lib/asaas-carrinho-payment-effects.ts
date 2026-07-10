@@ -4,7 +4,7 @@
  */
 import { prisma } from "@/app/lib/prisma";
 import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse } from "@/app/lib/sendEmail";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-admin-archive";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 import {
   createServicesForAppointmentIfMissing,
   type AgendamentoItemLine,

@@ -3,7 +3,7 @@ import { getPlanPrice } from "@/app/lib/plan-prices";
 import { generatePlanServiceCoupons } from "@/app/lib/plan-coupons";
 import { resolvePlanIsTestPayment, SYMBOLIC_PLANO_BRL } from "@/app/lib/plan-payment-simulation";
 import { sendPlanPaymentConfirmationEmail } from "@/app/lib/sendEmail";
-import { findActiveUserPlan, ACTIVE_PLAN_BLOCK_MESSAGE } from "@/app/lib/active-user-plan";
+import { findActiveUserPlan, ACTIVE_PLAN_BLOCK_MESSAGE } from "@/app/lib/checkout-active-plan-gate";
 
 export type ProcessPlanoPaymentEffectsResult = {
   userPlanId: string | null;

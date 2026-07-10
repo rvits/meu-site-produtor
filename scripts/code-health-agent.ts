@@ -749,9 +749,8 @@ async function main(): Promise<void> {
   const modules: ModuleHealth[] = moduleMetrics.map((m) => {
     const rec = inferRecommendation(m.id, m.healthScore, m.technicalDebt, executionProgress);
     return {
-      id: m.id,
-      name: MODULE_DISPLAY[m.id],
       ...m,
+      name: MODULE_DISPLAY[m.id],
       grade: scoreToGrade(m.healthScore),
       trend: moduleTrends.get(m.id) ?? "estável",
       recommendation: rec.recommendation,

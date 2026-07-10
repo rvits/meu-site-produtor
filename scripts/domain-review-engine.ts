@@ -628,7 +628,9 @@ function buildChecklistMarkdown(params: {
   lines.push("## Matriz de sintomas (triagem rápida)", "");
 
   const relevantTriages = TRIAGE_SYMPTOMS.filter((item) =>
-    item.entities.some((e) => impactedEntities.includes(e))
+    item.entities.some((e) =>
+      impactedEntities.includes(e as (typeof ENTITY_ORDER)[number])
+    )
   );
 
   if (relevantTriages.length === 0) {

@@ -613,9 +613,9 @@ function buildMarkdown(params: {
       ...(entity.testsToValidate.length
         ? entity.testsToValidate.slice(0, 10).map((t) => `- [ ] ${t}`)
         : ["- (nenhum no checklist)"]),
-      entity.testsToValidate.length > 10
+      ...(entity.testsToValidate.length > 10
         ? [`- … e mais ${entity.testsToValidate.length - 10}`]
-        : [],
+        : []),
       "",
       "**Pontos sensíveis**",
       "",

@@ -3,7 +3,7 @@
  * Apenas decide allowed/denied — a mutação `prisma.payment.delete` fica na API admin.
  */
 import { prisma } from "@/app/lib/prisma";
-import { isSimulationCoupon } from "@/app/lib/simulation-coupon";
+import { isSimulationCoupon } from "@/app/lib/payment-simulation-coupon-gate";
 import {
   isSymbolicApprovedPayment,
   parsePaymentAppointmentIds,

@@ -1,6 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
 import { createServicesForAppointmentIfMissing } from "@/app/lib/asaas-agendamento-payment-effects";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-admin-archive";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
