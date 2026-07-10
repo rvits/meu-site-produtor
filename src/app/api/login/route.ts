@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
-import { cookies } from "next/headers";
+import { createUserSession } from "@/app/lib/auth";
 import { loginSchema } from "@/app/lib/validations";
 
 export const runtime = "nodejs";
@@ -71,22 +71,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔐 CRIA SESSÃO
-    const session = await prisma.session.create({
-      data: {
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 dias
-      },
-    });
-
-    // 🍪 COOKIE HTTPONLY (secure em produção para HTTPS)
-    const cookieStore = await cookies();
-    cookieStore.set("session_id", session.id, {
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
+    await createUserSession(user.id);
 
     return NextResponse.json({
       user: {
