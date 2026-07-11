@@ -52,8 +52,15 @@ jobs:
       - name: 4. Domain Decision Engine (gate)
         run: node --experimental-strip-types scripts/domain-decision-engine.ts
 
-      - name: 5. Domain Architecture Planner
-        run: node --experimental-strip-types scripts/domain-architecture-planner.ts
+      # StudioOS: domain-architecture-planner.ts pertence ao agente de arquitetura
+      # (Fase 7) — ainda não commitado neste repositório; opcional até implementação.
+      - name: 5. Domain Architecture Planner (StudioOS — opcional)
+        run: |
+          if [ -f scripts/domain-architecture-planner.ts ]; then
+            node --experimental-strip-types scripts/domain-architecture-planner.ts
+          else
+            echo "Skipping domain-architecture-planner.ts — StudioOS agent not present in this repo."
+          fi
 
       - name: Upload governance reports
         if: always()
