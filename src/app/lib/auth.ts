@@ -2,6 +2,27 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 dias
+
+export async function createUserSession(userId: string) {
+  const session = await prisma.session.create({
+    data: {
+      userId,
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    },
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set("session_id", session.id, {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  return session;
+}
+
 export async function getSessionUser() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("session_id")?.value;

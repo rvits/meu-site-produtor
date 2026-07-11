@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
+import { createUserSession } from "@/app/lib/auth";
 import { registroSchema } from "@/app/lib/validations";
 
 export const runtime = "nodejs";
@@ -101,7 +102,8 @@ export async function POST(req: Request) {
     console.error("✅ [REGISTRO] Nome Completo:", user.nomeCompleto);
     console.error("✅ [REGISTRO] Nome Artístico:", user.nomeArtistico);
 
-    // 🔥 PADRÃO ÚNICO
+    await createUserSession(user.id);
+
     return NextResponse.json({
       user: {
         id: user.id,

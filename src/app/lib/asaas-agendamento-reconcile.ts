@@ -1,7 +1,45 @@
 import { prisma } from "@/app/lib/prisma";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { createServicesForAppointmentIfMissing } from "@/app/lib/asaas-agendamento-payment-effects";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
+
+type CarrinhoItemMeta = {
+  data?: string;
+  hora?: string;
+  duracaoMinutos?: number;
+  servicos?: ItemLine[];
+  beats?: ItemLine[];
+};
+
+function parseAppointmentIds(raw: unknown): number[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function parseCarrinhoItems(metadata: Record<string, unknown>): CarrinhoItemMeta[] {
+  try {
+    const raw = metadata.items;
+    if (typeof raw === "string") return JSON.parse(raw);
+    if (Array.isArray(raw)) return raw;
+  } catch {
+    return [];
+  }
+  return [];
+}
 
 function parseItems(metadata: Record<string, unknown>): { services: ItemLine[]; beats: ItemLine[] } {
   let services: ItemLine[] = [];
@@ -40,12 +78,26 @@ function expectedServiceLines(services: ItemLine[], beats: ItemLine[]): number {
   return n;
 }
 
-async function loadMetadataForPayment(userId: string, asaasPaymentId: string): Promise<Record<string, any>> {
+async function loadMetadataForPayment(
+  userId: string,
+  asaasPaymentId: string,
+  options?: { linkAsaasId?: boolean }
+): Promise<Record<string, any>> {
   let metadata: Record<string, any> = {};
   let paymentMetadata = await prisma.paymentMetadata.findFirst({
     where: { userId, asaasId: asaasPaymentId },
     orderBy: { createdAt: "desc" },
   });
+  if (!paymentMetadata) {
+    paymentMetadata = await prisma.paymentMetadata.findFirst({
+      where: {
+        userId,
+        expiresAt: { gt: new Date() },
+        OR: [{ asaasId: null }, { asaasId: asaasPaymentId }],
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
   if (!paymentMetadata) {
     paymentMetadata = await prisma.paymentMetadata.findFirst({
       where: {
@@ -75,7 +127,62 @@ async function loadMetadataForPayment(userId: string, asaasPaymentId: string): P
     } catch {
       metadata = {};
     }
+    if (options?.linkAsaasId && paymentMetadata.asaasId !== asaasPaymentId) {
+      await prisma.paymentMetadata.update({
+        where: { id: paymentMetadata.id },
+        data: { asaasId: asaasPaymentId },
+      });
+    }
   }
+  return metadata;
+}
+
+function parsePayloadMetadata(raw: unknown): Record<string, unknown> {
+  if (raw == null) return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed === "object" && parsed != null && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+/**
+ * Resolve metadata para o orquestrador de webhook: payload Asaas → PaymentMetadata → fallback descrição.
+ */
+export async function resolvePaymentMetadataForWebhook(params: {
+  userId: string;
+  asaasPaymentId: string;
+  paymentMetadata?: unknown;
+  description?: string | null;
+}): Promise<Record<string, unknown>> {
+  let metadata = parsePayloadMetadata(params.paymentMetadata);
+
+  if (Object.keys(metadata).length === 0) {
+    metadata = await loadMetadataForPayment(params.userId, params.asaasPaymentId, {
+      linkAsaasId: true,
+    });
+  }
+
+  if (Object.keys(metadata).length === 0 && params.description) {
+    const descMatch = params.description.match(/Plano (\w+)/i);
+    if (descMatch) {
+      metadata = { tipo: "plano", planId: descMatch[1].toLowerCase() };
+    }
+  }
+
+  if (!metadata.userId) {
+    metadata.userId = params.userId;
+  }
+
   return metadata;
 }
 
@@ -89,15 +196,82 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
 }): Promise<void> {
   const pay = await prisma.payment.findUnique({
     where: { id: params.paymentDbId },
-    select: { id: true, type: true, appointmentId: true, userId: true },
+    select: { id: true, type: true, appointmentId: true, appointmentIds: true, userId: true },
   });
-  if (!pay || pay.type !== "agendamento" || pay.appointmentId == null) {
+  if (!pay || pay.type !== "agendamento") {
     if (pay) {
-      console.warn("[Reconcile] Ignorado (tipo ou appointmentId):", {
+      console.warn("[Reconcile] Ignorado (tipo inválido):", {
         paymentDbId: params.paymentDbId,
         type: pay.type,
-        appointmentId: pay.appointmentId,
       });
+    }
+    return;
+  }
+
+  const metadata = await loadMetadataForPayment(params.userId, params.asaasPaymentId);
+
+  if (metadata.tipo === "carrinho") {
+    const items = parseCarrinhoItems(metadata);
+    const aptIds = parseAppointmentIds(pay.appointmentIds);
+    if (aptIds.length === 0 && pay.appointmentId != null) {
+      aptIds.push(pay.appointmentId);
+    }
+
+    let aptIndex = 0;
+    for (const item of items) {
+      if (!item.data || !item.hora) continue;
+      const duracaoMinutos = item.duracaoMinutos ?? 60;
+      const dataHoraISO = new Date(`${item.data}T${item.hora}:00`);
+      const conflito = await prisma.appointment.findFirst({
+        where: {
+          ...appointmentOperationalFilter,
+          status: { not: "cancelado" },
+          ...(aptIds.length > 0 ? { id: { notIn: aptIds } } : {}),
+          AND: [
+            { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
+            { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (conflito) continue;
+
+      const appointmentId = aptIds[aptIndex++];
+      if (appointmentId == null) continue;
+
+      await createServicesForAppointmentIfMissing({
+        appointmentId,
+        userId: pay.userId,
+        services: Array.isArray(item.servicos) ? item.servicos : [],
+        beats: Array.isArray(item.beats) ? item.beats : [],
+        logPrefix: "[Reconcile:Carrinho]",
+      });
+    }
+
+    console.log("[Reconcile] Carrinho: serviços verificados para paymentId:", pay.id);
+    return;
+  }
+
+  const { services, beats } = parseItems(metadata);
+
+  if (pay.appointmentId == null) {
+    const couponCount = await prisma.coupon.count({ where: { paymentId: pay.id } });
+    if (couponCount === 0) {
+      try {
+        const { createCouponsForAgendamentoItems, isSymbolicAgendamentoCouponStyle } = await import(
+          "@/app/lib/agendamento-payment-coupons"
+        );
+        await createCouponsForAgendamentoItems({
+          userId: pay.userId,
+          paymentId: pay.id,
+          services: Array.isArray(services) ? services : [],
+          beats: Array.isArray(beats) ? beats : [],
+          isTestPayment: isSymbolicAgendamentoCouponStyle(metadata),
+        });
+        console.log("[Reconcile] Cupons recriados (pagamento sem agendamento):", pay.id);
+      } catch (e) {
+        console.error("[Reconcile] Falha ao garantir cupons sem agendamento:", e);
+      }
     }
     return;
   }
@@ -109,22 +283,21 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
   });
   if (!appointment) return;
 
-  const metadata = await loadMetadataForPayment(params.userId, params.asaasPaymentId);
-  const { services, beats } = parseItems(metadata);
-
   const couponCount = await prisma.coupon.count({
     where: { paymentId: pay.id },
   });
   if (couponCount === 0) {
     try {
-      const { createCouponsForAgendamentoItems } = await import("@/app/lib/agendamento-payment-coupons");
+      const { createCouponsForAgendamentoItems, isSymbolicAgendamentoCouponStyle } = await import(
+        "@/app/lib/agendamento-payment-coupons"
+      );
       await createCouponsForAgendamentoItems({
         userId: pay.userId,
         paymentId: pay.id,
         appointmentId: null,
         services: Array.isArray(services) ? services : [],
         beats: Array.isArray(beats) ? beats : [],
-        isTestPayment: !!metadata.isTest,
+        isTestPayment: isSymbolicAgendamentoCouponStyle(metadata),
       });
       console.log("[Reconcile] Cupons recriados para paymentId:", pay.id);
     } catch (e) {
@@ -138,56 +311,22 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
   const expected = expectedServiceLines(services, beats);
   if (expected === 0) return;
 
-  if (svcCount === 0) {
+  if (svcCount < expected) {
     try {
-      if (Array.isArray(services) && services.length > 0) {
-        for (const svc of services) {
-          const tipo = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
-          const desc =
-            [svc.nome, svc.quantidade && svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null]
-              .filter(Boolean)
-              .join(" — ") || tipo;
-          for (let q = 0; q < (svc.quantidade || 1); q++) {
-            await prisma.service.create({
-              data: {
-                userId: appointment.userId,
-                appointmentId,
-                tipo,
-                description: desc,
-                status: "pendente",
-              },
-            });
-          }
-        }
+      await createServicesForAppointmentIfMissing({
+        appointmentId,
+        userId: appointment.userId,
+        services: Array.isArray(services) ? services : [],
+        beats: Array.isArray(beats) ? beats : [],
+        logPrefix: "[Reconcile]",
+      });
+      const svcAfter = await prisma.service.count({ where: { appointmentId } });
+      if (svcAfter > svcCount) {
+        console.log("[Reconcile] Serviços recriados para appointmentId:", appointmentId);
       }
-      if (Array.isArray(beats) && beats.length > 0) {
-        for (const b of beats) {
-          const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
-          const descBeat =
-            [b.nome, b.quantidade && b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null]
-              .filter(Boolean)
-              .join(" — ") || tipoBeat;
-          for (let q = 0; q < (b.quantidade || 1); q++) {
-            await prisma.service.create({
-              data: {
-                userId: appointment.userId,
-                appointmentId,
-                tipo: tipoBeat,
-                description: descBeat,
-                status: "pendente",
-              },
-            });
-          }
-        }
-      }
-      console.log("[Reconcile] Serviços recriados para appointmentId:", appointmentId);
     } catch (e) {
       console.error("[Reconcile] Falha ao garantir serviços:", e);
     }
-  } else if (svcCount < expected) {
-    console.warn(
-      `[Reconcile] Serviços incompletos (${svcCount}/${expected}) para agendamento ${appointmentId} — correção manual pode ser necessária`
-    );
   }
 
   const cupomCode = metadata.cupomCode as string | undefined;

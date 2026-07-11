@@ -1,3 +1,5 @@
+import { asaasFetch } from "@/app/lib/asaas-fetch";
+
 /**
  * Interface abstrata para provedores de pagamento
  */
@@ -240,7 +242,7 @@ export class AsaasProvider implements PaymentProvider {
         "User-Agent": "THouseRec/1.0",
       };
 
-      const response = await fetch(`${this.apiUrl}/payments`, {
+      const response = await asaasFetch(`${this.apiUrl}/payments`, {
         method: "POST",
         headers: asaasHeaders,
         body: JSON.stringify(paymentPayload),
@@ -318,7 +320,7 @@ export class AsaasProvider implements PaymentProvider {
         "User-Agent": "THouseRec/1.0",
       };
 
-      const searchResponse = await fetch(`${this.apiUrl}/customers?email=${encodeURIComponent(payer.email)}`, {
+      const searchResponse = await asaasFetch(`${this.apiUrl}/customers?email=${encodeURIComponent(payer.email)}`, {
         method: "GET",
         headers: asaasHeaders,
       });
@@ -330,7 +332,7 @@ export class AsaasProvider implements PaymentProvider {
           
           // Se o cliente existe mas não tem CPF e temos CPF para atualizar, atualizar
           if (payer.cpf && !existingCustomer.cpfCnpj) {
-            const updateResponse = await fetch(`${this.apiUrl}/customers/${existingCustomer.id}`, {
+            const updateResponse = await asaasFetch(`${this.apiUrl}/customers/${existingCustomer.id}`, {
               method: "POST",
               headers: asaasHeaders,
               body: JSON.stringify({
@@ -362,7 +364,7 @@ export class AsaasProvider implements PaymentProvider {
         throw new Error("CPF é obrigatório para criar pagamentos no Asaas. Por favor, cadastre seu CPF no perfil antes de realizar o pagamento.");
       }
 
-      const createResponse = await fetch(`${this.apiUrl}/customers`, {
+      const createResponse = await asaasFetch(`${this.apiUrl}/customers`, {
         method: "POST",
         headers: asaasHeaders,
         body: JSON.stringify(customerPayload),

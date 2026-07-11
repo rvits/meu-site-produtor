@@ -1,22 +1,74 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
-import { ensureUniqueCouponCode, generateCouponCode } from "@/app/lib/coupons";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { generateCouponCode } from "@/app/lib/coupons";
+import {
+  expandAgendamentoItemToCouponTypes,
+  normalizeServiceTypeId,
+} from "@/app/lib/service-catalog";
 import type { Coupon } from "@prisma/client";
+import {
+  isSymbolicAgendamentoCouponStyle,
+  SYMBOLIC_AGENDAMENTO_BRL,
+} from "@/app/lib/symbolic-payment";
 
-/** Códigos TESTE_* únicos para rótulos na Minha Conta e lista no admin. */
-async function ensureUniqueTestCouponCode(): Promise<string> {
-  for (let attempt = 0; attempt < 25; attempt++) {
-    const code = `TESTE_${generateCouponCode()}`;
-    const existing = await prisma.coupon.findUnique({ where: { code } });
-    if (!existing) return code;
-  }
-  return ensureUniqueCouponCode();
-}
+export { SYMBOLIC_AGENDAMENTO_BRL, isSymbolicAgendamentoCouponStyle };
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
+export function listCouponServiceTypesForAgendamentoItems(
+  services: ItemLine[],
+  beats: ItemLine[]
+): string[] {
+  const arrS = Array.isArray(services) ? services : [];
+  const arrB = Array.isArray(beats) ? beats : [];
+  const serviceTypesToCreate: string[] = [];
+
+  for (const svc of arrS) {
+    serviceTypesToCreate.push(
+      ...expandAgendamentoItemToCouponTypes(
+        String(svc.id || svc.nome || "sessao"),
+        svc.quantidade,
+        svc.nome
+      )
+    );
+  }
+  for (const b of arrB) {
+    serviceTypesToCreate.push(
+      ...expandAgendamentoItemToCouponTypes(
+        String(b.id || b.nome || "beat1"),
+        b.quantidade,
+        b.nome
+      )
+    );
+  }
+  if (serviceTypesToCreate.length === 0) {
+    serviceTypesToCreate.push("sessao");
+  }
+
+  return serviceTypesToCreate.map((type) => normalizeServiceTypeId(type));
+}
+
+async function allocateUniqueCouponCode(
+  tx: Prisma.TransactionClient,
+  isTestStyle: boolean
+): Promise<string> {
+  if (isTestStyle) {
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const code = `TESTE_${generateCouponCode()}`;
+      const existing = await tx.coupon.findUnique({ where: { code } });
+      if (!existing) return code;
+    }
+  }
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = generateCouponCode();
+    const existing = await tx.coupon.findUnique({ where: { code } });
+    if (!existing) return code;
+  }
+  return `CUP_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`.toUpperCase();
+}
+
 /**
- * Cria um cupom por unidade de serviço/beat pago, com código sempre único e tipo (serviceType) alinhado aos ids do agendamento (sessao, captacao, beat1, producao_completa, etc.).
+ * Cria um cupom por tipo atômico liberado pelo pagamento (pacotes compostos viram mix/master, beats múltiplos, etc.).
  * Usado no webhook Asaas, reprocessar pagamento teste e qualquer fluxo que replique a mesma regra.
  *
  * Idempotente por `paymentId`: se o webhook Asaas reenviar o mesmo pagamento, não duplica cupons.
@@ -31,68 +83,58 @@ export async function createCouponsForAgendamentoItems(params: {
   appointmentId?: number | null;
   services: ItemLine[];
   beats: ItemLine[];
-  /** Pagamento de teste (R$ 5): validade mais curta */
+  /** Pagamento simbólico (admin): validade mais curta e prefixo TESTE_ */
   isTestPayment: boolean;
 }): Promise<Coupon[]> {
   const { userId, paymentId, services, beats, isTestPayment } = params;
 
-  const jaExistentes = await prisma.coupon.findMany({
-    where: { paymentId },
-    orderBy: { createdAt: "asc" },
-  });
-  if (jaExistentes.length > 0) {
-    return jaExistentes;
-  }
+  const serviceTypesToCreate = listCouponServiceTypesForAgendamentoItems(services, beats);
 
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + (isTestPayment ? 30 : 365));
+  const expiresAtBase = new Date();
+  expiresAtBase.setDate(expiresAtBase.getDate() + (isTestPayment ? 30 : 365));
 
-  const coupons: Coupon[] = [];
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const jaExistentes = await tx.coupon.findMany({
+          where: { paymentId },
+          orderBy: { createdAt: "asc" },
+        });
+        if (jaExistentes.length > 0) {
+          return jaExistentes;
+        }
 
-  const pushOne = async (serviceTypeRaw: string) => {
-    const serviceType = normalizeServiceTypeId(serviceTypeRaw);
-    const code = isTestPayment ? await ensureUniqueTestCouponCode() : await ensureUniqueCouponCode();
-    const c = await prisma.coupon.create({
-      data: {
-        code,
-        couponType: "plano",
-        discountType: "service",
-        discountValue: 0,
-        serviceType,
-        paymentId,
-        assignedUserId: userId,
-        expiresAt,
+        const coupons: Coupon[] = [];
+        for (const serviceType of serviceTypesToCreate) {
+          const code = await allocateUniqueCouponCode(tx, isTestPayment);
+          const expiresAt = new Date(expiresAtBase);
+          const c = await tx.coupon.create({
+            data: {
+              code,
+              couponType: "agendamento",
+              discountType: "service",
+              discountValue: 0,
+              serviceType,
+              paymentId,
+              assignedUserId: userId,
+              expiresAt,
+            },
+          });
+          coupons.push(c);
+        }
+        return coupons;
       },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 20_000,
+      }
+    );
+  } catch (e) {
+    const fallback = await prisma.coupon.findMany({
+      where: { paymentId },
+      orderBy: { createdAt: "asc" },
     });
-    coupons.push(c);
-  };
-
-  const arrS = Array.isArray(services) ? services : [];
-  const arrB = Array.isArray(beats) ? beats : [];
-
-  for (const svc of arrS) {
-    const raw = String(svc.id || svc.nome || "sessao");
-    const qty = Math.max(1, Number(svc.quantidade) || 1);
-    for (let q = 0; q < qty; q++) {
-      await pushOne(raw);
-    }
+    if (fallback.length > 0) return fallback;
+    throw e;
   }
-  for (const b of arrB) {
-    const serviceType = String(b.id || b.nome || "beat1");
-    const qty = Math.max(1, Number(b.quantidade) || 1);
-    for (let q = 0; q < qty; q++) {
-      await pushOne(serviceType);
-    }
-  }
-
-  const totalLinhas =
-    arrS.reduce((acc, s) => acc + Math.max(1, Number(s.quantidade) || 1), 0) +
-    arrB.reduce((acc, b) => acc + Math.max(1, Number(b.quantidade) || 1), 0) +
-    0;
-
-  if (totalLinhas === 0) {
-    await pushOne("sessao");
-  }
-
-  return coupons;
 }

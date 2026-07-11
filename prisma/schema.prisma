@@ -28,28 +28,39 @@ model User {
   estilosMusicais String?
   nacionalidade   String?
   foto            String?
+  fotoPosX        Int       @default(50)
+  fotoPosY        Int       @default(50)
   role            String    @default("USER")
   blocked         Boolean   @default(false)
   blockedAt       DateTime?
   blockedReason   String?
 
-  appointments  Appointment[]
-  sessions      Session[]
-  loginLogs     LoginLog[]
-  payments      Payment[]
-  userPlans     UserPlan[]
-  subscriptions Subscription[]
-  services      Service[]
-  chatSessions  ChatSession[]
-  adminChats    ChatSession[]  @relation("AdminChat")
-  faqQuestions  UserQuestion[]
-  assignedCoupons Coupon[]     @relation("AssignedCoupons") // Cupons associados manualmente pelo admin à Minha Conta
+  appointments    Appointment[]
+  sessions        Session[]
+  loginLogs       LoginLog[]
+  payments        Payment[]
+  userPlans       UserPlan[]
+  subscriptions   Subscription[]
+  services        Service[]
+  chatSessions    ChatSession[]
+  adminChats      ChatSession[]  @relation("AdminChat")
+  faqQuestions    UserQuestion[]
+  assignedCoupons Coupon[]       @relation("AssignedCoupons") // Cupons associados manualmente pelo admin à Minha Conta
 
   createdAt DateTime @default(now())
 
   @@index([email])
   @@index([role])
   @@index([blocked])
+}
+
+// Registo apenas estatístico quando o utilizador apaga a própria conta (sem dados pessoais).
+model AccountDeletionLog {
+  id               String   @id @default(uuid())
+  deletedAt        DateTime @default(now())
+  accountCreatedAt DateTime
+
+  @@index([deletedAt])
 }
 
 model Session {
@@ -65,31 +76,38 @@ model Session {
 }
 
 model Appointment {
-  id                 Int       @id @default(autoincrement())
-  userId             String
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  data               DateTime
-  duracaoMinutos     Int
-  tipo               String
-  observacoes        String?
-  status             String    @default("pendente")
-  blocked            Boolean   @default(false)
-  blockedAt          DateTime?
-  blockedReason      String?
-  readAt             DateTime? // Quando o usuário visualizou o agendamento confirmado
-  cancelReason       String?   // Justificativa do cancelamento (admin)
-  cancelledAt       DateTime? // Data do cancelamento
-  cancelRefundOption String?   // "reembolso" | "cupom" após usuário escolher
-  refundProcessedAt DateTime?  // Quando reembolso direto foi processado
-  refundCouponId    String?    // ID do cupom gerado se opção cupom
-  createdAt         DateTime  @default(now())
+  id                    Int       @id @default(autoincrement())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data                  DateTime
+  duracaoMinutos        Int
+  tipo                  String
+  observacoes           String?
+  status                String    @default("pendente")
+  blocked               Boolean   @default(false)
+  blockedAt             DateTime?
+  blockedReason         String?
+  readAt                DateTime? // Quando o usuário visualizou o agendamento confirmado
+  cancelReason          String? // Justificativa do cancelamento (admin)
+  cancelledAt           DateTime? // Data do cancelamento
+  cancelRefundOption    String? // "reembolso" | "cupom" após usuário escolher
+  refundProcessedAt     DateTime? // Quando reembolso direto foi processado
+  refundAsaasStatus     String?
+  refundUserConfirmedAt DateTime?
+  refundUserDisputedAt  DateTime?
+  refundCouponId        String? // ID do cupom gerado se opção cupom
+  userHiddenAt          DateTime? // Quando o usuário removeu da Minha Conta (mantém no admin)
+  adminArchivedAt       DateTime? // Arquivamento administrativo (soft-delete; preserva histórico)
+  adminArchivedReason   String? // Justificativa do arquivamento admin
+  createdAt             DateTime  @default(now())
 
-  services          Service[]
+  services Service[]
 
   @@index([userId])
   @@index([data])
   @@index([status])
   @@index([blocked])
+  @@index([adminArchivedAt])
 }
 
 model FAQ {
@@ -146,23 +164,23 @@ model LoginLog {
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mercadopagoId String?  @unique
-  asaasId       String?  @unique // ID do pagamento no Asaas
-  amount        Float
-  currency      String   @default("BRL")
-  status        String   @default("pending")
-  type          String
-  paymentMethod String? // Método de pagamento selecionado pelo usuário
-  planId        String?
-  serviceId     String?
-  appointmentId Int? // ID do agendamento associado (para prevenir fraudes); em compras com carrinho, primeiro agendamento
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mercadopagoId  String?  @unique
+  asaasId        String?  @unique // ID do pagamento no Asaas
+  amount         Float
+  currency       String   @default("BRL")
+  status         String   @default("pending")
+  type           String
+  paymentMethod  String? // Método de pagamento selecionado pelo usuário
+  planId         String?
+  serviceId      String?
+  appointmentId  Int? // ID do agendamento associado (para prevenir fraudes); em compras com carrinho, primeiro agendamento
   appointmentIds Json? // IDs de todos os agendamentos (carrinho); array de inteiros
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  coupons       Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  coupons        Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
 
   @@index([userId])
   @@index([status])
@@ -187,22 +205,30 @@ model PaymentMetadata {
 }
 
 model UserPlan {
-  id                 String        @id @default(uuid())
-  userId             String
-  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId             String
-  planName           String
-  modo               String
-  amount             Float
-  status             String        @default("active")
-  startDate          DateTime      @default(now())
-  endDate            DateTime?
-  readAt             DateTime?     // Quando o usuário visualizou o plano confirmado
-  refundProcessedAt  DateTime?    // Quando o usuário solicitou reembolso do plano cancelado (Asaas)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  subscription       Subscription? // Assinatura recorrente associada
-  coupons            Coupon[]     // Cupons gerados por este plano
+  id                    String        @id @default(uuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                String
+  planName              String
+  modo                  String
+  amount                Float
+  status                String        @default("active")
+  startDate             DateTime      @default(now())
+  endDate               DateTime?
+  readAt                DateTime? // Quando o usuário visualizou o plano confirmado
+  refundRequestedAt     DateTime? // Quando o usuário solicitou reembolso do plano
+  refundProcessedAt     DateTime? // Quando o estorno foi registrado no Asaas
+  refundAmount          Float? // Valor estornado (proporcional aos cupons não usados)
+  refundAsaasStatus     String? // Status do estorno no Asaas
+  refundUserConfirmedAt DateTime? // Usuário confirmou recebimento do estorno
+  refundUserDisputedAt  DateTime? // Usuário informou que não recebeu o estorno
+  adminInactiveAt       DateTime? // Quando o admin inativou o plano
+  adminInactiveReason   String? // Justificativa exibida ao usuário na Minha Conta
+  userHiddenAt          DateTime? // Quando o usuário removeu o plano da Minha Conta (mantém registro no admin)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  subscription          Subscription? // Assinatura recorrente associada
+  coupons               Coupon[] // Cupons gerados por este plano
 
   @@index([userId])
   @@index([status])
@@ -231,19 +257,19 @@ model Subscription {
 }
 
 model Service {
-  id            String      @id @default(uuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  appointmentId Int?
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  tipo          String
-  description   String?
-  status        String      @default("pendente") // pendente | aceito | em_andamento | recusado | cancelado | concluido
-  acceptedAt    DateTime?
+  id                  String       @id @default(uuid())
+  userId              String
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentId       Int?
+  appointment         Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  tipo                String
+  description         String?
+  status              String       @default("pendente") // pendente | aceito | em_andamento | recusado | cancelado | concluido
+  acceptedAt          DateTime?
   deliveryAudioUrl    String? // Link do arquivo entregue (WAV/MP3) após conclusão
   deliveryAudioFormat String? // "wav" | "mp3"
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -316,26 +342,33 @@ model PasswordResetCode {
 }
 
 model Coupon {
-  id            String    @id @default(uuid())
-  code          String    @unique
-  couponType    String    @default("plano") // "plano" ou "reembolso"
-  discountType  String // "percent", "fixed" ou "service"
-  discountValue Float // Valor do desconto (percentual ou fixo) ou ID do serviço
-  serviceType   String? // Tipo de serviço quando discountType = "service" (ex: "sessao", "captacao", "mix", etc.)
-  minValue      Float? // Valor mínimo do pedido para usar o cupom
-  maxDiscount   Float? // Desconto máximo (para cupons percentuais)
-  used          Boolean   @default(false)
-  usedAt        DateTime?
-  usedBy        String? // userId que usou o cupom
-  appointmentId Int? // ID do agendamento que gerou este cupom (para cupons de reembolso)
-  userPlanId    String? // ID do plano que gerou este cupom (para cupons de plano)
-  userPlan      UserPlan? @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
-  paymentId     String? // ID do pagamento que gerou este cupom (ex.: teste sem agendamento prévio)
-  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  assignedUserId String? // Associado manualmente pelo admin à Minha Conta deste usuário
-  assignedUser   User?   @relation("AssignedCoupons", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  expiresAt     DateTime?
-  createdAt     DateTime  @default(now())
+  id                    String    @id @default(uuid())
+  code                  String    @unique
+  couponType            String    @default("plano") // "plano", "agendamento" ou "reembolso"
+  discountType          String // "percent", "fixed" ou "service"
+  discountValue         Float // Valor do desconto (percentual ou fixo) ou ID do serviço
+  serviceType           String? // Tipo de serviço quando discountType = "service" (ex: "sessao", "captacao", "mix", etc.)
+  minValue              Float? // Valor mínimo do pedido para usar o cupom
+  maxDiscount           Float? // Desconto máximo (para cupons percentuais)
+  used                  Boolean   @default(false)
+  usedAt                DateTime?
+  usedBy                String? // userId que usou o cupom
+  appointmentId         Int? // ID do agendamento que gerou este cupom (para cupons de reembolso)
+  userPlanId            String? // ID do plano que gerou este cupom (para cupons de plano)
+  userPlan              UserPlan? @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
+  paymentId             String? // ID do pagamento que gerou este cupom (ex.: teste sem agendamento prévio)
+  payment               Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  assignedUserId        String? // Associado manualmente pelo admin à Minha Conta deste usuário
+  assignedUser          User?     @relation("AssignedCoupons", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  expiresAt             DateTime?
+  refundRequestedAt     DateTime?
+  refundProcessedAt     DateTime?
+  refundAmount          Float?
+  refundAsaasStatus     String?
+  refundUserConfirmedAt DateTime?
+  refundUserDisputedAt  DateTime?
+  userRemovedAt         DateTime?
+  createdAt             DateTime  @default(now())
 
   @@index([code])
   @@index([used])

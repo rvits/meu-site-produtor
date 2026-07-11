@@ -5,35 +5,74 @@ import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
-
+import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
+import {
+  countAgendamentoItemLines,
+  exigeAgendamentoDataHora,
+} from "@/app/lib/agendamento-payment-rules";
 import { getAsaasApiKey } from "@/app/lib/env";
+import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
 
-const agendamentoCheckoutSchema = z.object({
-  servicos: z.array(z.object({
-    id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
-  })).optional(),
-  beats: z.array(z.object({
-    id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
-  })).optional(),
-  data: z.string(),
-  hora: z.string(),
-  duracaoMinutos: z.number().optional(),
-  tipo: z.string().optional(),
-  observacoes: z.string().optional(),
-  total: z.number(),
-  paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
-  cupomCode: z.string().optional(), // Código do cupom aplicado
-});
+const agendamentoCheckoutSchema = z
+  .object({
+    servicos: z
+      .array(
+        z.object({
+          id: z.string(),
+          nome: z.string(),
+          quantidade: z.number(),
+          preco: z.number(),
+        })
+      )
+      .optional(),
+    beats: z
+      .array(
+        z.object({
+          id: z.string(),
+          nome: z.string(),
+          quantidade: z.number(),
+          preco: z.number(),
+        })
+      )
+      .optional(),
+    data: z.string().optional(),
+    hora: z.string().optional(),
+    duracaoMinutos: z.number().optional(),
+    tipo: z.string().optional(),
+    observacoes: z.string().optional(),
+    total: z.number(),
+    paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
+    cupomCode: z.string().optional(),
+    symbolicAgendamento: z.boolean().optional(),
+  })
+  .superRefine((payload, ctx) => {
+    const lines = countAgendamentoItemLines(payload.servicos, payload.beats);
+    if (lines === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione ao menos um serviço ou pacote.",
+      });
+    }
+    if (!exigeAgendamentoDataHora(payload.servicos, payload.beats)) return;
+    if (!payload.data?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione a data do agendamento.",
+        path: ["data"],
+      });
+    }
+    if (!payload.hora?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione o horário do agendamento.",
+        path: ["hora"],
+      });
+    }
+  });
 
 export async function POST(req: Request) {
   try {
@@ -63,8 +102,18 @@ export async function POST(req: Request) {
       );
     }
 
-    let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, total, paymentMethod, cupomCode } = validation.data;
+    let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, total, paymentMethod, cupomCode, symbolicAgendamento } =
+      validation.data;
     const userName = user.nomeArtistico;
+
+    if (symbolicAgendamento) {
+      if (!canUseSymbolicSimulation(user)) {
+        return NextResponse.json(
+          { error: "Acesso negado. Apenas administradores podem usar checkout simbólico de agendamento." },
+          { status: 403 }
+        );
+      }
+    }
 
     // Validar cupom e recalcular total quando aplicável
     if (cupomCode && cupomCode.trim()) {
@@ -98,28 +147,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🗓️ NÃO criar agendamento antes do pagamento
-    // Os dados serão armazenados no metadata e o agendamento será criado apenas após pagamento confirmado no webhook
-    const dataHoraISO = new Date(`${data}T${hora}:00`);
+    const requerDataHora = exigeAgendamentoDataHora(servicos || [], beats || []);
     const duracao = duracaoMinutos || 60;
 
-    // Verificar conflitos (mas não criar ainda). select só id para funcionar mesmo sem colunas cancelReason/etc no banco
-    const conflito = await prisma.appointment.findFirst({
-      where: {
-        status: { not: "cancelado" },
-        AND: [
-          { data: { lt: new Date(dataHoraISO.getTime() + (duracao * 60000)) } },
-          { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
-        ],
-      },
-      select: { id: true },
-    });
+    if (requerDataHora && data?.trim() && hora?.trim()) {
+      const dataHoraISO = new Date(`${data}T${hora}:00`);
+      const conflito = await prisma.appointment.findFirst({
+        where: {
+          ...appointmentOperationalFilter,
+          status: { not: "cancelado" },
+          AND: [
+            { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
+            { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
+          ],
+        },
+        select: { id: true },
+      });
 
-    if (conflito) {
-      return NextResponse.json(
-        { error: "Já existe um agendamento neste horário." },
-        { status: 409 }
-      );
+      if (conflito) {
+        return NextResponse.json(
+          { error: "Já existe um agendamento neste horário." },
+          { status: 409 }
+        );
+      }
     }
 
     console.log("[Asaas] Dados do agendamento preparados para criação após pagamento");
@@ -140,7 +190,11 @@ export async function POST(req: Request) {
       });
     }
     
-    const descricao = `Agendamento THouse Rec - ${data} ${hora}${descricaoItens.length > 0 ? ` - ${descricaoItens.join(", ")}` : ""}`;
+    const agendaLabel =
+      data?.trim() && hora?.trim() ? `${data} ${hora}` : "cupons (agendar depois)";
+    const descricao = `Agendamento THouse Rec - ${agendaLabel}${descricaoItens.length > 0 ? ` - ${descricaoItens.join(", ")}` : ""}`;
+
+    const valorCobradoAsaas = symbolicAgendamento ? SYMBOLIC_AGENDAMENTO_BRL : Number(total.toFixed(2));
 
     // Preparar itens para o checkout
     const items = [
@@ -148,7 +202,7 @@ export async function POST(req: Request) {
         id: "agendamento",
         title: descricao,
         quantity: 1,
-        unit_price: Number(total.toFixed(2)),
+        unit_price: valorCobradoAsaas,
         currency_id: "BRL",
       },
     ];
@@ -156,29 +210,36 @@ export async function POST(req: Request) {
     console.log("[Asaas] Criando checkout para agendamento:", {
       data,
       hora,
-      total,
+      totalCatalogo: total,
+      valorCobradoAsaas,
+      symbolicAgendamento: !!symbolicAgendamento,
       userEmail,
     });
 
     // Salvar metadata em PaymentMetadata para o webhook encontrar após o pagamento (linkagem Asaas)
-    const metadataCompleto = {
+    const metadataCompleto: Record<string, unknown> = {
       tipo: "agendamento",
       userId: user.id,
-      data,
-      hora,
+      ...(data?.trim() && hora?.trim() ? { data, hora } : {}),
       duracaoMinutos: duracaoMinutos || 60,
       tipoAgendamento: tipo || "sessao",
       observacoes: observacoes || "",
       servicos: servicos || [],
       beats: beats || [],
       total: total.toString(),
+      chargedAmount: valorCobradoAsaas.toString(),
       paymentMethod: paymentMethod || null,
       cupomCode: cupomCode || undefined,
     };
+    if (symbolicAgendamento) {
+      metadataCompleto.symbolicAgendamento = true;
+    }
     const expiresAtAg = new Date();
     expiresAtAg.setHours(expiresAtAg.getHours() + 24);
+
+    let paymentMetadataRow: { id: string } | null = null;
     try {
-      await prisma.paymentMetadata.create({
+      paymentMetadataRow = await prisma.paymentMetadata.create({
         data: {
           userId: user.id,
           metadata: JSON.stringify(metadataCompleto),
@@ -188,6 +249,16 @@ export async function POST(req: Request) {
     } catch (metaErr: any) {
       console.warn("[Asaas Checkout Agendamento] PaymentMetadata não criado (continuando):", metaErr?.message);
     }
+
+    const backSuccess = symbolicAgendamento
+      ? `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=agendamento`
+      : `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`;
+    const backFailure = symbolicAgendamento
+      ? `${SITE_URL}/pagamentos/falha?teste=true`
+      : `${SITE_URL}/pagamentos/falha`;
+    const backPending = symbolicAgendamento
+      ? `${SITE_URL}/pagamentos/pendente?teste=true`
+      : `${SITE_URL}/pagamentos/pendente`;
 
     // Criar checkout (externalReference = apenas userId; metadata completo está em PaymentMetadata)
     const checkoutResponse = await provider.createCheckout({
@@ -202,17 +273,31 @@ export async function POST(req: Request) {
         userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
       },
       backUrls: {
-        success: `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`,
-        failure: `${SITE_URL}/pagamentos/falha`,
-        pending: `${SITE_URL}/pagamentos/pendente`,
+        success: backSuccess,
+        failure: backFailure,
+        pending: backPending,
       },
     });
+
+    const asaasPaymentId = (checkoutResponse as { preferenceId?: string }).preferenceId;
+    if (asaasPaymentId && paymentMetadataRow?.id) {
+      try {
+        await prisma.paymentMetadata.update({
+          where: { id: paymentMetadataRow.id },
+          data: { asaasId: asaasPaymentId },
+        });
+        console.log("[Asaas Checkout Agendamento] PaymentMetadata.asaasId atualizado:", asaasPaymentId);
+      } catch (e) {
+        console.warn("[Asaas Checkout Agendamento] Erro ao atualizar PaymentMetadata.asaasId:", e);
+      }
+    }
 
     console.log("[Asaas] Checkout criado com sucesso:", checkoutResponse.initPoint);
     
     return NextResponse.json({ 
       initPoint: checkoutResponse.initPoint,
       provider: "asaas",
+      symbolicAgendamento: !!symbolicAgendamento,
     });
   } catch (err: any) {
     console.error("[Asaas] Erro ao criar checkout de agendamento:", err);

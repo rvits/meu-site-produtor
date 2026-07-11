@@ -16,6 +16,7 @@ const MENU = [
   { label: "Serviços Gerais", href: "/admin/servicos-aceitos" },
   { label: "Pagamentos", href: "/admin/pagamentos" },
   { label: "Estatísticas", href: "/admin/estatisticas" },
+  { label: "Engenharia", href: "/admin/engenharia" },
   { label: "Chats Pendentes", href: "/admin/chats-pendentes" },
   { label: "Chats Gerais", href: "/admin/chats-gerais" },
   { label: "Pausa Virtual", href: "/admin/manutencao" },
