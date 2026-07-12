@@ -6,6 +6,7 @@ import { sendAppointmentAcceptedEmail, sendAppointmentRejectedEmail } from "@/ap
 import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
 import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
+import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-services";
 
 const updateSchema = z.object({
   status: z.string().optional(),
@@ -343,6 +344,8 @@ export async function PATCH(req: Request) {
 
     try {
       if (ranAcceptSideEffects) {
+        await ensureServicesForAppointment(idNum);
+
         await prisma.service.updateMany({
           where: { appointmentId: idNum },
           data: { status: "aceito", acceptedAt: new Date() },

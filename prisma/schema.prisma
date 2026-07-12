@@ -20,7 +20,7 @@ model User {
   cidade          String
   bairro          String
   cep             String?
-  cpf             String?
+  cpf             String?   @unique
   dataNascimento  DateTime
   sexo            String?
   genero          String?

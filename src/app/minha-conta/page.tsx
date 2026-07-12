@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
+import { subscribeAppDataChanged, isLocalhostClient } from "../lib/app-data-events";
 
 interface EntregaServico {
   id: string;
@@ -100,6 +101,19 @@ export default function MinhaContaPage() {
   const [processandoPlano, setProcessandoPlano] = useState(false);
   const [erroProcessarPlano, setErroProcessarPlano] = useState<string | null>(null);
   const [vincularCuponsTeste, setVincularCuponsTeste] = useState(false);
+  const [showTestCouponTools, setShowTestCouponTools] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setShowTestCouponTools(false);
+      return;
+    }
+    setShowTestCouponTools(
+      isLocalhostClient() ||
+        user.role === "ADMIN" ||
+        user.email === "thouse.rec.tremv@gmail.com"
+    );
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -109,12 +123,19 @@ export default function MinhaContaPage() {
     }
     carregarDados();
     
-    // Atualizar dados automaticamente a cada 1 minuto
+    const unsubscribe = subscribeAppDataChanged(() => {
+      carregarDados();
+    });
+
+    // Atualizar dados automaticamente a cada 30 segundos
     const interval = setInterval(() => {
       carregarDados();
-    }, 60000);
+    }, 30000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
   }, [user, authLoading]);
 
   async function carregarDados() {
@@ -482,6 +503,8 @@ export default function MinhaContaPage() {
                 Se o admin associou cupons ao seu e-mail, clique em <strong>Atualizar</strong> no topo da página ou recarregue (F5).
               </p>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                {showTestCouponTools && (
+                  <>
                 <p className="text-sm text-zinc-300 mb-2">
                   Pagou R$ 5 de teste (agendamento) e os cupons não aparecem aqui?
                 </p>
@@ -516,6 +539,8 @@ export default function MinhaContaPage() {
                 >
                   {vincularCuponsTeste ? "Vinculando..." : "Vincular cupons de teste à minha conta"}
                 </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (

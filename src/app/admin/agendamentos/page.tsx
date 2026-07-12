@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { notifyAppDataChanged, subscribeAppDataChanged } from "@/app/lib/app-data-events";
 
 interface PagamentoConfirmado {
   id: string;
@@ -112,6 +113,7 @@ function AdminAgendamentosContent() {
 
       if (res.ok) {
         await carregarAgendamentos();
+        notifyAppDataChanged("admin-agendamento-updated");
       }
     } catch (err) {
       console.error("Erro ao atualizar agendamento", err);

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { subscribeAppDataChanged, notifyAppDataChanged } from "@/app/lib/app-data-events";
+
+const ACTIVE_SERVICE_STATUSES = new Set(["pendente", "aceito", "em_andamento"]);
 
 interface Appointment {
   id: number;
@@ -43,6 +46,14 @@ export default function AdminServicosSelecionadosPage() {
 
   useEffect(() => {
     carregarServicos();
+    const unsubscribe = subscribeAppDataChanged(() => {
+      carregarServicos();
+    });
+    const interval = setInterval(carregarServicos, 30000);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   async function carregarServicos() {
@@ -52,7 +63,8 @@ export default function AdminServicosSelecionadosPage() {
       if (res.ok) {
         const data = await res.json();
         const comAgendamento = (data.servicos || []).filter(
-          (s: Service) => s.appointmentId != null
+          (s: Service) =>
+            s.appointmentId != null && ACTIVE_SERVICE_STATUSES.has(s.status)
         );
         setServicos(comAgendamento);
       }
@@ -113,8 +125,10 @@ export default function AdminServicosSelecionadosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "aceito" }),
       });
-      if (res.ok) await carregarServicos();
-      else alert("Erro ao atualizar. Tente novamente.");
+      if (res.ok) {
+        await carregarServicos();
+        notifyAppDataChanged("admin-servico-updated");
+      } else alert("Erro ao atualizar. Tente novamente.");
     } catch (err) {
       console.error("Erro ao atualizar serviço", err);
       alert("Erro ao atualizar serviço.");
