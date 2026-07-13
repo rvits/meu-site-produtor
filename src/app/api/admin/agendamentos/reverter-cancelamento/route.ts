@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
+import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-services";
+import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 
 export async function POST(req: Request) {
   try {
@@ -13,8 +15,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
     }
 
+    const idNum = parseInt(id, 10);
     const agendamento = await prisma.appointment.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: idNum },
       include: {
         user: {
           select: {
@@ -29,7 +32,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
-    // Só pode reverter cancelamento de agendamentos cancelados
     if (agendamento.status !== "cancelado") {
       return NextResponse.json(
         { error: "Apenas agendamentos cancelados podem ter o cancelamento revertido" },
@@ -37,17 +39,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar se o horário ainda está disponível
     const dataHoraISO = new Date(agendamento.data);
     const duracao = agendamento.duracaoMinutos || 60;
 
     const conflito = await prisma.appointment.findFirst({
       where: {
-        id: { not: parseInt(id) }, // Excluir o próprio agendamento
-        status: { in: ["aceito", "confirmado"] }, // Apenas agendamentos aceitos ocupam horário
+        id: { not: idNum },
+        status: { in: ["aceito", "confirmado", "em_andamento"] },
         AND: [
-          { data: { lt: new Date(dataHoraISO.getTime() + (duracao * 60000)) } },
-          { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
+          { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
+          { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
         ],
       },
     });
@@ -59,9 +60,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Reverter cancelamento: voltar para status "aceito" e limpar campos de cancelamento
     await prisma.appointment.update({
-      where: { id: parseInt(id) },
+      where: { id: idNum },
       data: {
         status: "aceito",
         cancelReason: null,
@@ -72,9 +72,20 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log(`[Admin] Cancelamento do agendamento ${id} revertido. Horário reservado novamente.`);
+    // Service é autoridade operacional: realinhar após reabrir a solicitação
+    await ensureServicesForAppointment(idNum);
+    await prisma.service.updateMany({
+      where: {
+        appointmentId: idNum,
+        status: { in: ["cancelado", "recusado"] },
+      },
+      data: { status: "aceito", acceptedAt: new Date() },
+    });
+    await reconcileAppointmentWithServices(idNum);
 
-    return NextResponse.json({ 
+    console.log(`[Admin] Cancelamento do agendamento ${id} revertido. Services realinhados.`);
+
+    return NextResponse.json({
       message: "Cancelamento revertido com sucesso",
       agendamento: {
         id: agendamento.id,

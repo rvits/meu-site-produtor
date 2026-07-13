@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { subscribeAppDataChanged } from "@/app/lib/app-data-events";
 
 interface Appointment {
   id: number;
@@ -32,13 +33,28 @@ export default function AdminServicosGeraisPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    carregarServicos();
+    carregarServicos(true);
+    const unsubscribe = subscribeAppDataChanged(() => {
+      carregarServicos(false);
+    });
+    const interval = setInterval(() => carregarServicos(false), 30000);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
-  async function carregarServicos() {
+  async function carregarServicos(withRepair = false) {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/servicos");
+      const url = withRepair ? "/api/admin/servicos?repair=1" : "/api/admin/servicos";
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         setServicos(data.servicos || []);

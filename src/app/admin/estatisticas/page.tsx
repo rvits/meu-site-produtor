@@ -45,9 +45,11 @@ interface Estatisticas {
     total: number;
     pendentes: number;
     aceitos: number;
+    emAndamento?: number;
     aFazer?: number;
     concluidos?: number;
     cancelados?: number;
+    recusados?: number;
   };
   usoDiario: {
     data: string;
@@ -196,9 +198,11 @@ export default function AdminEstatisticasPage() {
 
   const servicosComFallback = {
     ...stats.servicos,
+    emAndamento: stats.servicos.emAndamento ?? 0,
     aFazer: stats.servicos.aFazer ?? stats.servicos.aceitos,
     concluidos: stats.servicos.concluidos ?? 0,
     cancelados: stats.servicos.cancelados ?? 0,
+    recusados: stats.servicos.recusados ?? 0,
   };
 
   return (
@@ -642,7 +646,7 @@ export default function AdminEstatisticasPage() {
             {graficoServicos ? "Ocultar análises" : "Ver gráfico e por tipo"}
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
             <div className="text-3xl font-bold text-red-400">{servicosComFallback.total}</div>
             <div className="text-sm text-zinc-400 mt-1">Total</div>
@@ -654,6 +658,10 @@ export default function AdminEstatisticasPage() {
           <div className="bg-zinc-900/50 rounded-lg p-4">
             <div className="text-3xl font-bold text-green-400">{servicosComFallback.aceitos}</div>
             <div className="text-sm text-zinc-400 mt-1">Aceitos</div>
+          </div>
+          <div className="bg-zinc-900/50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-sky-400">{servicosComFallback.emAndamento}</div>
+            <div className="text-sm text-zinc-400 mt-1">Em andamento</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
             <div className="text-3xl font-bold text-blue-400">{servicosComFallback.aFazer}</div>
@@ -746,6 +754,7 @@ export default function AdminEstatisticasPage() {
                         <Legend />
                         <Bar dataKey="pendentes" stackId="a" fill="#eab308" name="Pendentes" radius={[0, 0, 0, 0]} />
                         <Bar dataKey="aceitos" stackId="a" fill="#22c55e" name="Aceitos" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="emAndamento" stackId="a" fill="#0ea5e9" name="Em andamento" radius={[0, 0, 0, 0]} />
                         <Bar dataKey="concluidos" stackId="a" fill="#10b981" name="Concluídos" radius={[0, 0, 0, 0]} />
                         <Bar dataKey="cancelados" stackId="a" fill="#f97316" name="Cancelados" radius={[0, 0, 0, 0]} />
                         <Bar dataKey="recusados" stackId="a" fill="#ef4444" name="Recusados" radius={[0, 0, 0, 0]} />

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
-import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 import { validateDeliveryAudioUrl } from "@/app/lib/delivery-url-validation";
+import { repairOrphanAppointmentServices } from "@/app/lib/ensure-appointment-services";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -13,67 +12,23 @@ const updateSchema = z.object({
   deliveryAudioFormat: z.enum(["wav", "mp3"]).optional(),
 });
 
-function mapAppointmentStatusToServiceStatus(appointmentStatus: string): string {
-  if (appointmentStatus === "em_andamento") return "em_andamento";
-  if (appointmentStatus === "concluido") return "concluido";
-  if (appointmentStatus === "aceito" || appointmentStatus === "confirmado") return "aceito";
-  if (appointmentStatus === "cancelado") return "cancelado";
-  if (appointmentStatus === "recusado") return "recusado";
-  return "pendente";
-}
+const NO_STORE = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+};
 
-export async function GET() {
+/**
+ * GET puro da autoridade Service.
+ * Repair opcional via ?repair=1 (usa ensureServices — sem lógica duplicada de create).
+ */
+export async function GET(req: Request) {
   try {
     await requireAdmin();
 
-    // Backfill: agendamentos que ainda não têm nenhum serviço vinculado (ex.: criados com cupom antes desta feature)
-    const appointmentIdsComServico = await prisma.service.findMany({
-      where: { appointmentId: { not: null } },
-      select: { appointmentId: true },
-      distinct: ["appointmentId"],
-    });
-    const idsComServico = appointmentIdsComServico
-      .map((s) => s.appointmentId)
-      .filter((id): id is number => id != null);
-
-    const appointmentsSemServicos = await prisma.appointment.findMany({
-      where: { id: { notIn: idsComServico.length > 0 ? idsComServico : [0] } },
-      include: {
-        user: { select: { id: true } },
-      },
-    });
-
-    for (const apt of appointmentsSemServicos) {
-      const couponsApt = await prisma.coupon.findMany({
-        where: { appointmentId: apt.id },
-        select: {
-          id: true,
-          appointmentId: true,
-          serviceType: true,
-          paymentId: true,
-          userPlanId: true,
-          couponType: true,
-          createdAt: true,
-        },
-      });
-      const coupon = pickPrimaryCouponForDisplay(couponsApt);
-      const tipo = normalizeServiceTypeId(String(coupon?.serviceType || apt.tipo || "sessao"));
-      const description = `Agendamento ${tipo}`;
-      const status = mapAppointmentStatusToServiceStatus(apt.status);
-      try {
-        await prisma.service.create({
-          data: {
-            userId: apt.userId,
-            appointmentId: apt.id,
-            tipo,
-            description,
-            status,
-            ...(status === "aceito" ? { acceptedAt: new Date() } : {}),
-          },
-        });
-      } catch (e) {
-        console.warn("[Admin Serviços] Backfill skip agendamento", apt.id, e);
-      }
+    const { searchParams } = new URL(req.url);
+    let repaired = 0;
+    if (searchParams.get("repair") === "1") {
+      repaired = await repairOrphanAppointmentServices();
     }
 
     const servicos = await prisma.service.findMany({
@@ -96,7 +51,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ servicos });
+    return NextResponse.json({ servicos, repaired }, { headers: NO_STORE });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });

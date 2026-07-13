@@ -18,7 +18,16 @@ function defaultStats() {
       esteMes: 0,
       esteMesCancelados: 0,
     },
-    servicos: { total: 0, pendentes: 0, aceitos: 0, aFazer: 0, concluidos: 0, cancelados: 0 },
+    servicos: {
+      total: 0,
+      pendentes: 0,
+      aceitos: 0,
+      emAndamento: 0,
+      aFazer: 0,
+      concluidos: 0,
+      cancelados: 0,
+      recusados: 0,
+    },
     usoDiario: [] as { data: string; usuarios: number }[],
   };
 }
@@ -116,6 +125,7 @@ export async function GET() {
   }
 
   try {
+    // Autoridade operacional = Service (HS-02B)
     stats.servicos.total = await prisma.service.count();
     stats.servicos.pendentes = await prisma.service.count({
       where: { status: "pendente" },
@@ -123,12 +133,19 @@ export async function GET() {
     stats.servicos.aceitos = await prisma.service.count({
       where: { status: "aceito" },
     });
-    stats.servicos.aFazer = stats.servicos.aceitos; // aceitos = ainda a fazer (não concluídos)
+    stats.servicos.emAndamento = await prisma.service.count({
+      where: { status: "em_andamento" },
+    });
+    stats.servicos.aFazer =
+      stats.servicos.pendentes + stats.servicos.aceitos + stats.servicos.emAndamento;
     stats.servicos.concluidos = await prisma.service.count({
       where: { status: "concluido" },
     });
     stats.servicos.cancelados = await prisma.service.count({
       where: { status: "cancelado" },
+    });
+    stats.servicos.recusados = await prisma.service.count({
+      where: { status: "recusado" },
     });
   } catch (e) {
     console.warn("[Admin Stats] Serviços:", e);

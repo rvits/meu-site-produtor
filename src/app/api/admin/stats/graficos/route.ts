@@ -242,9 +242,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (secao === "agendamentos-servicos") {
-      const appointments = await prisma.appointment.findMany({
-        where: { data: { gte: inicio, lte: fim }, cancelledAt: null },
-        select: { data: true, tipo: true },
+      // HS-02B: tipos operacionais a partir de Service.tipo (não Appointment.tipo)
+      const services = await prisma.service.findMany({
+        where: { createdAt: { gte: inicio, lte: fim } },
+        select: { createdAt: true, tipo: true },
       });
       const allLabels: string[] = [];
       const byTipo = new Map<string, Map<string, number>>();
@@ -266,8 +267,8 @@ export async function GET(req: NextRequest) {
           hInicio.setHours(h, 0, 0, 0);
           const hFim = new Date(inicio);
           hFim.setHours(h, 59, 59, 999);
-          appointments.forEach((a) => {
-            if (a.data >= hInicio && a.data <= hFim) addPoint(a.tipo, label, 1);
+          services.forEach((s) => {
+            if (s.createdAt >= hInicio && s.createdAt <= hFim) addPoint(s.tipo || "sessao", label, 1);
           });
         }
       } else {
@@ -281,13 +282,13 @@ export async function GET(req: NextRequest) {
           dayStart.setHours(0, 0, 0, 0);
           const dayEnd = new Date(dayStart);
           dayEnd.setHours(23, 59, 59, 999);
-          appointments.forEach((a) => {
-            if (a.data >= dayStart && a.data <= dayEnd) addPoint(a.tipo, label, 1);
+          services.forEach((s) => {
+            if (s.createdAt >= dayStart && s.createdAt <= dayEnd) addPoint(s.tipo || "sessao", label, 1);
           });
         }
       }
 
-      const tipos = Array.from(new Set(appointments.map((a) => a.tipo)));
+      const tipos = Array.from(new Set(services.map((s) => s.tipo || "sessao")));
       if (tipos.length === 0) tipos.push("(nenhum)");
       const series = tipos.map((tipo) => {
         ensureTipo(tipo);
@@ -305,9 +306,18 @@ export async function GET(req: NextRequest) {
         where: { createdAt: { gte: inicio, lte: fim } },
         select: { createdAt: true, status: true },
       });
-      const statusKeys = ["pendente", "aceito", "concluido", "cancelado", "recusado"] as const;
       const allLabels: string[] = [];
-      const bucketCounts = new Map<string, { pendentes: number; aceitos: number; concluidos: number; cancelados: number; recusados: number }>();
+      const bucketCounts = new Map<
+        string,
+        {
+          pendentes: number;
+          aceitos: number;
+          emAndamento: number;
+          concluidos: number;
+          cancelados: number;
+          recusados: number;
+        }
+      >();
 
       const getLabel = (d: Date, p: Periodo) => {
         if (p === "diario") return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -317,7 +327,14 @@ export async function GET(req: NextRequest) {
       const ensureBucket = (label: string) => {
         if (!bucketCounts.has(label)) {
           allLabels.push(label);
-          bucketCounts.set(label, { pendentes: 0, aceitos: 0, concluidos: 0, cancelados: 0, recusados: 0 });
+          bucketCounts.set(label, {
+            pendentes: 0,
+            aceitos: 0,
+            emAndamento: 0,
+            concluidos: 0,
+            cancelados: 0,
+            recusados: 0,
+          });
         }
         return bucketCounts.get(label)!;
       };
@@ -334,6 +351,7 @@ export async function GET(req: NextRequest) {
           if (b) {
             if (s.status === "pendente") b.pendentes++;
             else if (s.status === "aceito") b.aceitos++;
+            else if (s.status === "em_andamento") b.emAndamento++;
             else if (s.status === "concluido") b.concluidos++;
             else if (s.status === "cancelado") b.cancelados++;
             else if (s.status === "recusado") b.recusados++;
@@ -355,6 +373,7 @@ export async function GET(req: NextRequest) {
               const b = bucketCounts.get(label)!;
               if (s.status === "pendente") b.pendentes++;
               else if (s.status === "aceito") b.aceitos++;
+              else if (s.status === "em_andamento") b.emAndamento++;
               else if (s.status === "concluido") b.concluidos++;
               else if (s.status === "cancelado") b.cancelados++;
               else if (s.status === "recusado") b.recusados++;
@@ -367,9 +386,11 @@ export async function GET(req: NextRequest) {
         const b = bucketCounts.get(label)!;
         return {
           label,
-          solicitados: b.pendentes + b.aceitos + b.concluidos + b.cancelados + b.recusados,
+          solicitados:
+            b.pendentes + b.aceitos + b.emAndamento + b.concluidos + b.cancelados + b.recusados,
           pendentes: b.pendentes,
           aceitos: b.aceitos,
+          emAndamento: b.emAndamento,
           concluidos: b.concluidos,
           cancelados: b.cancelados,
           recusados: b.recusados,

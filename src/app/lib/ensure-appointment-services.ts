@@ -6,10 +6,14 @@ import {
 import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
 import { parsePaymentAppointmentIds } from "@/app/lib/symbolic-payment";
+import {
+  mapRequestStatusToServiceStatus,
+  parsePaymentMetadataJson,
+} from "@/app/lib/service-authority";
 
 /**
- * Garante que um agendamento aceito tenha ao menos um Service vinculado.
- * Idempotente — não duplica linhas existentes.
+ * Garante ≥1 Service vinculado ao Appointment (idempotente).
+ * Único ponto de backfill/repair além da factory de pagamento e com-cupom.
  */
 export async function ensureServicesForAppointment(appointmentId: number): Promise<number> {
   const existing = await prisma.service.count({ where: { appointmentId } });
@@ -41,18 +45,13 @@ export async function ensureServicesForAppointment(appointmentId: number): Promi
     parsePaymentAppointmentIds(p).includes(appointmentId)
   );
 
-  if (linkedPayment) {
-    const metaRow = linkedPayment.asaasId
-      ? await prisma.paymentMetadata.findFirst({
-          where: { asaasId: linkedPayment.asaasId },
-          orderBy: { createdAt: "desc" },
-          select: { metadata: true },
-        })
-      : null;
-    const metadata =
-      metaRow?.metadata && typeof metaRow.metadata === "object"
-        ? (metaRow.metadata as Record<string, unknown>)
-        : {};
+  if (linkedPayment?.asaasId) {
+    const metaRow = await prisma.paymentMetadata.findFirst({
+      where: { asaasId: linkedPayment.asaasId },
+      orderBy: { createdAt: "desc" },
+      select: { metadata: true },
+    });
+    const metadata = parsePaymentMetadataJson(metaRow?.metadata);
     const { services, beats } = parseAgendamentoMetadataItems(metadata);
     if (services.length > 0 || beats.length > 0) {
       return createServicesForAppointmentIfMissing({
@@ -79,15 +78,7 @@ export async function ensureServicesForAppointment(appointmentId: number): Promi
   });
   const coupon = pickPrimaryCouponForDisplay(coupons);
   const tipo = normalizeServiceTypeId(String(coupon?.serviceType || apt.tipo || "sessao"));
-
-  const mapStatus =
-    apt.status === "aceito" || apt.status === "confirmado"
-      ? "aceito"
-      : apt.status === "em_andamento"
-        ? "em_andamento"
-        : apt.status === "concluido"
-          ? "concluido"
-          : "pendente";
+  const mapStatus = mapRequestStatusToServiceStatus(apt.status);
 
   await prisma.service.create({
     data: {
@@ -101,4 +92,36 @@ export async function ensureServicesForAppointment(appointmentId: number): Promi
   });
 
   return 1;
+}
+
+/**
+ * Repair explícito: appointments sem Service (mínimo necessário para A5 / listagens).
+ * Preferir chamar no aceite; disponível também via GET?repair=1.
+ */
+export async function repairOrphanAppointmentServices(limit = 200): Promise<number> {
+  const withService = await prisma.service.findMany({
+    where: { appointmentId: { not: null } },
+    select: { appointmentId: true },
+    distinct: ["appointmentId"],
+  });
+  const idsComServico = withService
+    .map((s) => s.appointmentId)
+    .filter((id): id is number => id != null);
+
+  const orphans = await prisma.appointment.findMany({
+    where: {
+      id: { notIn: idsComServico.length > 0 ? idsComServico : [0] },
+      status: {
+        notIn: ["cancelado", "recusado"],
+      },
+    },
+    select: { id: true },
+    take: limit,
+  });
+
+  let created = 0;
+  for (const apt of orphans) {
+    created += await ensureServicesForAppointment(apt.id);
+  }
+  return created;
 }

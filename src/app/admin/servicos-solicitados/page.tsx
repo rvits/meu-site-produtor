@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ACTIVE_OPERATIONAL_SERVICE_STATUSES } from "@/app/lib/service-authority";
 import { subscribeAppDataChanged, notifyAppDataChanged } from "@/app/lib/app-data-events";
 
-const ACTIVE_SERVICE_STATUSES = new Set(["pendente", "aceito", "em_andamento"]);
+const ACTIVE_SERVICE_STATUSES = ACTIVE_OPERATIONAL_SERVICE_STATUSES;
 
 interface Appointment {
   id: number;
@@ -45,21 +46,28 @@ export default function AdminServicosSelecionadosPage() {
   } | null>(null);
 
   useEffect(() => {
-    carregarServicos();
+    carregarServicos(true);
     const unsubscribe = subscribeAppDataChanged(() => {
-      carregarServicos();
+      carregarServicos(false);
     });
-    const interval = setInterval(carregarServicos, 30000);
+    const interval = setInterval(() => carregarServicos(false), 30000);
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
   }, []);
 
-  async function carregarServicos() {
+  async function carregarServicos(withRepair = false) {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/servicos");
+      const url = withRepair ? "/api/admin/servicos?repair=1" : "/api/admin/servicos";
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         const comAgendamento = (data.servicos || []).filter(
