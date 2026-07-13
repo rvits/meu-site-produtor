@@ -4,9 +4,13 @@ import { requireAdmin } from "@/app/lib/auth";
 import { z } from "zod";
 import { sendAppointmentAcceptedEmail, sendAppointmentRejectedEmail } from "@/app/lib/sendEmail";
 import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
-import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
+import {
+  approveAppointment,
+  rejectAppointment,
+  startServiceWork,
+} from "@/app/lib/domain/workflow";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
-import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-services";
+
 
 const updateSchema = z.object({
   status: z.string().optional(),
@@ -216,202 +220,101 @@ export async function PATCH(req: Request) {
       (agendamentoAntes.status === "aceito" || agendamentoAntes.status === "confirmado") &&
       blockedIncoming === undefined;
 
-    let agendamento:
-      | (typeof agendamentoAntes & {
-          user: { nomeArtistico: string; email: string };
-        })
-      | null;
-    let ranAcceptSideEffects = false;
-    let ranRejectSideEffects = false;
-    let ranStartSideEffects = false;
-
     if (acceptFromPending && statusIncoming) {
-      const cnt = await prisma.appointment.updateMany({
-        where: { id: idNum, status: "pendente" },
-        data: { status: statusIncoming },
-      });
-      if (cnt.count === 0) {
-        agendamento = await prisma.appointment.findUnique({
-          where: { id: idNum },
-          include: userInclude,
-        });
-        if (
-          agendamento &&
-          (agendamento.status === "aceito" || agendamento.status === "confirmado")
-        ) {
-          await reconcileAppointmentWithServices(idNum);
-          return NextResponse.json({ agendamento, alreadyProcessed: true });
-        }
-        return NextResponse.json(
-          { error: "Não foi possível aceitar: estado do agendamento mudou. Atualize a lista." },
-          { status: 409 }
-        );
+      const result = await approveAppointment(
+        idNum,
+        statusIncoming === "confirmado" ? "confirmado" : "aceito"
+      );
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.httpStatus });
       }
-      ranAcceptSideEffects = true;
-      agendamento = await prisma.appointment.findUnique({
-        where: { id: idNum },
-        include: userInclude,
+      if (!result.alreadyProcessed) {
+        try {
+          await sendAppointmentAcceptedEmail(
+            agendamentoAntes.user.email,
+            agendamentoAntes.user.nomeArtistico,
+            result.data.agendamento.data,
+            result.data.agendamento.tipo
+          );
+        } catch (emailError: any) {
+          console.error("[Admin] Erro ao enviar email de aceitação:", emailError);
+        }
+      }
+      return NextResponse.json({
+        agendamento: result.data.agendamento,
+        alreadyProcessed: result.alreadyProcessed,
       });
-    } else if (rejectFromPending) {
-      const cnt = await prisma.appointment.updateMany({
-        where: { id: idNum, status: "pendente" },
-        data: {
-          status: "recusado",
-          cancelReason: rejectionMsg,
-          cancelledAt: new Date(),
+    }
+
+    if (rejectFromPending) {
+      const result = await rejectAppointment(idNum, rejectionMsg);
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.httpStatus });
+      }
+      if (!result.alreadyProcessed) {
+        try {
+          await sendAppointmentRejectedEmail(
+            agendamentoAntes.user.email,
+            agendamentoAntes.user.nomeArtistico,
+            result.data.agendamento.cancelReason || rejectionMsg,
+            undefined
+          );
+        } catch (emailError: any) {
+          console.error("[Admin] Erro ao enviar email de recusa:", emailError);
+        }
+      }
+      return NextResponse.json({
+        agendamento: result.data.agendamento,
+        alreadyProcessed: result.alreadyProcessed,
+      });
+    }
+
+    if (startWorkTransition) {
+      const result = await startServiceWork(idNum);
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.httpStatus });
+      }
+      return NextResponse.json({
+        agendamento: result.data.agendamento,
+        alreadyProcessed: result.alreadyProcessed,
+      });
+    }
+
+    // Bloqueio / campos administrativos (não são transições de workflow operacional)
+    const updateData: Record<string, unknown> = {};
+    if (validation.data.blocked !== undefined) {
+      updateData.blocked = validation.data.blocked;
+      if (validation.data.blocked) {
+        updateData.blockedAt = new Date();
+        updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
+      } else {
+        updateData.blockedAt = null;
+        updateData.blockedReason = null;
+      }
+    } else if (validation.data.status !== undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "Transição de status não permitida fora do workflow (approve/reject/start/cancel).",
         },
-      });
-      if (cnt.count === 0) {
-        agendamento = await prisma.appointment.findUnique({
-          where: { id: idNum },
-          include: userInclude,
-        });
-        if (agendamento?.status === "recusado") {
-          await reconcileAppointmentWithServices(idNum);
-          return NextResponse.json({ agendamento, alreadyProcessed: true });
-        }
-        return NextResponse.json(
-          { error: "Não foi possível recusar: estado do agendamento mudou." },
-          { status: 409 }
-        );
-      }
-      ranRejectSideEffects = true;
-      agendamento = await prisma.appointment.findUnique({
-        where: { id: idNum },
-        include: userInclude,
-      });
-    } else if (startWorkTransition) {
-      const cnt = await prisma.appointment.updateMany({
-        where: { id: idNum, status: { in: ["aceito", "confirmado"] } },
-        data: { status: "em_andamento" },
-      });
-      if (cnt.count === 0) {
-        agendamento = await prisma.appointment.findUnique({
-          where: { id: idNum },
-          include: userInclude,
-        });
-        if (agendamento?.status === "em_andamento") {
-          await prisma.service.updateMany({
-            where: {
-              appointmentId: idNum,
-              status: { in: ["aceito", "pendente"] },
-            },
-            data: { status: "em_andamento" },
-          });
-          await reconcileAppointmentWithServices(idNum);
-          return NextResponse.json({ agendamento, alreadyProcessed: true });
-        }
-        return NextResponse.json(
-          { error: "Não foi possível iniciar: agendamento não está aceito/confirmado." },
-          { status: 409 }
-        );
-      }
-      ranStartSideEffects = true;
-      agendamento = await prisma.appointment.findUnique({
-        where: { id: idNum },
-        include: userInclude,
-      });
-    } else {
-      const updateData: Record<string, unknown> = {};
-      if (validation.data.status !== undefined) {
-        updateData.status = validation.data.status;
-      }
-      if (validation.data.status === "recusado") {
-        updateData.cancelReason = rejectionMsg;
-        updateData.cancelledAt = new Date();
-      }
-      if (validation.data.blocked !== undefined) {
-        updateData.blocked = validation.data.blocked;
-        if (validation.data.blocked) {
-          updateData.blockedAt = new Date();
-          updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
-        } else {
-          updateData.blockedAt = null;
-          updateData.blockedReason = null;
-        }
-      }
-
-      agendamento = await prisma.appointment.update({
-        where: { id: idNum },
-        data: updateData as any,
-        include: userInclude,
-      });
+        { status: 400 }
+      );
     }
 
-    if (!agendamento) {
-      return NextResponse.json({ error: "Agendamento não encontrado após atualização." }, { status: 500 });
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "Nenhuma alteração solicitada" }, { status: 400 });
     }
 
-    try {
-      if (ranAcceptSideEffects) {
-        await ensureServicesForAppointment(idNum);
-
-        await prisma.service.updateMany({
-          where: { appointmentId: idNum },
-          data: { status: "aceito", acceptedAt: new Date() },
-        });
-
-        await prisma.coupon.updateMany({
-          where: {
-            appointmentId: idNum,
-            used: false,
-            paymentId: null,
-            couponType: { not: "reembolso" },
-          },
-          data: {
-            used: true,
-            usedAt: new Date(),
-            usedBy: agendamento.userId,
-          },
-        });
-
-        await sendAppointmentAcceptedEmail(
-          agendamento.user.email,
-          agendamento.user.nomeArtistico,
-          agendamento.data,
-          agendamento.tipo
-        );
-        console.log(`[Admin] Email de aceitação enviado para ${agendamento.user.email}`);
-      }
-
-      if (ranStartSideEffects) {
-        await prisma.service.updateMany({
-          where: {
-            appointmentId: idNum,
-            status: { in: ["aceito", "pendente"] },
-          },
-          data: { status: "em_andamento" },
-        });
-      }
-
-      if (ranRejectSideEffects) {
-        await prisma.service.updateMany({
-          where: { appointmentId: idNum },
-          data: { status: "recusado" },
-        });
-
-        await releaseBookingCouponsForAppointment(idNum);
-
-        const rejectionComment =
-          agendamento.cancelReason ||
-          validation.data.rejectionComment ||
-          "Agendamento recusado.";
-
-        await sendAppointmentRejectedEmail(
-          agendamento.user.email,
-          agendamento.user.nomeArtistico,
-          rejectionComment,
-          undefined
-        );
-        console.log(`[Admin] Email de recusa enviado para ${agendamento.user.email}`);
-      }
-    } catch (emailError: any) {
-      console.error("[Admin] Erro ao enviar emails ou efeitos (não crítico):", emailError);
-    }
+    const agendamento = await prisma.appointment.update({
+      where: { id: idNum },
+      data: updateData as any,
+      include: userInclude,
+    });
 
     await reconcileAppointmentWithServices(idNum);
 
     return NextResponse.json({ agendamento });
+
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });

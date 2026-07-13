@@ -344,7 +344,7 @@ model PasswordResetCode {
 model Coupon {
   id                    String    @id @default(uuid())
   code                  String    @unique
-  couponType            String    @default("plano") // "plano", "agendamento" ou "reembolso"
+  couponType            String    @default("plano") // canônico persistido: plano|agendamento|reembolso|desconto|remarcacao|test|bonus (ver domain/coupon-types)
   discountType          String // "percent", "fixed" ou "service"
   discountValue         Float // Valor do desconto (percentual ou fixo) ou ID do serviço
   serviceType           String? // Tipo de serviço quando discountType = "service" (ex: "sessao", "captacao", "mix", etc.)

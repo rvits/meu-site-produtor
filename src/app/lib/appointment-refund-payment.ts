@@ -8,6 +8,7 @@ import {
   isSymbolicApprovedPayment,
   parsePaymentAppointmentIds,
 } from "@/app/lib/symbolic-payment";
+import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
 
 const REFUND_MATCH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -133,7 +134,7 @@ export async function resolveAppointmentRefundPayment(
   if (byAppointmentIds) return byAppointmentIds;
 
   const cupomRemarcacaoUsado = await prisma.coupon.findFirst({
-    where: { appointmentId, couponType: "reembolso", used: true },
+    where: { appointmentId, couponType: toPersistedCouponType("REFUND"), used: true },
     select: { id: true },
   });
   if (cupomRemarcacaoUsado) {
@@ -154,7 +155,7 @@ export async function resolveAppointmentRefundPayment(
   const cupomNoAgendamento = await prisma.coupon.findFirst({
     where: {
       appointmentId,
-      couponType: { not: "reembolso" },
+      couponType: { not: toPersistedCouponType("REFUND") },
     },
     orderBy: { createdAt: "desc" },
     select: { paymentId: true },

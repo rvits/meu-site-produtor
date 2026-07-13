@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { subscribeAppDataChanged, isLocalhostClient } from "../lib/app-data-events";
+import { resolveCanonicalCouponType } from "../lib/domain/coupon-types";
 
 interface EntregaServico {
   id: string;
@@ -56,20 +57,25 @@ interface Plano {
 interface Cupom {
   id: string;
   code: string;
-  couponType: string; // "plano" ou "reembolso"
+  couponType: string; // persistido: plano | agendamento | reembolso | desconto | test | ...
+  canonicalCouponType?: string;
   discountType: string;
   discountValue: number;
-  serviceType: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  used: boolean;
-  usedAt: string | null;
+  serviceType?: string | null;
+  expiresAt?: string | null;
+  createdAt?: string;
+  used?: boolean;
+  usedAt?: string | null;
   status: "disponivel" | "usado" | "expirado";
+  paymentId?: string | null;
+  userPlanId?: string | null;
+  appointmentId?: number | null;
+  refundAsaasStatus?: string | null;
   userPlan?: {
     id: string;
     planId: string;
     planName: string;
-    endDate: string | null;
+    endDate?: string | null;
   } | null;
 }
 
@@ -267,8 +273,21 @@ export default function MinhaContaPage() {
     return labels[status] || status;
   }
 
+  function isPlanFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "PLAN" || t === "DISCOUNT" || (t === "TEST" && Boolean(c.userPlanId));
+  }
+
+  function isRefundFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "REFUND";
+  }
+
   function getServiceName(serviceType: string, couponCode?: string) {
-    const isTeste = couponCode?.startsWith("TESTE_");
+    const coupon = cupons.find((c) => c.code === couponCode);
+    const isTeste = coupon
+      ? resolveCanonicalCouponType(coupon) === "TEST"
+      : false;
     const names: Record<string, string> = {
       sessao: isTeste ? "Sessão Teste" : "Sessão",
       captacao: isTeste ? "Captação Teste" : "Captação",
@@ -546,13 +565,13 @@ export default function MinhaContaPage() {
           ) : (
             <div className="space-y-6">
               {/* Cupons de Plano Disponíveis */}
-              {cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").length > 0 && (
+              {cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-2">
-                    ✅ Cupons de Plano - Disponíveis ({cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").length})
+                    ✅ Cupons de Plano - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).length})
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").map((cupom) => (
+                    {cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).map((cupom) => (
                       <div
                         key={cupom.id}
                         className="rounded-lg border border-green-500/50 bg-green-500/10 p-4"
@@ -648,13 +667,13 @@ export default function MinhaContaPage() {
               )}
 
               {/* Cupons de Reembolso Disponíveis */}
-              {cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").length > 0 && (
+              {cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-blue-400 mb-2">
-                    💰 Cupons de Reembolso - Disponíveis ({cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").length})
+                    💰 Cupons de Reembolso - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).length})
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").map((cupom) => (
+                    {cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).map((cupom) => (
                       <div
                         key={cupom.id}
                         className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4"
@@ -816,7 +835,7 @@ export default function MinhaContaPage() {
                           <span className={`text-xs px-2 py-1 rounded ${
                             cupom.couponType === "plano" ? "bg-green-900/30 text-green-400" : "bg-blue-900/30 text-blue-400"
                           }`}>
-                            {cupom.couponType === "plano" ? "Plano" : "Reembolso"}
+                            {isPlanFamilyCoupon(cupom) ? "Plano" : "Reembolso"}
                           </span>
                         </div>
                         {cupom.serviceType && (

@@ -10,6 +10,7 @@ import {
   isSymbolicAgendamentoCouponStyle,
   SYMBOLIC_AGENDAMENTO_BRL,
 } from "@/app/lib/symbolic-payment";
+import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
 
 export { SYMBOLIC_AGENDAMENTO_BRL, isSymbolicAgendamentoCouponStyle };
 
@@ -111,7 +112,9 @@ export async function createCouponsForAgendamentoItems(params: {
           const c = await tx.coupon.create({
             data: {
               code,
-              couponType: "agendamento",
+              couponType: isTestPayment
+                ? toPersistedCouponType("TEST")
+                : toPersistedCouponType("SERVICE"),
               discountType: "service",
               discountValue: 0,
               serviceType,

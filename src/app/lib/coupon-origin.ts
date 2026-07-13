@@ -1,17 +1,17 @@
-export type CouponOrigin = "plano" | "agendamento" | "reembolso";
+/**
+ * HS-03A — Origin de cupom via enum canônico (sem includes/startsWith).
+ */
+import {
+  resolveCanonicalCouponType,
+  canonicalToOrigin,
+  type CouponOrigin,
+  type CouponTypeInput,
+} from "@/app/lib/domain/coupon-types";
 
-export function resolveCouponOrigin(coupon: {
-  couponType?: string | null;
-  paymentId?: string | null;
-  userPlanId?: string | null;
-}): CouponOrigin {
-  const raw = String(coupon.couponType || "").trim().toLowerCase();
-  if (raw === "reembolso") return "reembolso";
-  if (raw === "agendamento") return "agendamento";
-  if (coupon.userPlanId) return "plano";
-  if (coupon.paymentId) return "agendamento";
-  if (raw === "plano") return "plano";
-  return "plano";
+export type { CouponOrigin };
+
+export function resolveCouponOrigin(coupon: CouponTypeInput): CouponOrigin {
+  return canonicalToOrigin(resolveCanonicalCouponType(coupon), coupon);
 }
 
 export function couponOriginLabel(origin: CouponOrigin): string {
@@ -23,11 +23,7 @@ export function couponOriginLabel(origin: CouponOrigin): string {
 export function resolveAppointmentOrigin(params: {
   pagamento: { type?: string | null } | null;
   foiComCupomPlano?: boolean;
-  cupons?: {
-    couponType?: string | null;
-    paymentId?: string | null;
-    userPlanId?: string | null;
-  }[];
+  cupons?: CouponTypeInput[];
 }): CouponOrigin {
   const cupons = params.cupons ?? [];
   const temCupomReembolso = cupons.some((cupom) => resolveCouponOrigin(cupom) === "reembolso");

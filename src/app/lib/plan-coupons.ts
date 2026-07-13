@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import { generateCouponCode } from "./coupons";
+import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
 
 type PlanServiceDef = {
   type: string;
@@ -109,7 +110,11 @@ export async function generatePlanServiceCoupons(params: {
         const coupon = await tx.coupon.create({
           data: {
             code,
-            couponType: "plano",
+            couponType: isTestPayment
+              ? toPersistedCouponType("TEST")
+              : isPercentCoupon
+                ? toPersistedCouponType("DISCOUNT")
+                : toPersistedCouponType("PLAN"),
             discountType: isPercentCoupon ? "percent" : "service",
             discountValue: isPercentCoupon ? (service.discountValue ?? 10) : 0,
             serviceType: service.type,

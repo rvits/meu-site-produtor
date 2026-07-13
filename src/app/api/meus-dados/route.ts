@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { getDatabaseProvider } from "@/app/lib/db-utils";
+import { deriveAppointmentStatusFromServiceStatuses } from "@/app/lib/domain/statuses";
+import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
 
 export async function GET() {
   try {
@@ -289,11 +291,13 @@ export async function GET() {
       }
 
       const userPlan = cupom.userPlanId ? userPlansMap.get(cupom.userPlanId) : null;
+      const canonicalCouponType = resolveCanonicalCouponType(cupom);
 
       return {
         ...cupom,
         status,
         couponType: cupom.couponType || "plano", // Default para "plano" se não tiver (cupons antigos)
+        canonicalCouponType,
         discountValue: cupom.discountValue || 0,
         userPlan: userPlan ? {
           id: userPlan.id,
@@ -519,41 +523,46 @@ export async function GET() {
         deliveryAudioFormat: string | null;
       }[]
     >();
+    const serviceStatusesPorAgendamento = new Map<number, string[]>();
     try {
       const aptIds = agendamentosComPagamento.map((a) => a.id);
       if (aptIds.length > 0) {
-        const servicosComArquivo = await prisma.service.findMany({
+        const allServices = await prisma.service.findMany({
           where: {
-            userId: user.id,
             appointmentId: { in: aptIds },
-            status: "concluido",
-            deliveryAudioUrl: { not: null },
           },
           select: {
             id: true,
             appointmentId: true,
+            status: true,
             tipo: true,
             description: true,
             deliveryAudioUrl: true,
             deliveryAudioFormat: true,
           },
         });
-        for (const s of servicosComArquivo) {
-          if (s.appointmentId == null || !s.deliveryAudioUrl) continue;
-          const row = {
-            id: s.id,
-            tipo: s.tipo,
-            description: s.description,
-            deliveryAudioUrl: s.deliveryAudioUrl,
-            deliveryAudioFormat: s.deliveryAudioFormat,
-          };
-          const list = entregasPorAgendamento.get(s.appointmentId) || [];
-          list.push(row);
-          entregasPorAgendamento.set(s.appointmentId, list);
+        for (const s of allServices) {
+          if (s.appointmentId == null) continue;
+          const statuses = serviceStatusesPorAgendamento.get(s.appointmentId) || [];
+          statuses.push(s.status);
+          serviceStatusesPorAgendamento.set(s.appointmentId, statuses);
+
+          if (s.status === "concluido" && s.deliveryAudioUrl) {
+            const row = {
+              id: s.id,
+              tipo: s.tipo,
+              description: s.description,
+              deliveryAudioUrl: s.deliveryAudioUrl,
+              deliveryAudioFormat: s.deliveryAudioFormat,
+            };
+            const list = entregasPorAgendamento.get(s.appointmentId) || [];
+            list.push(row);
+            entregasPorAgendamento.set(s.appointmentId, list);
+          }
         }
       }
     } catch (e) {
-      console.warn("[meus-dados] Busca de entregas (Service) falhou:", e);
+      console.warn("[meus-dados] Busca de Services (domínio) falhou:", e);
     }
 
     // Serializar agendamentos e buscar readAt usando query raw adaptada para PostgreSQL
@@ -582,9 +591,17 @@ export async function GET() {
             console.error(`[API /meus-dados] Erro ao buscar readAt para agendamento ${a.id}:`, e.message);
           }
         }
-        
+
+        const serviceStatuses = serviceStatusesPorAgendamento.get(a.id) || [];
+        const derived = deriveAppointmentStatusFromServiceStatuses(a.status, serviceStatuses);
+        const operationalStatus = derived || a.status;
+
         return {
           ...a,
+          status: operationalStatus,
+          adminStatus: a.status,
+          operationalStatus,
+          serviceStatuses,
           data: a.data instanceof Date ? a.data.toISOString() : a.data,
           createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
           readAt: readAt,

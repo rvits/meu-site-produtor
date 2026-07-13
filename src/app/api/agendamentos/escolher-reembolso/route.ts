@@ -5,6 +5,7 @@ import { refundAsaasPayment } from "@/app/lib/asaas-refund";
 import { fetchAsaasPayment, asaasPaymentIsRefundedStatus } from "@/app/lib/asaas-get-payment";
 import { listAsaasPaymentsReceived } from "@/app/lib/asaas-list-payments";
 import { generateCouponCode } from "@/app/lib/coupons";
+import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
 
 /**
  * Para agendamentos cancelados ou recusados pelo admin: usuário escolhe reembolso direto (Asaas) ou cupom para remarcar.
@@ -377,7 +378,7 @@ export async function POST(req: Request) {
       const coupon = await prisma.coupon.create({
         data: {
           code,
-          couponType: "reembolso",
+          couponType: toPersistedCouponType("REFUND"),
           discountType: "service",
           discountValue: 0,
           serviceType,
@@ -410,7 +411,7 @@ export async function POST(req: Request) {
     const coupon = await prisma.coupon.create({
       data: {
         code,
-        couponType: "reembolso",
+        couponType: toPersistedCouponType("REFUND"),
         discountType: "fixed",
         discountValue: refundAmount,
         appointmentId: id,

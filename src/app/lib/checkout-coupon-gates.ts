@@ -1,8 +1,9 @@
 import { prisma } from "@/app/lib/prisma";
+import { isRefundCoupon, isServiceCoupon } from "@/app/lib/domain/coupon-types";
 
 /**
- * Gates mínimos de cupom no checkout (PR-03).
- * Subconjunto autocontido — sem dependência de coupon-refund / plan-refund / coupon-scheduling-rules.
+ * Gates mínimos de cupom no checkout (PR-03 / HS-03A).
+ * Tipagem via enum canônico — sem includes/startsWith.
  */
 
 export const COUPON_REFUND_USAGE_ERROR =
@@ -24,8 +25,8 @@ type CheckoutCouponLike = {
 
 function isCupomResgateAgendamento(coupon: CheckoutCouponLike): boolean {
   if (coupon.paymentId) return true;
-  if (coupon.discountType === "service" && coupon.serviceType) return true;
-  if (coupon.couponType === "reembolso") return true;
+  if (isServiceCoupon(coupon) && coupon.serviceType) return true;
+  if (isRefundCoupon(coupon)) return true;
   return false;
 }
 
