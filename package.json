@@ -9,6 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "seed": "node prisma/seed.js",
+    "te:list": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --list",
+    "te:run": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts",
     "migrate:postgresql": "node scripts/migrar-para-postgresql-v2.js"
   },
   "prisma": {

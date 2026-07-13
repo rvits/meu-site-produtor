@@ -1,0 +1,86 @@
+/**
+ * CLI do Test Engine (TE-01B) — sem rotas HTTP.
+ *
+ *   npm run te:list
+ *   npm run te:run -- --id TE-S01
+ *   npm run te:run -- --all
+ */
+import fs from "fs";
+import path from "path";
+
+function loadEnvFile(file: string, override = false) {
+  const full = path.resolve(process.cwd(), file);
+  if (!fs.existsSync(full)) return;
+  for (const line of fs.readFileSync(full, "utf8").split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const i = t.indexOf("=");
+    if (i < 0) continue;
+    const key = t.slice(0, i).trim();
+    let val = t.slice(i + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (override || process.env[key] === undefined) process.env[key] = val;
+  }
+}
+
+loadEnvFile(".env");
+loadEnvFile(".env.local", true);
+
+async function main() {
+  const args = process.argv.slice(2);
+  const get = (flag: string) => {
+    const i = args.indexOf(flag);
+    return i >= 0 ? args[i + 1] : undefined;
+  };
+  const has = (flag: string) => args.includes(flag);
+
+  const {
+    describeRegistry,
+    runAllScenarios,
+    runScenario,
+  } = await import("../src/app/lib/test-engine");
+
+  if (has("--list") || args.length === 0) {
+    console.log(JSON.stringify({ scenarios: describeRegistry() }, null, 2));
+    return;
+  }
+
+  const token = get("--token") || process.env.TEST_ENGINE_CLI_SECRET || null;
+  const actorEmail = get("--admin-email");
+  const actor = actorEmail ? { role: "ADMIN", email: actorEmail } : null;
+
+  if (has("--all")) {
+    const report = await runAllScenarios({
+      actor,
+      cliToken: token,
+      print: true,
+    });
+    process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);
+  }
+
+  const id = get("--id");
+  if (!id) {
+    console.error("Use --list | --id TE-S01 | --all");
+    process.exit(2);
+  }
+
+  const report = await runScenario(id as "TE-S01", {
+    actor,
+    cliToken: token,
+    print: true,
+  });
+  const r = report.results[0];
+  if (!r || r.status === "fail" || r.status === "error") process.exit(1);
+  if (r.status === "skipped" && !report.gate.allowed) process.exit(2);
+  process.exit(0);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
