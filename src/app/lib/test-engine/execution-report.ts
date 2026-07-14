@@ -9,6 +9,7 @@ export function buildExecutionReport(params: {
   startedAt: string;
   gate: TeGateResult;
   results: ScenarioResult[];
+  reportId?: ExecutionReport["reportId"];
 }): ExecutionReport {
   const finishedAt = new Date().toISOString();
   const started = Date.parse(params.startedAt);
@@ -29,7 +30,7 @@ export function buildExecutionReport(params: {
   }
 
   return {
-    reportId: "TE-01B-execution",
+    reportId: params.reportId || "TE-01B-execution",
     runId: params.runId,
     startedAt: params.startedAt,
     finishedAt,

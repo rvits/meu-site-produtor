@@ -1,8 +1,9 @@
 /**
- * TE-01B — Scenario Registry (TE-S01…TE-S13 extensível).
+ * TE-01B / TE-02A — Scenario Registry.
  */
 import { teS01CompraSimples } from "@/app/lib/test-engine/scenarios/te-s01-compra-simples";
 import { stubScenarios } from "@/app/lib/test-engine/scenarios/stubs";
+import { te02aScenarios } from "@/app/lib/test-engine/scenarios/te02a-batch1";
 import type { ScenarioDefinition, ScenarioId } from "@/app/lib/test-engine/types";
 
 const registry = new Map<ScenarioId, ScenarioDefinition>();
@@ -14,6 +15,9 @@ function register(def: ScenarioDefinition): void {
 register(teS01CompraSimples);
 for (const stub of stubScenarios) {
   register(stub);
+}
+for (const s of te02aScenarios) {
+  register(s);
 }
 
 export function getScenario(id: ScenarioId): ScenarioDefinition | undefined {

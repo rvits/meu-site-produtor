@@ -161,6 +161,61 @@ export async function runAllScenarios(opts: RunOptions = {}): Promise<ExecutionR
   return report;
 }
 
+export async function runScenarioIds(
+  ids: ScenarioId[],
+  opts: RunOptions & { reportId?: ExecutionReport["reportId"] } = {}
+): Promise<ExecutionReport> {
+  const startedAt = new Date().toISOString();
+  const runId = newRunId();
+  const gate = assertTestEngineAllowed({
+    actor: opts.actor,
+    cliToken: opts.cliToken,
+  });
+
+  if (!gate.allowed) {
+    const report = buildExecutionReport({
+      runId,
+      startedAt,
+      gate,
+      reportId: opts.reportId,
+      results: ids.map((id) => ({
+        id,
+        name: id,
+        status: "skipped" as const,
+        durationMs: 0,
+        asserts: [],
+        errors: [],
+        warnings: [gate.reason || "bloqueado"],
+      })),
+    });
+    if (opts.print !== false) printExecutionReport(report);
+    return report;
+  }
+
+  const ctx: ScenarioContext = {
+    runId,
+    startedAt,
+    actor: opts.actor,
+    cliToken: opts.cliToken,
+    artifactPrefix: opts.artifactPrefix || "te02a",
+  };
+
+  const results: ScenarioResult[] = [];
+  for (const id of ids) {
+    results.push(await executeOne(id, ctx));
+  }
+
+  const report = buildExecutionReport({
+    runId,
+    startedAt,
+    gate,
+    results,
+    reportId: opts.reportId,
+  });
+  if (opts.print !== false) printExecutionReport(report);
+  return report;
+}
+
 export function describeRegistry(): {
   id: ScenarioId;
   name: string;

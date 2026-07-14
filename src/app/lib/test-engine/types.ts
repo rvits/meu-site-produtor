@@ -1,5 +1,5 @@
 /**
- * TE-01B — tipos do núcleo do Test Engine.
+ * TE-01B / TE-02A — tipos do núcleo do Test Engine.
  * Nenhum fluxo paralelo de domínio.
  */
 
@@ -16,7 +16,28 @@ export type ScenarioId =
   | "TE-S10"
   | "TE-S11"
   | "TE-S12"
-  | "TE-S13";
+  | "TE-S13"
+  | "SRV-001"
+  | "SRV-002"
+  | "CPN-001"
+  | "CPN-002"
+  | "CPN-003"
+  | "CPN-004"
+  | "PLN-001"
+  | "PLN-002"
+  | "PLN-003"
+  | "PLN-004"
+  | "PLN-005"
+  | "APT-001"
+  | "APT-002"
+  | "APT-003"
+  | "APT-004"
+  | "PAY-001"
+  | "ADM-001"
+  | "ADM-002"
+  | "ADM-003"
+  | "ADM-004"
+  | "USR-001";
 
 export type ScenarioStatus = "implemented" | "stub" | "skipped" | "pass" | "fail" | "error";
 
@@ -52,17 +73,19 @@ export type ScenarioDefinition = {
   name: string;
   description: string;
   status: "implemented" | "stub";
-  run: (ctx: ScenarioContext) => Promise<Omit<ScenarioResult, "id" | "name" | "durationMs"> & {
-    status: ScenarioStatus;
-    asserts: AssertResult[];
-    errors: string[];
-    warnings: string[];
-    artifacts?: Record<string, unknown>;
-  }>;
+  run: (ctx: ScenarioContext) => Promise<
+    Omit<ScenarioResult, "id" | "name" | "durationMs"> & {
+      status: ScenarioStatus;
+      asserts: AssertResult[];
+      errors: string[];
+      warnings: string[];
+      artifacts?: Record<string, unknown>;
+    }
+  >;
 };
 
 export type ExecutionReport = {
-  reportId: "TE-01B-execution";
+  reportId: "TE-01B-execution" | "TE-02A-execution";
   runId: string;
   startedAt: string;
   finishedAt: string;

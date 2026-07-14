@@ -35,8 +35,18 @@ export {
 export {
   runScenario,
   runAllScenarios,
+  runScenarioIds,
   describeRegistry,
 } from "@/app/lib/test-engine/scenario-runner";
+
+export { TE02A_IDS } from "@/app/lib/test-engine/scenarios/te02a-batch1";
+
+export {
+  cleanupTeUserArtifacts,
+  writeCarrinhoPaymentMetadata,
+  writePlanoPaymentMetadata,
+  redeemServiceCouponOfficial,
+} from "@/app/lib/test-engine/te02a-helpers";
 
 export { buildExecutionReport, printExecutionReport } from "@/app/lib/test-engine/execution-report";
 

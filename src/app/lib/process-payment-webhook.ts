@@ -87,13 +87,32 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
           userId,
           amount: value,
           status: "approved",
-          type: isPlanoDesc ? "plano" : isAgendamentoDesc ? "agendamento" : "outro",
+          type: isPlanoDesc
+            ? "plano"
+            : isAgendamentoDesc
+              ? "agendamento"
+              : "outro",
           currency: "BRL",
           asaasId: paymentId,
           planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
         },
       });
-      paymentRecord = { id: created.id, userId: created.userId, type: created.type };
+      // Ajuste pós-create: metadata tipado como carrinho deve contar como agendamento
+      const metaPeek = await resolvePaymentMetadataForWebhook({
+        userId,
+        asaasPaymentId: paymentId,
+        paymentMetadata: payment.metadata,
+        description: payment.description,
+      }).catch(() => ({}) as Record<string, unknown>);
+      if (String((metaPeek as any)?.tipo || "") === "carrinho" && created.type === "outro") {
+        await prisma.payment.update({
+          where: { id: created.id },
+          data: { type: "agendamento" },
+        });
+        paymentRecord = { id: created.id, userId: created.userId, type: "agendamento" };
+      } else {
+        paymentRecord = { id: created.id, userId: created.userId, type: created.type };
+      }
       console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", paymentRecord.id);
     }
 
@@ -166,6 +185,29 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       return { received: true };
     }
 
+    // Carrinho antes de isAgendamentoDesc: descrições com "Agendamento" não podem
+    // short-circuitar metadata.tipo === "carrinho" (1 Payment → N Appointments).
+    if (tipo === "carrinho") {
+      const { processCarrinhoPaymentEffects } = await import(
+        "@/app/lib/asaas-carrinho-payment-effects"
+      );
+      const fx = await processCarrinhoPaymentEffects({
+        paymentDbId: paymentRecord.id,
+        userId,
+        value,
+        metadata,
+        options: { sendEmails: false, source: "webhook" },
+      });
+      if (fx.skippedReason) {
+        console.warn("[Process Payment Webhook] Carrinho — efeitos não aplicados:", fx.skippedReason);
+      }
+      return {
+        received: true,
+        success: fx.paymentLinked,
+        appointmentIds: fx.appointmentIds,
+      };
+    }
+
     if (tipo === "agendamento" || isAgendamentoDesc) {
       const fx = await processAgendamentoPaymentEffects({
         paymentDbId: paymentRecord.id,
@@ -182,10 +224,6 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         agendamentoFinalId: fx.agendamentoFinalId,
         couponsCount: fx.couponsCount,
       };
-    }
-
-    if (tipo === "carrinho" && wasDuplicate) {
-      return { received: true, success: true };
     }
 
     return { received: true };

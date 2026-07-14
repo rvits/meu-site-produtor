@@ -43,6 +43,8 @@ async function main() {
     describeRegistry,
     runAllScenarios,
     runScenario,
+    runScenarioIds,
+    TE02A_IDS,
   } = await import("../src/app/lib/test-engine");
 
   if (has("--list") || args.length === 0) {
@@ -53,6 +55,17 @@ async function main() {
   const token = get("--token") || process.env.TEST_ENGINE_CLI_SECRET || null;
   const actorEmail = get("--admin-email");
   const actor = actorEmail ? { role: "ADMIN", email: actorEmail } : null;
+
+  if (has("--suite") && get("--suite") === "te02a") {
+    const report = await runScenarioIds(TE02A_IDS, {
+      actor,
+      cliToken: token,
+      artifactPrefix: "te02a",
+      reportId: "TE-02A-execution",
+      print: true,
+    });
+    process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);
+  }
 
   if (has("--all")) {
     const report = await runAllScenarios({
@@ -65,11 +78,11 @@ async function main() {
 
   const id = get("--id");
   if (!id) {
-    console.error("Use --list | --id TE-S01 | --all");
+    console.error("Use --list | --id TE-S01 | --suite te02a | --all");
     process.exit(2);
   }
 
-  const report = await runScenario(id as "TE-S01", {
+  const report = await runScenario(id as any, {
     actor,
     cliToken: token,
     print: true,
