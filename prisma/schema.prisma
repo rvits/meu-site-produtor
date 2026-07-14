@@ -380,3 +380,22 @@ model Coupon {
   @@index([paymentId])
   @@index([assignedUserId])
 }
+
+/// HS-03B — Histórico oficial de transições da State Machine (StudioOS-ready).
+model DomainTransitionHistory {
+  id        String   @id @default(cuid())
+  entity    String
+  entityId  String
+  fromStatus String
+  toStatus   String
+  eventName String
+  actorType String?
+  actorId   String?
+  reason    String?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([eventName])
+  @@index([createdAt])
+}

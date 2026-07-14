@@ -35,6 +35,7 @@ export async function GET() {
             "cancelado",
             "em_andamento",
             "concluido",
+            "remarcado",
           ],
         },
       },
@@ -281,16 +282,16 @@ export async function PATCH(req: Request) {
     }
 
     // Bloqueio / campos administrativos (não são transições de workflow operacional)
-    const updateData: Record<string, unknown> = {};
-    if (validation.data.blocked !== undefined) {
-      updateData.blocked = validation.data.blocked;
-      if (validation.data.blocked) {
-        updateData.blockedAt = new Date();
-        updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
-      } else {
-        updateData.blockedAt = null;
-        updateData.blockedReason = null;
-      }
+      const updateData: Record<string, unknown> = {};
+      if (validation.data.blocked !== undefined) {
+        updateData.blocked = validation.data.blocked;
+        if (validation.data.blocked) {
+          updateData.blockedAt = new Date();
+          updateData.blockedReason = validation.data.blockedReason || "Bloqueado pelo admin";
+        } else {
+          updateData.blockedAt = null;
+          updateData.blockedReason = null;
+        }
     } else if (validation.data.status !== undefined) {
       return NextResponse.json(
         {
@@ -306,10 +307,10 @@ export async function PATCH(req: Request) {
     }
 
     const agendamento = await prisma.appointment.update({
-      where: { id: idNum },
-      data: updateData as any,
-      include: userInclude,
-    });
+        where: { id: idNum },
+        data: updateData as any,
+        include: userInclude,
+      });
 
     await reconcileAppointmentWithServices(idNum);
 

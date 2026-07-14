@@ -75,6 +75,12 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         paymentId,
         "- verificando efeitos pendentes"
       );
+      // HS-03B: status pending → confirmado apenas via State Machine
+      const st = String(existingPayment.status || "").toLowerCase();
+      if (st === "pending" || st === "pendente" || st === "recebido" || st === "received") {
+        const { confirmPayment } = await import("@/app/lib/domain/workflow");
+        await confirmPayment(existingPayment.id, { type: "webhook", id: paymentId });
+      }
     } else {
       const created = await prisma.payment.create({
         data: {

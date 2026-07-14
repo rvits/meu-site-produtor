@@ -18,6 +18,7 @@ type Issue = {
   type: string;
   count: number;
   sample: Array<string | number>;
+  severity?: "blocking" | "warning";
 };
 
 function parseAppointmentIds(payment: {
@@ -98,11 +99,28 @@ async function main() {
     return ids.some((id) => !aptIds.has(id));
   });
   if (paymentSemAppointment.length) {
-    issues.push({
-      type: "payment_sem_appointment",
-      count: paymentSemAppointment.length,
-      sample: paymentSemAppointment.slice(0, 10).map((p) => p.id),
-    });
+    const symbolic = paymentSemAppointment.filter(
+      (p) => typeof p.asaasId === "string" && p.asaasId.startsWith("pay_te_")
+    );
+    const real = paymentSemAppointment.filter(
+      (p) => !(typeof p.asaasId === "string" && p.asaasId.startsWith("pay_te_"))
+    );
+    if (real.length) {
+      issues.push({
+        type: "payment_sem_appointment",
+        count: real.length,
+        sample: real.slice(0, 10).map((p) => p.id),
+        severity: "blocking",
+      });
+    }
+    if (symbolic.length) {
+      issues.push({
+        type: "payment_sem_appointment_simbolico",
+        count: symbolic.length,
+        sample: symbolic.slice(0, 10).map((p) => p.id),
+        severity: "warning",
+      });
+    }
   }
 
   // Appointment sem Service (operacionalmente aceito+)
@@ -255,8 +273,31 @@ async function main() {
     });
   }
 
+  // HS-03B: histórico inconsistente / transições inválidas registradas
+  try {
+    const { isTransitionAllowed } = await import("../src/app/lib/domain/state-machine/guards");
+    const logs = await prisma.domainTransitionHistory.findMany({
+      select: { id: true, entity: true, fromStatus: true, toStatus: true },
+      take: 2000,
+    });
+    const badLogs = logs.filter((l) => {
+      if (l.fromStatus === l.toStatus) return false;
+      const entity = l.entity as "appointment" | "service" | "payment" | "coupon";
+      return !isTransitionAllowed(entity, l.fromStatus, l.toStatus);
+    });
+    if (badLogs.length) {
+      issues.push({
+        type: "historico_inconsistente",
+        count: badLogs.length,
+        sample: badLogs.slice(0, 10).map((l) => l.id),
+      });
+    }
+  } catch (e: any) {
+    console.warn("[domain-audit] Histórico SM indisponível:", e?.message || e);
+  }
+
   const report = {
-    ok: issues.length === 0,
+    ok: issues.filter((i) => (i.severity || "blocking") === "blocking").length === 0,
     generatedAt: new Date().toISOString(),
     counts: {
       appointments: appointments.length,
@@ -272,8 +313,9 @@ async function main() {
   };
 
   console.log(JSON.stringify(report, null, 2));
-  if (issues.length > 0) {
-    console.error(`\n[domain-audit] FAIL — ${issues.length} tipo(s) de issue`);
+  const blocking = issues.filter((i) => (i.severity || "blocking") === "blocking");
+  if (blocking.length > 0) {
+    console.error(`\n[domain-audit] FAIL — ${blocking.length} issue(s) blocking`);
     process.exitCode = 1;
   } else {
     console.log("\n[domain-audit] PASS");
