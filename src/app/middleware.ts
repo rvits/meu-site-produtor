@@ -1,6 +1,29 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "./lib/prisma";
+import { isGoLiveBlockedPage, isGoLiveMaintenanceMode } from "./lib/go-live-maintenance";
+
+async function sessionIsAdmin(sessionCookie: { value: string } | undefined): Promise<boolean> {
+  if (!sessionCookie) return false;
+  try {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionCookie.value },
+      include: {
+        user: {
+          select: { email: true, role: true },
+        },
+      },
+    });
+    return Boolean(
+      session &&
+        session.user &&
+        session.expiresAt > new Date() &&
+        (session.user.role === "ADMIN" || session.user.email === "thouse.rec.tremv@gmail.com")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -31,52 +54,29 @@ export async function middleware(request: NextRequest) {
       });
     }
 
+    const sessionCookie = request.cookies.get("session_id");
+    const isAdmin = await sessionIsAdmin(sessionCookie);
+
+    // GO-01 — modo preparação Go Live (env): login ok; cadastro/compra/agendamento bloqueados
+    if (isGoLiveMaintenanceMode()) {
+      if (!isAdmin && isGoLiveBlockedPage(pathname)) {
+        const url = new URL("/manutencao", request.url);
+        url.searchParams.set("mode", "golive");
+        return NextResponse.redirect(url);
+      }
+    }
+
     // Se modo de manutenção está ativo
     if (settings.maintenanceMode) {
-      // Verificar se é admin através do cookie de sessão
-      const sessionCookie = request.cookies.get("session_id");
-      let isAdmin = false;
-      
-      if (sessionCookie) {
-        try {
-          const session = await prisma.session.findUnique({
-            where: { id: sessionCookie.value },
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  role: true,
-                },
-              },
-            },
-          });
-
-          // Verificar se é admin ou thouse.rec.tremv@gmail.com
-          if (
-            session &&
-            session.user &&
-            session.expiresAt > new Date() &&
-            (session.user.role === "ADMIN" || session.user.email === "thouse.rec.tremv@gmail.com")
-          ) {
-            isAdmin = true;
-          }
-        } catch (err) {
-          // Se houver erro ao verificar sessão, continuar
-        }
-      }
-
-      // Se é admin, permitir acesso a tudo
       if (isAdmin) {
         return NextResponse.next();
       }
 
-      // Se não é admin e não está na página de manutenção, redirecionar
       if (pathname !== "/manutencao") {
         return NextResponse.redirect(new URL("/manutencao", request.url));
       }
-    } else {
-      // Se modo de manutenção está desligado e está na página de manutenção, redirecionar para home
-      if (pathname === "/manutencao") {
+    } else if (!isGoLiveMaintenanceMode() || isAdmin) {
+      if (pathname === "/manutencao" && !request.nextUrl.searchParams.get("mode")) {
         return NextResponse.redirect(new URL("/", request.url));
       }
     }

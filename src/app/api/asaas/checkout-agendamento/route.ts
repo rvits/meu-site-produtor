@@ -12,6 +12,7 @@ import {
 import { getAsaasApiKey } from "@/app/lib/env";
 import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -77,6 +78,8 @@ export async function POST(req: Request) {
   try {
     // 🔒 Verificar autenticação
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     // Debug: Verificar se a variável está sendo lida
     console.log("[Asaas Checkout Agendamento] Verificando ASAAS_API_KEY...");

@@ -13,6 +13,7 @@ const IS_TEST = process.env.NODE_ENV !== "production";
 
 import { PLAN_PRICES } from "@/app/lib/plan-prices";
 import { findActiveUserPlan, ACTIVE_PLAN_BLOCK_MESSAGE } from "@/app/lib/checkout-active-plan-gate";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 type ModoPlano = "mensal" | "anual";
 
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   try {
     // 🔒 Verificar autenticação
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     // Debug: Verificar se a variável está sendo lida
     console.log("[Asaas Checkout] Verificando ASAAS_API_KEY...");

@@ -14,6 +14,7 @@ import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appo
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 import { canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const agendamentoComCupomSchema = z.object({
   data: z.string(),
@@ -39,6 +40,8 @@ const agendamentoComCupomSchema = z.object({
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     const body = await req.json();
     const validation = agendamentoComCupomSchema.safeParse(body);

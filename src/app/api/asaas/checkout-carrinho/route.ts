@@ -7,6 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
 import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -38,6 +39,8 @@ const carrinhoCheckoutSchema = z.object({
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     if (!ASAAS_API_KEY) {
       return NextResponse.json(

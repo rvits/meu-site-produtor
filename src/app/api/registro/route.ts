@@ -4,11 +4,15 @@ import { prisma } from "@/app/lib/prisma";
 import { createUserSession } from "@/app/lib/auth";
 import { registroSchema } from "@/app/lib/validations";
 import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const goLiveBlocked = goLiveBlockIfNeeded();
+  if (goLiveBlocked) return goLiveBlocked;
+
   try {
     console.error("\n🔵 ========================================");
     console.error("🔵 [REGISTRO] Recebendo requisição de registro");

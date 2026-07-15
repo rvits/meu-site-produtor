@@ -18,6 +18,7 @@
     "rc:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/rc01-certify.ts",
     "rc02:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/rc02-certify.ts",
     "rc03:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/rc03-certify.ts",
+    "rc04:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/rc04-certify.ts",
     "te:suite:rc02": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite rc02",
     "te:suite:rc03": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite rc03",
     "domain:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/domain-audit.ts",
@@ -37,6 +38,9 @@
     "discovery:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/discovery-audit.ts",
     "regression:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/regression-audit.ts",
     "golive:cleanup": "npx --yes tsx --tsconfig tsconfig.json scripts/golive-cleanup.ts",
+    "launch01:reset": "npx --yes tsx --tsconfig tsconfig.json scripts/launch01-reset.ts",
+    "launch01:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/launch01-certify.ts",
+    "go01:orchestrate": "npx --yes tsx --tsconfig tsconfig.json scripts/go01-orchestrate.ts",
     "migrate:postgresql": "node scripts/migrar-para-postgresql-v2.js"
   },
   "prisma": {
