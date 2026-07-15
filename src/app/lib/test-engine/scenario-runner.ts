@@ -37,7 +37,9 @@ export async function runScenario(
           ? "TE-02A-execution"
           : suite === "ph01"
             ? "PH-01-execution"
-            : "TE-01B-execution",
+            : suite === "rc01"
+              ? "RC-01-execution"
+              : "TE-01B-execution",
   });
   const teReport = toTeExecutionReport(report);
   if (opts.print !== false) printExecutionReport(teReport);
@@ -65,13 +67,30 @@ export async function runScenarioIds(
   ids: ScenarioId[],
   opts: RunOptions & { reportId?: ExecutionReport["reportId"] } = {}
 ): Promise<ExecutionReport> {
-  const suite = opts.reportId === "SYNC-01A-execution" ? "sync01a" : "te02a";
+  const suite =
+    opts.reportId === "SYNC-01A-execution"
+      ? "sync01a"
+      : opts.reportId === "PH-01-execution"
+        ? "ph01"
+        : opts.reportId === "RC-01-execution"
+          ? "rc01"
+          : "te02a";
   const report = await ExecutionCore.run({
     scenarioIds: ids,
     suite,
     actor: opts.actor,
     cliToken: opts.cliToken,
-    artifactPrefix: opts.artifactPrefix || (suite === "sync01a" ? "sync01a" : "te02a"),
+    artifactPrefix:
+      opts.artifactPrefix ||
+      (suite === "sync01a"
+        ? "sync01a"
+        : suite === "te02a"
+          ? "te02a"
+          : suite === "ph01"
+            ? "ph01"
+            : suite === "rc01"
+              ? "rc01"
+              : "te01b"),
     print: false,
     reportId: opts.reportId,
   });

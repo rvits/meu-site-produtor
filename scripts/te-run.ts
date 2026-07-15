@@ -91,6 +91,18 @@ async function main() {
     process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);
   }
 
+  if (has("--suite") && get("--suite") === "rc01") {
+    const { RC01_IDS } = await import("../src/app/lib/test-engine/scenarios/rc01-batch");
+    const report = await runScenarioIds(RC01_IDS, {
+      actor,
+      cliToken: token,
+      artifactPrefix: "rc01",
+      reportId: "RC-01-execution",
+      print: true,
+    });
+    process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);
+  }
+
   if (has("--all")) {
     const report = await runAllScenarios({
       actor,

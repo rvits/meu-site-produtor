@@ -14,6 +14,8 @@
     "te:suite:te02a": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite te02a",
     "te:suite:sync01a": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite sync01a",
     "te:suite:ph01": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite ph01",
+    "te:suite:rc01": "npx --yes tsx --tsconfig tsconfig.json scripts/te-run.ts --suite rc01",
+    "rc:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/rc01-certify.ts",
     "domain:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/domain-audit.ts",
     "workflow:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/workflow-audit.ts",
     "workflow:smoke": "npx --yes tsx --tsconfig tsconfig.json scripts/workflow-smoke.ts",
