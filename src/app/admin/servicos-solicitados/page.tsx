@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ACTIVE_OPERATIONAL_SERVICE_STATUSES } from "@/app/lib/service-authority";
-import { subscribeAppDataChanged, notifyAppDataChanged } from "@/app/lib/app-data-events";
+import { notifyAppDataChanged } from "@/app/lib/app-data-events";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 const ACTIVE_SERVICE_STATUSES = ACTIVE_OPERATIONAL_SERVICE_STATUSES;
 
@@ -45,21 +46,9 @@ export default function AdminServicosSelecionadosPage() {
     formato: "wav" | "mp3";
   } | null>(null);
 
-  useEffect(() => {
-    carregarServicos(true);
-    const unsubscribe = subscribeAppDataChanged(() => {
-      carregarServicos(false);
-    });
-    const interval = setInterval(() => carregarServicos(false), 30000);
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, []);
-
-  async function carregarServicos(withRepair = false) {
+  const carregarServicos = useCallback(async (withRepair = false) => {
     try {
-      setLoading(true);
+      if (withRepair) setLoading(true);
       const url = withRepair ? "/api/admin/servicos?repair=1" : "/api/admin/servicos";
       const res = await fetch(url, {
         cache: "no-store",
@@ -81,7 +70,13 @@ export default function AdminServicosSelecionadosPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useDomainRefresh("servicos-selecionados", () => carregarServicos(false));
+
+  useEffect(() => {
+    void carregarServicos(true);
+  }, [carregarServicos]);
 
   function abrirModalConcluir(s: Service) {
     setConcluirModal({

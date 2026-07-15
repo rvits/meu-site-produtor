@@ -399,3 +399,34 @@ model DomainTransitionHistory {
   @@index([eventName])
   @@index([createdAt])
 }
+
+/// SYNC-01A — Outbox persistido do Synchronization Engine (SSE + cursor replay).
+model SynchronizationEvent {
+  id          String   @id @default(cuid())
+  /// Cursor monotônico (snowflake-like / bigint) para replay ordenado.
+  cursor      BigInt   @unique @default(autoincrement())
+  name        String
+  entity      String
+  entityId    String
+  fromStatus  String?
+  toStatus    String?
+  /// user | admin | public | all
+  scope       String   @default("user")
+  /// userId dono (quando scope=user); null para público/admin.
+  userId      String?
+  /// Superfícies JSON: ["minha-conta","agenda",...]
+  surfaces    String   @default("[]")
+  /// state-machine | lifecycle | client-signal | recovery
+  source      String   @default("state-machine")
+  /// Payload sanitizado (sem PII sensível).
+  payload     String   @default("{}")
+  occurredAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([cursor])
+  @@index([occurredAt])
+  @@index([userId, cursor])
+  @@index([scope, cursor])
+  @@index([name])
+  @@index([entity, entityId])
+}

@@ -45,6 +45,7 @@ async function main() {
     runScenario,
     runScenarioIds,
     TE02A_IDS,
+    SYNC01A_IDS,
   } = await import("../src/app/lib/test-engine");
 
   if (has("--list") || args.length === 0) {
@@ -62,6 +63,17 @@ async function main() {
       cliToken: token,
       artifactPrefix: "te02a",
       reportId: "TE-02A-execution",
+      print: true,
+    });
+    process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);
+  }
+
+  if (has("--suite") && get("--suite") === "sync01a") {
+    const report = await runScenarioIds(SYNC01A_IDS, {
+      actor,
+      cliToken: token,
+      artifactPrefix: "sync01a",
+      reportId: "SYNC-01A-execution",
       print: true,
     });
     process.exit(report.summary.failed + report.summary.errors > 0 ? 1 : 0);

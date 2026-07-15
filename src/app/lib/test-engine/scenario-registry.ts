@@ -4,6 +4,7 @@
 import { teS01CompraSimples } from "@/app/lib/test-engine/scenarios/te-s01-compra-simples";
 import { stubScenarios } from "@/app/lib/test-engine/scenarios/stubs";
 import { te02aScenarios } from "@/app/lib/test-engine/scenarios/te02a-batch1";
+import { sync01aScenarios } from "@/app/lib/test-engine/scenarios/sync01a-batch";
 import type { ScenarioDefinition, ScenarioId } from "@/app/lib/test-engine/types";
 
 const registry = new Map<ScenarioId, ScenarioDefinition>();
@@ -17,6 +18,9 @@ for (const stub of stubScenarios) {
   register(stub);
 }
 for (const s of te02aScenarios) {
+  register(s);
+}
+for (const s of sync01aScenarios) {
   register(s);
 }
 

@@ -65,6 +65,18 @@ export async function POST(req: Request) {
       },
     });
 
+    try {
+      const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+      await emitAppointmentReserved({
+        appointmentId: agendamento.id,
+        userId: user.id,
+        dataIso: dataHoraISO.toISOString(),
+        duracaoMinutos,
+      });
+    } catch (e) {
+      console.error("[agendamentos] sync AppointmentReserved falhou (non-fatal):", e);
+    }
+
     return NextResponse.json({ agendamento });
   } catch (err: any) {
     console.error("Erro ao criar agendamento:", err);

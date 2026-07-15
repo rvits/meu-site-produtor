@@ -114,6 +114,23 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         paymentRecord = { id: created.id, userId: created.userId, type: created.type };
       }
       console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", paymentRecord.id);
+      try {
+        const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+        await publishSyncEvent({
+          name: "PaymentConfirmed",
+          entity: "payment",
+          entityId: paymentRecord.id,
+          from: "pending",
+          to: "confirmado",
+          options: {
+            source: "lifecycle",
+            userId,
+            metadata: { asaasId: paymentId, via: "processPaymentWebhook-create" },
+          },
+        });
+      } catch (syncErr) {
+        console.error("[Process Payment Webhook] sync PaymentConfirmed falhou (non-fatal):", syncErr);
+      }
     }
 
     const metadata = await resolvePaymentMetadataForWebhook({

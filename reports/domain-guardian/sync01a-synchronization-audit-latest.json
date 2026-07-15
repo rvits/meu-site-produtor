@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-15T01:24:20.834Z",
+  "routedEvents": 24,
+  "inventoryItems": 19,
+  "issues": [],
+  "counts": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0
+  }
+}

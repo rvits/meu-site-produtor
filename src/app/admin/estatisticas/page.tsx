@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import {
   BarChart,
   Bar,
@@ -100,22 +101,11 @@ export default function AdminEstatisticasPage() {
   const [loadingGrafico, setLoadingGrafico] = useState(false);
   const [qualGrafico, setQualGrafico] = useState<string | null>(null);
 
-  useEffect(() => {
-    carregarEstatisticas();
-  }, []);
-
-  // Atualizar estatísticas periodicamente e ao voltar para a aba (integração com o resto do site)
-  useEffect(() => {
-    const interval = setInterval(carregarEstatisticas, 45 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // SYNC-01A — atualização via Domain Sync (sem polling 45s)
+  useDomainRefresh("estatisticas", () => carregarEstatisticas());
 
   useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === "visible") carregarEstatisticas();
-    };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
+    void carregarEstatisticas();
   }, []);
 
   useEffect(() => {

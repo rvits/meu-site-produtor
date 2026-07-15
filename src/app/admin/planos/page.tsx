@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 interface UserPlan {
   id: string;
@@ -64,15 +65,12 @@ export default function AdminPlanosPage() {
   useEffect(() => {
     carregarPlanos();
     carregarCupons();
-    
-    // Atualizar automaticamente a cada 10 segundos
-    const interval = setInterval(() => {
-      carregarPlanos();
-      carregarCupons();
-    }, 60000); // Atualizar a cada 1 minuto
-    
-    return () => clearInterval(interval);
   }, []);
+
+  useDomainRefresh(["planos", "cupons"], async () => {
+    await carregarPlanos();
+    await carregarCupons();
+  });
 
   useEffect(() => {
     if (busca.trim() === "") {

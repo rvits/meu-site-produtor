@@ -271,6 +271,13 @@ export async function transition(input: TransitionInput): Promise<TransitionResu
   const event = buildDomainEvent(input, from, to);
   emitDomainEvent(event);
   await recordTransitionHistory(event);
+  // SYNC-01A — fan-out oficial após persistência válida (não republica em alreadyProcessed)
+  try {
+    const { publishFromDomainEvent } = await import("@/app/lib/synchronization/engine");
+    await publishFromDomainEvent(event);
+  } catch (syncErr) {
+    console.error("[transition] Synchronization Engine publish failed (non-fatal):", syncErr);
+  }
 
   if (!input.skipEffects) {
     const plan = await planTransitionEffects(event);

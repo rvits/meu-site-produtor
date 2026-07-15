@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 type Stats = {
   appointments: number;
@@ -165,23 +166,25 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("/api/admin/stats", { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar stats:", err);
-      } finally {
-        setLoading(false);
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/stats", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
       }
+    } catch (err) {
+      console.error("Erro ao buscar stats:", err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchStats();
   }, []);
+
+  useDomainRefresh("dashboard", () => loadStats());
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
 
   return (
     <div className="space-y-8">

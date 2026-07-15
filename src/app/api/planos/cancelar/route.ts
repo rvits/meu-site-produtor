@@ -70,6 +70,17 @@ export async function POST(req: Request) {
     }
 
     try {
+      const { emitPlanCancelled } = await import("@/app/lib/synchronization/lifecycle");
+      await emitPlanCancelled({
+        userPlanId,
+        userId: user.id,
+        metadata: { planName: userPlan.planName },
+      });
+    } catch (syncErr) {
+      console.error("[Cancelar Plano] sync PlanCancelled falhou (non-fatal):", syncErr);
+    }
+
+    try {
       await sendPlanCancellationEmail(
         userPlan.user.email,
         userPlan.user.nomeArtistico,

@@ -331,6 +331,17 @@ export async function processAgendamentoPaymentEffects(params: {
       });
       agendamentoFinalId = novoAgendamento.id;
       log("Agendamento criado", agendamentoFinalId);
+      try {
+        const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+        await emitAppointmentReserved({
+          appointmentId: novoAgendamento.id,
+          userId,
+          dataIso: dataHoraISO.toISOString(),
+          duracaoMinutos,
+        });
+      } catch (e) {
+        console.error("[AgendamentoEffects] sync AppointmentReserved falhou (non-fatal):", e);
+      }
     } else {
       const msg = "Conflito de horário: agendamento não criado";
       console.warn("[AgendamentoEffects]", msg);

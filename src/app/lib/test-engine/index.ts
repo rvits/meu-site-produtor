@@ -40,6 +40,7 @@ export {
 } from "@/app/lib/test-engine/scenario-runner";
 
 export { TE02A_IDS } from "@/app/lib/test-engine/scenarios/te02a-batch1";
+export { SYNC01A_IDS } from "@/app/lib/test-engine/scenarios/sync01a-batch";
 
 export {
   cleanupTeUserArtifacts,

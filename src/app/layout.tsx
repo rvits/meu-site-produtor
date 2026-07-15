@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ConditionalHeader from "./components/ConditionalHeader";
 import ChatNotificationWrapper from "./components/ChatNotificationWrapper";
 import CartButton from "./components/CartButton";
+import { DomainSyncProvider } from "./lib/synchronization/DomainSyncProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,10 +55,12 @@ export default function RootLayout({
         style={{ backgroundColor: "#0a0a0a" }}
       >
         <AuthProvider>
-          <ConditionalHeader />
-          <CartButton />
-          <ChatNotificationWrapper />
-          {children}
+          <DomainSyncProvider>
+            <ConditionalHeader />
+            <CartButton />
+            <ChatNotificationWrapper />
+            {children}
+          </DomainSyncProvider>
         </AuthProvider>
       </body>
     </html>

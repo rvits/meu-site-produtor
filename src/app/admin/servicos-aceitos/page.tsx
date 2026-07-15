@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { subscribeAppDataChanged } from "@/app/lib/app-data-events";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 interface Appointment {
   id: number;
@@ -32,21 +32,9 @@ export default function AdminServicosGeraisPage() {
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    carregarServicos(true);
-    const unsubscribe = subscribeAppDataChanged(() => {
-      carregarServicos(false);
-    });
-    const interval = setInterval(() => carregarServicos(false), 30000);
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, []);
-
-  async function carregarServicos(withRepair = false) {
+  const carregarServicos = useCallback(async (withRepair = false) => {
     try {
-      setLoading(true);
+      if (withRepair) setLoading(true);
       const url = withRepair ? "/api/admin/servicos?repair=1" : "/api/admin/servicos";
       const res = await fetch(url, {
         cache: "no-store",
@@ -64,7 +52,14 @@ export default function AdminServicosGeraisPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  const { refresh } = useDomainRefresh("servicos-gerais", () => carregarServicos(false));
+
+  useEffect(() => {
+    void carregarServicos(true);
+  }, [carregarServicos]);
+  void refresh;
 
   const filtradosPorBusca = busca.trim()
     ? servicos.filter(

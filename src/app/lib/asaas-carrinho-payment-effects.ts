@@ -112,6 +112,17 @@ export async function processCarrinhoPaymentEffects(params: {
     });
     appointmentIds.push(novoAgendamento.id);
     console.log(`${logPrefix} agendamento criado:`, novoAgendamento.id);
+    try {
+      const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+      await emitAppointmentReserved({
+        appointmentId: novoAgendamento.id,
+        userId,
+        dataIso: dataHoraISO.toISOString(),
+        duracaoMinutos,
+      });
+    } catch (e) {
+      console.error(`${logPrefix} sync AppointmentReserved falhou (non-fatal):`, e);
+    }
 
     const servicesCreated = await createServicesForAppointmentIfMissing({
       appointmentId: novoAgendamento.id,

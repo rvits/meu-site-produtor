@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { subscribeAppDataChanged, isLocalhostClient } from "../lib/app-data-events";
+import { isLocalhostClient } from "../lib/app-data-events";
+import { useDomainRefresh } from "../hooks/useDomainRefresh";
 import { resolveCanonicalCouponType } from "../lib/domain/coupon-types";
 
 interface EntregaServico {
@@ -121,28 +122,22 @@ export default function MinhaContaPage() {
     );
   }, [user]);
 
+  const { refresh: refreshConta } = useDomainRefresh(
+    ["minha-conta", "cupons", "planos", "pagamentos"],
+    async () => {
+      if (!user) return;
+      await carregarDados();
+    }
+  );
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
       router.push("/login");
       return;
     }
-    carregarDados();
-    
-    const unsubscribe = subscribeAppDataChanged(() => {
-      carregarDados();
-    });
-
-    // Atualizar dados automaticamente a cada 30 segundos
-    const interval = setInterval(() => {
-      carregarDados();
-    }, 30000);
-    
-    return () => {
-      clearInterval(interval);
-      unsubscribe();
-    };
-  }, [user, authLoading]);
+    void refreshConta();
+  }, [user, authLoading, refreshConta]);
 
   async function carregarDados() {
     try {

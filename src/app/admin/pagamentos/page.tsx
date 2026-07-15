@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import { couponOriginLabel, type CouponOrigin } from "@/app/lib/coupon-origin";
 import {
   paymentRefundStatusClass,
@@ -70,6 +71,8 @@ export default function AdminPagamentosPage() {
   useEffect(() => {
     carregarPagamentos();
   }, []);
+
+  useDomainRefresh("pagamentos", () => carregarPagamentos());
 
   useEffect(() => {
     if (busca.trim() === "") {

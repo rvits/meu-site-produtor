@@ -371,6 +371,32 @@ export async function POST(req: Request) {
     await reconcileAppointmentWithServices(appointment.id);
     console.log("[API Agendamento com Cupom] Agendamento e vínculo criados:", appointment.id);
 
+    try {
+      const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+      const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+      await emitAppointmentReserved({
+        appointmentId: appointment.id,
+        userId: user.id,
+        dataIso: new Date(appointment.data).toISOString(),
+        duracaoMinutos: appointment.duracaoMinutos || 60,
+      });
+      if (couponRow?.id) {
+        await publishSyncEvent({
+          name: "CouponConsumed",
+          entity: "coupon",
+          entityId: couponRow.id,
+          to: "utilizado",
+          options: {
+            source: "lifecycle",
+            userId: user.id,
+            metadata: { appointmentId: appointment.id, via: "com-cupom" },
+          },
+        });
+      }
+    } catch (syncErr) {
+      console.error("[API Agendamento com Cupom] sync falhou (non-fatal):", syncErr);
+    }
+
     // Enviar email de notificação para o admin
     try {
       const { sendPaymentNotificationToTHouse } = await import("@/app/lib/sendEmail");
