@@ -14,6 +14,7 @@ export type ExecutionSuiteId =
   | "sync01a"
   | "ph01"
   | "rc01"
+  | "rc02"
   | "sim01"
   | "sim02";
 
@@ -24,6 +25,7 @@ export type ExecutionReportId =
   | "SYNC-01A-execution"
   | "PH-01-execution"
   | "RC-01-execution"
+  | "RC-02-execution"
   | "SIM-01-execution"
   | "SIM-02-execution";
 

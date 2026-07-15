@@ -43,6 +43,7 @@ export { TE02A_IDS } from "@/app/lib/test-engine/scenarios/te02a-batch1";
 export { SYNC01A_IDS } from "@/app/lib/test-engine/scenarios/sync01a-batch";
 export { PH01_IDS } from "@/app/lib/test-engine/scenarios/ph01-batch";
 export { RC01_IDS } from "@/app/lib/test-engine/scenarios/rc01-batch";
+export { RC02_IDS } from "@/app/lib/test-engine/scenarios/rc02-batch";
 
 export {
   runSimulation,

@@ -221,8 +221,7 @@ async function main() {
     reportId: "RC-01-execution",
   });
 
-  const simReport = await runSimulationBatch({
-    ids: [...SIM01_IDS],
+  const simReport = await runSimulationBatch([...SIM01_IDS], {
     actor: null,
     cliToken: process.env.TEST_ENGINE_CLI_SECRET || null,
     artifactPrefix: "rc01-sim",
