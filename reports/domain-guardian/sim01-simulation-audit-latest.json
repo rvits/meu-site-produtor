@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-15T01:51:12.637Z",
+  "pipeline": [
+    "Simulation",
+    "ScenarioRunner",
+    "OfficialPipelineAdapter",
+    "Workflow",
+    "StateMachine",
+    "DomainEvents",
+    "SynchronizationEngine",
+    "Assertions"
+  ],
+  "scenarios": 10,
+  "simIds": [
+    "SIM-001",
+    "SIM-002",
+    "SIM-003",
+    "SIM-004",
+    "SIM-005",
+    "SIM-006",
+    "SIM-007",
+    "SIM-008",
+    "SIM-009",
+    "SIM-010"
+  ],
+  "issues": [
+    {
+      "type": "coupon_create_in_payment_sim",
+      "severity": "warning",
+      "message": "prisma.coupon.create em sim de pagamento — revisar"
+    }
+  ],
+  "counts": {
+    "errors": 0,
+    "warnings": 1
+  }
+}
