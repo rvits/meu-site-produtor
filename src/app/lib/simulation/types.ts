@@ -70,7 +70,9 @@ export type SimulationGateResult = {
 };
 
 export type SimulationReport = {
-  reportId: "SIM-01-execution";
+  reportId: "SIM-01-execution" | "SIM-02-execution";
+  /** Distingue engine quando reportId=SIM-02 (mismos cenários via Execution Core). */
+  engine?: "SIM-01" | "SIM-02";
   runId: string;
   startedAt: string;
   finishedAt: string;

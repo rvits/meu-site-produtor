@@ -40,6 +40,7 @@ async function main() {
     return i >= 0 ? args[i + 1] : undefined;
   };
   const has = (flag: string) => args.includes(flag);
+  const engine = get("--engine") === "sim02" ? "sim02" : "sim01";
 
   const {
     describeSimulationRegistry,
@@ -96,12 +97,18 @@ async function main() {
   }
 
   if (has("--batch")) {
-    const outFile = path.resolve(process.cwd(), "reports/domain-guardian/sim01-last-run.json");
+    const outFile = path.resolve(
+      process.cwd(),
+      engine === "sim02"
+        ? "reports/domain-guardian/sim02-last-run.json"
+        : "reports/domain-guardian/sim01-last-run.json"
+    );
     fs.mkdirSync(path.dirname(outFile), { recursive: true });
     const report = await runAllSimulations({
       actor,
       cliToken: token,
-      artifactPrefix: "sim01",
+      artifactPrefix: engine,
+      engine: engine as "sim01" | "sim02",
       print: true,
     });
     fs.writeFileSync(outFile, JSON.stringify(report, null, 2), "utf8");
@@ -123,7 +130,8 @@ async function main() {
   const report = await runSimulation(id as any, {
     actor,
     cliToken: token,
-    artifactPrefix: "sim01",
+    artifactPrefix: engine,
+    engine: engine as "sim01" | "sim02",
     print: true,
   });
   const fail = report.summary.failed + report.summary.errors;

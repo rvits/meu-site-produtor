@@ -1,19 +1,12 @@
 /**
- * TE-01B — Scenario Runner.
+ * TE-01B — Scenario Runner (delega ao Execution Core).
  */
-import { buildExecutionReport, printExecutionReport } from "@/app/lib/test-engine/execution-report";
-import { assertTestEngineAllowed, type TeActor } from "@/app/lib/test-engine/permissions";
-import { getScenario, listScenarioIds, listScenarios } from "@/app/lib/test-engine/scenario-registry";
-import type {
-  ExecutionReport,
-  ScenarioContext,
-  ScenarioId,
-  ScenarioResult,
-} from "@/app/lib/test-engine/types";
-
-function newRunId(): string {
-  return `te_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+import { ExecutionCore } from "@/app/lib/execution/core";
+import { listExecutionScenarios } from "@/app/lib/execution/registry";
+import { toTeExecutionReport } from "@/app/lib/execution/result";
+import { printExecutionReport } from "@/app/lib/test-engine/execution-report";
+import type { TeActor } from "@/app/lib/test-engine/permissions";
+import type { ExecutionReport, ScenarioId } from "@/app/lib/test-engine/types";
 
 export type RunOptions = {
   actor?: TeActor;
@@ -22,198 +15,67 @@ export type RunOptions = {
   print?: boolean;
 };
 
-async function executeOne(
-  id: ScenarioId,
-  ctxBase: ScenarioContext
-): Promise<ScenarioResult> {
-  const def = getScenario(id);
-  const started = Date.now();
-  if (!def) {
-    return {
-      id,
-      name: id,
-      status: "error",
-      durationMs: Date.now() - started,
-      asserts: [],
-      errors: [`Cenário ${id} não encontrado no registry`],
-      warnings: [],
-    };
-  }
-
-  try {
-    const body = await def.run(ctxBase);
-    return {
-      id: def.id,
-      name: def.name,
-      status: body.status,
-      durationMs: Date.now() - started,
-      asserts: body.asserts,
-      errors: body.errors,
-      warnings: body.warnings,
-      artifacts: body.artifacts,
-    };
-  } catch (e: unknown) {
-    return {
-      id: def.id,
-      name: def.name,
-      status: "error",
-      durationMs: Date.now() - started,
-      asserts: [],
-      errors: [e instanceof Error ? e.message : String(e)],
-      warnings: [],
-    };
-  }
-}
-
 export async function runScenario(
   id: ScenarioId,
   opts: RunOptions = {}
 ): Promise<ExecutionReport> {
-  const startedAt = new Date().toISOString();
-  const runId = newRunId();
-  const gate = assertTestEngineAllowed({
+  const def = listExecutionScenarios().find((s) => s.id === id);
+  const suite = def?.suites[0] || "te-s01";
+  const report = await ExecutionCore.run({
+    scenarioIds: [id],
+    suite,
     actor: opts.actor,
     cliToken: opts.cliToken,
+    artifactPrefix:
+      opts.artifactPrefix ||
+      (suite === "sync01a" ? "sync01a" : suite === "te02a" ? "te02a" : "te01b"),
+    print: false,
+    reportId:
+      suite === "sync01a"
+        ? "SYNC-01A-execution"
+        : suite === "te02a"
+          ? "TE-02A-execution"
+          : "TE-01B-execution",
   });
-
-  if (!gate.allowed) {
-    const report = buildExecutionReport({
-      runId,
-      startedAt,
-      gate,
-      results: [
-        {
-          id,
-          name: id,
-          status: "skipped",
-          durationMs: 0,
-          asserts: [],
-          errors: [],
-          warnings: [gate.reason || "bloqueado"],
-        },
-      ],
-    });
-    if (opts.print !== false) printExecutionReport(report);
-    return report;
-  }
-
-  const ctx: ScenarioContext = {
-    runId,
-    startedAt,
-    actor: opts.actor,
-    cliToken: opts.cliToken,
-    artifactPrefix: opts.artifactPrefix || "te01b",
-  };
-
-  const result = await executeOne(id, ctx);
-  const report = buildExecutionReport({
-    runId,
-    startedAt,
-    gate,
-    results: [result],
-  });
-  if (opts.print !== false) printExecutionReport(report);
-  return report;
+  const teReport = toTeExecutionReport(report);
+  if (opts.print !== false) printExecutionReport(teReport);
+  return teReport;
 }
 
 export async function runAllScenarios(opts: RunOptions = {}): Promise<ExecutionReport> {
-  const startedAt = new Date().toISOString();
-  const runId = newRunId();
-  const gate = assertTestEngineAllowed({
-    actor: opts.actor,
-    cliToken: opts.cliToken,
-  });
-
-  if (!gate.allowed) {
-    const report = buildExecutionReport({
-      runId,
-      startedAt,
-      gate,
-      results: listScenarioIds().map((id) => ({
-        id,
-        name: id,
-        status: "skipped" as const,
-        durationMs: 0,
-        asserts: [],
-        errors: [],
-        warnings: [gate.reason || "bloqueado"],
-      })),
-    });
-    if (opts.print !== false) printExecutionReport(report);
-    return report;
-  }
-
-  const ctx: ScenarioContext = {
-    runId,
-    startedAt,
+  const teIds = listExecutionScenarios()
+    .filter((s) => s.kind === "te")
+    .map((s) => s.id);
+  const report = await ExecutionCore.run({
+    scenarioIds: teIds,
     actor: opts.actor,
     cliToken: opts.cliToken,
     artifactPrefix: opts.artifactPrefix || "te01b",
-  };
-
-  const results: ScenarioResult[] = [];
-  for (const id of listScenarioIds()) {
-    results.push(await executeOne(id, ctx));
-  }
-
-  const report = buildExecutionReport({ runId, startedAt, gate, results });
-  if (opts.print !== false) printExecutionReport(report);
-  return report;
+    print: false,
+    reportId: "TE-01B-execution",
+  });
+  const teReport = toTeExecutionReport(report);
+  if (opts.print !== false) printExecutionReport(teReport);
+  return teReport;
 }
 
 export async function runScenarioIds(
   ids: ScenarioId[],
   opts: RunOptions & { reportId?: ExecutionReport["reportId"] } = {}
 ): Promise<ExecutionReport> {
-  const startedAt = new Date().toISOString();
-  const runId = newRunId();
-  const gate = assertTestEngineAllowed({
+  const suite = opts.reportId === "SYNC-01A-execution" ? "sync01a" : "te02a";
+  const report = await ExecutionCore.run({
+    scenarioIds: ids,
+    suite,
     actor: opts.actor,
     cliToken: opts.cliToken,
-  });
-
-  if (!gate.allowed) {
-    const report = buildExecutionReport({
-      runId,
-      startedAt,
-      gate,
-      reportId: opts.reportId,
-      results: ids.map((id) => ({
-        id,
-        name: id,
-        status: "skipped" as const,
-        durationMs: 0,
-        asserts: [],
-        errors: [],
-        warnings: [gate.reason || "bloqueado"],
-      })),
-    });
-    if (opts.print !== false) printExecutionReport(report);
-    return report;
-  }
-
-  const ctx: ScenarioContext = {
-    runId,
-    startedAt,
-    actor: opts.actor,
-    cliToken: opts.cliToken,
-    artifactPrefix: opts.artifactPrefix || "te02a",
-  };
-
-  const results: ScenarioResult[] = [];
-  for (const id of ids) {
-    results.push(await executeOne(id, ctx));
-  }
-
-  const report = buildExecutionReport({
-    runId,
-    startedAt,
-    gate,
-    results,
+    artifactPrefix: opts.artifactPrefix || (suite === "sync01a" ? "sync01a" : "te02a"),
+    print: false,
     reportId: opts.reportId,
   });
-  if (opts.print !== false) printExecutionReport(report);
-  return report;
+  const teReport = toTeExecutionReport(report);
+  if (opts.print !== false) printExecutionReport(teReport);
+  return teReport;
 }
 
 export function describeRegistry(): {
@@ -222,10 +84,12 @@ export function describeRegistry(): {
   status: string;
   description: string;
 }[] {
-  return listScenarios().map((s) => ({
-    id: s.id,
-    name: s.name,
-    status: s.status,
-    description: s.description,
-  }));
+  return listExecutionScenarios()
+    .filter((s) => s.kind === "te")
+    .map((s) => ({
+      id: s.id as ScenarioId,
+      name: s.name,
+      status: s.status || "implemented",
+      description: s.description,
+    }));
 }

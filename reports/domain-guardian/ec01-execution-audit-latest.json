@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-15T03:34:23.098Z",
+  "pipeline": [
+    "ExecutionCore",
+    "Workflow",
+    "StateMachine",
+    "DomainEvents",
+    "Synchronization",
+    "Assertions",
+    "Reports",
+    "Cleanup"
+  ],
+  "scenarios": 51,
+  "entryPoint": "ExecutionCore.run()",
+  "issues": [],
+  "counts": {
+    "errors": 0,
+    "warnings": 0
+  }
+}

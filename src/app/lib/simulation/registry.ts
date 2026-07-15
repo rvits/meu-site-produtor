@@ -1,22 +1,54 @@
 /**
- * SIM-01 — Simulation Registry.
+ * SIM-01 — Simulation Registry (delega ao Execution Core discovery).
  */
 
-import { sim01Scenarios } from "@/app/lib/simulation/scenarios/sim01-batch";
+import {
+  getExecutionScenario,
+  listExecutionScenarios,
+} from "@/app/lib/execution/registry";
 import type { SimulationDefinition, SimulationId } from "@/app/lib/simulation/types";
 
-const registry = new Map<SimulationId, SimulationDefinition>();
-
-for (const s of sim01Scenarios) {
-  registry.set(s.id, s);
-}
-
 export function getSimulation(id: SimulationId): SimulationDefinition | undefined {
-  return registry.get(id);
+  const s = getExecutionScenario(id);
+  if (!s || s.kind !== "sim") return undefined;
+  return {
+    id: s.id as SimulationId,
+    name: s.name,
+    description: s.description,
+    pipeline: s.pipeline || [],
+    run: async (ctx) => {
+      const body = await s.run({
+        executionId: `legacy_${Date.now()}`,
+        runId: ctx.runId,
+        scenarioId: s.id,
+        startedAt: ctx.startedAt,
+        suite: ctx.artifactPrefix.startsWith("sim02") ? "sim02" : "sim01",
+        kind: "sim",
+        actor: ctx.actor,
+        cliToken: ctx.cliToken,
+        artifactPrefix: ctx.artifactPrefix,
+        via: "execution-core",
+      });
+      return {
+        status: body.status as "pass" | "fail" | "error" | "skipped",
+        asserts: body.asserts,
+        errors: body.errors,
+        warnings: body.warnings,
+        artifacts: body.artifacts,
+        userId: body.userId || "",
+        email: body.email || "",
+        eventsProduced: body.eventsProduced,
+        cleanup: body.cleanup,
+      };
+    },
+  };
 }
 
 export function listSimulations(): SimulationDefinition[] {
-  return [...registry.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return listExecutionScenarios()
+    .filter((s) => s.kind === "sim")
+    .map((s) => getSimulation(s.id as SimulationId)!)
+    .filter(Boolean);
 }
 
 export function listSimulationIds(): SimulationId[] {
@@ -24,7 +56,8 @@ export function listSimulationIds(): SimulationId[] {
 }
 
 export function registerSimulation(def: SimulationDefinition): void {
-  registry.set(def.id, def);
+  void def;
+  console.warn("[simulation-registry] registerSimulation deprecated — use batch exports + discovery");
 }
 
 export function describeSimulationRegistry(): {

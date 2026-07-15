@@ -23,6 +23,12 @@
     "sim:cleanup": "npx --yes tsx --tsconfig tsconfig.json scripts/sim-run.ts --cleanup",
     "sim:report": "npx --yes tsx --tsconfig tsconfig.json scripts/sim-run.ts --report",
     "sim:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/simulation-audit.ts",
+    "sim:watch": "npx --yes tsx --tsconfig tsconfig.json scripts/sim-watch.ts",
+    "sim:batch:sim02": "npx --yes tsx --tsconfig tsconfig.json scripts/sim-run.ts --batch --engine sim02",
+    "exec:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/execution-audit.ts",
+    "graph:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/knowledge-graph-audit.ts",
+    "discovery:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/discovery-audit.ts",
+    "regression:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/regression-audit.ts",
     "migrate:postgresql": "node scripts/migrar-para-postgresql-v2.js"
   },
   "prisma": {

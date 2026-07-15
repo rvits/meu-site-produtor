@@ -454,15 +454,28 @@ export const sync01aScenarios: ScenarioDefinition[] = [
             surfaces.includes("dashboard"),
           evidence: { surfaces },
         });
+        // Replay a partir do cursor imediatamente anterior ao PlanCancelled
+        // (outbox acumulado de suites paralelas torna take=20 do início flaky).
+        const planCursor = planEvents[0]?.cursor;
+        const cursorBefore =
+          planCursor && /^\d+$/.test(planCursor)
+            ? String(BigInt(planCursor) - 1n)
+            : null;
         const replay = await listSyncEventsSince({
           userId,
           isAdmin: false,
           take: 20,
+          cursor: cursorBefore,
         });
         asserts.push({
           name: "assertCursorReplay",
           ok: replay.events.some((e) => e.name === "PlanCancelled"),
-          evidence: { count: replay.events.length, nextCursor: replay.nextCursor },
+          evidence: {
+            count: replay.events.length,
+            nextCursor: replay.nextCursor,
+            cursorBefore,
+            planCursor,
+          },
         });
         void findLatestPaymentByAsaasId;
         return { status: "pass", asserts, errors: [], warnings: [], artifacts: {} };

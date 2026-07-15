@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-15T03:35:36.939Z",
+  "entities": 12,
+  "edges": 67,
+  "issues": [],
+  "counts": {
+    "errors": 0,
+    "warnings": 0
+  }
+}

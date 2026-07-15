@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "generatedAt": "2026-07-15T03:36:51.149Z",
+  "batches": 5,
+  "scenarios": 51,
+  "suites": [
+    "te-s01",
+    "te-stubs",
+    "te02a",
+    "sync01a",
+    "sim01",
+    "sim02"
+  ],
+  "modulePaths": [
+    "src/app/lib/test-engine/scenarios/te-s01-compra-simples.ts",
+    "src/app/lib/test-engine/scenarios/stubs.ts",
+    "src/app/lib/test-engine/scenarios/te02a-batch1.ts",
+    "src/app/lib/test-engine/scenarios/sync01a-batch.ts",
+    "src/app/lib/simulation/scenarios/sim01-batch.ts"
+  ],
+  "platformModules": {
+    "workflows": [
+      "src/app/lib/domain/workflow.ts",
+      "src/app/lib/domain/state-machine"
+    ],
+    "domain": [
+      "src/app/lib/domain",
+      "src/app/lib/domain/graph"
+    ],
+    "execution": [
+      "src/app/lib/execution"
+    ],
+    "assertions": [
+      "src/app/lib/test-engine/assert-engine.ts",
+      "src/app/lib/simulation/assertions.ts"
+    ],
+    "reports": [
+      "src/app/lib/execution/report.ts",
+      "src/app/lib/simulation/report.ts",
+      "src/app/lib/test-engine/execution-report.ts",
+      "reports/domain-guardian"
+    ],
+    "simulation": [
+      "src/app/lib/simulation"
+    ],
+    "synchronization": [
+      "src/app/lib/synchronization"
+    ]
+  },
+  "issues": [],
+  "counts": {
+    "errors": 0,
+    "warnings": 0
+  }
+}

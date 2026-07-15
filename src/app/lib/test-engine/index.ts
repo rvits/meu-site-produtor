@@ -46,9 +46,20 @@ export {
   runSimulation,
   runSimulationBatch,
   runAllSimulations,
+  runAllSimulationsViaExecutionCore,
   describeSimulationRegistry,
   SIM01_IDS,
 } from "@/app/lib/simulation";
+
+export {
+  ExecutionCore,
+  runExecution,
+  describeExecutionRegistry,
+  discoverBatches,
+  analyzeImpact,
+  getExecutionHistory,
+  SIM01_IDS as EC_SIM01_IDS,
+} from "@/app/lib/execution";
 
 export {
   cleanupTeUserArtifacts,

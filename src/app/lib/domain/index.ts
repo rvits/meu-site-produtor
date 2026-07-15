@@ -37,3 +37,4 @@ export {
   type TransitionResult,
   type DomainEvent,
 } from "@/app/lib/domain/state-machine";
+export * from "@/app/lib/domain/graph";
