@@ -17,7 +17,6 @@ import {
  */
 export async function ensureServicesForAppointment(appointmentId: number): Promise<number> {
   const existing = await prisma.service.count({ where: { appointmentId } });
-  if (existing > 0) return 0;
 
   const apt = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -77,6 +76,8 @@ export async function ensureServicesForAppointment(appointmentId: number): Promi
     },
   });
   const coupon = pickPrimaryCouponForDisplay(coupons);
+  if (existing > 0) return 0;
+
   const tipo = normalizeServiceTypeId(String(coupon?.serviceType || apt.tipo || "sessao"));
   const mapStatus = mapRequestStatusToServiceStatus(apt.status);
 

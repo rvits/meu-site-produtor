@@ -46,7 +46,6 @@ export async function planTransitionEffects(event: DomainEvent): Promise<EffectP
         where: {
           appointmentId,
           used: false,
-          paymentId: null,
           couponType: { not: toPersistedCouponType("REFUND") },
         },
         data: { used: true, usedAt: new Date(), usedBy: apt.userId },

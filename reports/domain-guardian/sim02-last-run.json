@@ -1,10 +1,10 @@
 {
   "reportId": "SIM-02-execution",
   "engine": "SIM-02",
-  "runId": "ecrun_1784087316873_egfuj6",
-  "startedAt": "2026-07-15T03:48:36.872Z",
-  "finishedAt": "2026-07-15T03:49:46.984Z",
-  "durationMs": 70112,
+  "runId": "ecrun_1784090139821_bky2zp",
+  "startedAt": "2026-07-15T04:35:39.820Z",
+  "finishedAt": "2026-07-15T04:36:46.696Z",
+  "durationMs": 66876,
   "gate": {
     "allowed": true,
     "warnings": [
@@ -14,20 +14,20 @@
   "sessions": [
     {
       "simulationId": "SIM-001",
-      "sessionId": "sess_1784087316893_feg180",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090139847_1v4m9g",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Pagamento aprovado",
-      "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
-      "email": "sim02-sim-001-1784087316893@homolog.test",
+      "userId": "ec4a4244-3363-4590-8116-72af89124349",
+      "email": "sim02-sim-001-1784090139847@homolog.test",
       "result": "pass",
-      "durationMs": 9832,
+      "durationMs": 8149,
       "eventsProduced": [
         {
-          "id": "cmrljiw9y0000rhd4olgajwxo",
-          "cursor": "716",
+          "id": "cmrll7eh60000p5281evipqec",
+          "cursor": "1148",
           "name": "PaymentConfirmed",
           "entity": "payment",
-          "entityId": "a067cd8f-6f25-4641-aebc-7c89769f3413",
+          "entityId": "73a7f9d9-42a6-4aae-915a-894eed3f2a0f",
           "from": "pending",
           "to": "confirmado",
           "surfaces": [
@@ -40,11 +40,11 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
-          "occurredAt": "2026-07-15T03:48:37.216Z",
+          "userId": "ec4a4244-3363-4590-8116-72af89124349",
+          "occurredAt": "2026-07-15T04:35:40.169Z",
           "source": "lifecycle",
           "metadata": {
-            "asaasId": "pay_te_1784087317171_mnxrp6",
+            "asaasId": "pay_te_1784090140132_8vdy8d",
             "via": "processPaymentWebhook-create",
             "simSource": "sim-scenario",
             "publicAgenda": false,
@@ -52,11 +52,11 @@
           }
         },
         {
-          "id": "cmrljiwbd0001rhd41s99t3fh",
-          "cursor": "717",
+          "id": "cmrll7ekz0001p528o855pudd",
+          "cursor": "1149",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "209",
+          "entityId": "291",
           "to": "pendente",
           "surfaces": [
             "agenda",
@@ -66,8 +66,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
-          "occurredAt": "2026-07-15T03:48:37.267Z",
+          "userId": "ec4a4244-3363-4590-8116-72af89124349",
+          "occurredAt": "2026-07-15T04:35:40.306Z",
           "source": "lifecycle",
           "metadata": {
             "slotHint": "2026-08-12T12:00:00.000Z",
@@ -79,18 +79,18 @@
           }
         },
         {
-          "id": "cmrljiwbg0002rhd4365uiknt",
-          "cursor": "718",
+          "id": "cmrll7el40002p5289dkcuuva",
+          "cursor": "1150",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "209",
+          "entityId": "291",
           "to": "pendente",
           "surfaces": [
             "agenda"
           ],
           "scope": "public",
           "userId": null,
-          "occurredAt": "2026-07-15T03:48:37.267Z",
+          "occurredAt": "2026-07-15T04:35:40.306Z",
           "source": "lifecycle",
           "metadata": {
             "publicAgenda": true,
@@ -105,13 +105,13 @@
           "ok": true,
           "evidence": {
             "payment": {
-              "id": "a067cd8f-6f25-4641-aebc-7c89769f3413",
-              "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
+              "id": "73a7f9d9-42a6-4aae-915a-894eed3f2a0f",
+              "userId": "ec4a4244-3363-4590-8116-72af89124349",
               "status": "approved",
               "type": "agendamento",
               "amount": 5,
-              "asaasId": "pay_te_1784087317171_mnxrp6",
-              "appointmentId": 209
+              "asaasId": "pay_te_1784090140132_8vdy8d",
+              "appointmentId": 291
             }
           }
         },
@@ -120,8 +120,8 @@
           "ok": true,
           "evidence": {
             "appointment": {
-              "id": 209,
-              "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
+              "id": 291,
+              "userId": "ec4a4244-3363-4590-8116-72af89124349",
               "status": "pendente",
               "tipo": "sessao",
               "data": "2026-08-12T12:00:00.000Z"
@@ -135,8 +135,8 @@
             "count": 1,
             "services": [
               {
-                "id": "f0a256e5-5b3a-4f88-8d2a-60587693058c",
-                "appointmentId": 209,
+                "id": "0e6e7dcc-0ad7-4431-9a02-f37d2fce3e0d",
+                "appointmentId": 291,
                 "status": "pendente",
                 "tipo": "sessao"
               }
@@ -160,7 +160,7 @@
                   "dashboard",
                   "estatisticas"
                 ],
-                "cursor": "716"
+                "cursor": "1148"
               }
             ]
           }
@@ -169,8 +169,8 @@
           "name": "assertMinhaConta",
           "ok": true,
           "evidence": {
-            "userId": "1c8f5ab2-848d-47cc-8b98-d4574f98d4b1",
-            "email": "sim02-sim-001-1784087316893@homolog.test",
+            "userId": "ec4a4244-3363-4590-8116-72af89124349",
+            "email": "sim02-sim-001-1784090139847@homolog.test",
             "appointments": 1,
             "services": 1,
             "payments": 1
@@ -198,16 +198,16 @@
         "users": 1
       },
       "artifacts": {
-        "asaasId": "pay_te_1784087317171_mnxrp6"
+        "asaasId": "pay_te_1784090140132_8vdy8d"
       }
     },
     {
       "simulationId": "SIM-002",
-      "sessionId": "sess_1784087326725_8bzum4",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090147996_e8eljt",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Pagamento recusado",
-      "userId": "1b007029-2f6c-4378-adf3-32ff4ca9a7c5",
-      "email": "sim02-sim-002-1784087326725@homolog.test",
+      "userId": "4b1e1ad0-2a1c-4ef8-b840-84ad7788e3fb",
+      "email": "sim02-sim-002-1784090147996@homolog.test",
       "result": "pass",
       "durationMs": 110,
       "eventsProduced": [],
@@ -240,25 +240,25 @@
         "users": 1
       },
       "artifacts": {
-        "asaasId": "pay_te_1784087326812_o13x27"
+        "asaasId": "pay_te_1784090148081_6p3gzd"
       }
     },
     {
       "simulationId": "SIM-003",
-      "sessionId": "sess_1784087326835_oc3gbz",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090148106_9wcf39",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Pagamento duplicado",
-      "userId": "f6700f20-d8bc-4d7b-9705-33cd875584c8",
-      "email": "sim02-sim-003-1784087326835@homolog.test",
+      "userId": "b4c9d380-4ea4-4652-8814-ab49f25b24ef",
+      "email": "sim02-sim-003-1784090148107@homolog.test",
       "result": "pass",
-      "durationMs": 15758,
+      "durationMs": 15417,
       "eventsProduced": [
         {
-          "id": "cmrljj3ro0003rhd4oqjx5ibq",
-          "cursor": "719",
+          "id": "cmrll7koa0003p528hzs15gbt",
+          "cursor": "1151",
           "name": "PaymentConfirmed",
           "entity": "payment",
-          "entityId": "7253f841-533b-4939-a91b-01bcd033d6e1",
+          "entityId": "3fd8aa42-b7b1-4734-8c3c-3144b38540c3",
           "from": "pending",
           "to": "confirmado",
           "surfaces": [
@@ -271,11 +271,11 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "f6700f20-d8bc-4d7b-9705-33cd875584c8",
-          "occurredAt": "2026-07-15T03:48:46.927Z",
+          "userId": "b4c9d380-4ea4-4652-8814-ab49f25b24ef",
+          "occurredAt": "2026-07-15T04:35:48.201Z",
           "source": "lifecycle",
           "metadata": {
-            "asaasId": "pay_te_1784087326916_gpajl3",
+            "asaasId": "pay_te_1784090148191_u5zs7z",
             "via": "processPaymentWebhook-create",
             "simSource": "sim-scenario",
             "publicAgenda": false,
@@ -283,11 +283,11 @@
           }
         },
         {
-          "id": "cmrljj3s30004rhd47ey9cqoc",
-          "cursor": "720",
+          "id": "cmrll7kop0004p528pnjujq4q",
+          "cursor": "1152",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "210",
+          "entityId": "292",
           "to": "pendente",
           "surfaces": [
             "agenda",
@@ -297,8 +297,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "f6700f20-d8bc-4d7b-9705-33cd875584c8",
-          "occurredAt": "2026-07-15T03:48:46.941Z",
+          "userId": "b4c9d380-4ea4-4652-8814-ab49f25b24ef",
+          "occurredAt": "2026-07-15T04:35:48.216Z",
           "source": "lifecycle",
           "metadata": {
             "slotHint": "2026-08-12T14:00:00.000Z",
@@ -310,18 +310,18 @@
           }
         },
         {
-          "id": "cmrljj3s70005rhd4ydezdfdz",
-          "cursor": "721",
+          "id": "cmrll7kor0005p52839hfyseh",
+          "cursor": "1153",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "210",
+          "entityId": "292",
           "to": "pendente",
           "surfaces": [
             "agenda"
           ],
           "scope": "public",
           "userId": null,
-          "occurredAt": "2026-07-15T03:48:46.941Z",
+          "occurredAt": "2026-07-15T04:35:48.216Z",
           "source": "lifecycle",
           "metadata": {
             "publicAgenda": true,
@@ -341,13 +341,13 @@
           "ok": true,
           "evidence": {
             "payment": {
-              "id": "7253f841-533b-4939-a91b-01bcd033d6e1",
-              "userId": "f6700f20-d8bc-4d7b-9705-33cd875584c8",
+              "id": "3fd8aa42-b7b1-4734-8c3c-3144b38540c3",
+              "userId": "b4c9d380-4ea4-4652-8814-ab49f25b24ef",
               "status": "approved",
               "type": "agendamento",
               "amount": 5,
-              "asaasId": "pay_te_1784087326916_gpajl3",
-              "appointmentId": 210
+              "asaasId": "pay_te_1784090148191_u5zs7z",
+              "appointmentId": 292
             }
           }
         }
@@ -365,25 +365,25 @@
         "users": 1
       },
       "artifacts": {
-        "asaasId": "pay_te_1784087326916_gpajl3"
+        "asaasId": "pay_te_1784090148191_u5zs7z"
       }
     },
     {
       "simulationId": "SIM-004",
-      "sessionId": "sess_1784087342593_f9xsc0",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090163524_ydn2gj",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Sessão completa",
-      "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
-      "email": "sim02-sim-004-1784087342594@homolog.test",
+      "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
+      "email": "sim02-sim-004-1784090163524@homolog.test",
       "result": "pass",
-      "durationMs": 8337,
+      "durationMs": 7775,
       "eventsProduced": [
         {
-          "id": "cmrljjm5c000grhd41jhql92o",
-          "cursor": "728",
+          "id": "cmrll82co000gp528lsn8f9qa",
+          "cursor": "1160",
           "name": "AppointmentStarted",
           "entity": "appointment",
-          "entityId": "211",
+          "entityId": "293",
           "from": "aceito",
           "to": "em_andamento",
           "surfaces": [
@@ -395,8 +395,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
-          "occurredAt": "2026-07-15T03:49:10.746Z",
+          "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
+          "occurredAt": "2026-07-15T04:36:11.111Z",
           "source": "state-machine",
           "metadata": {
             "reason": "startServiceWork",
@@ -407,11 +407,11 @@
           }
         },
         {
-          "id": "cmrljjm5o000irhd4yz7dfg1z",
-          "cursor": "729",
+          "id": "cmrll82d1000ip528wlhydeep",
+          "cursor": "1161",
           "name": "ServiceStarted",
           "entity": "service",
-          "entityId": "77972b04-fff3-47ed-a6b6-04f814594239",
+          "entityId": "0551374e-e0db-4704-9d18-e4df37e080e5",
           "from": "aceito",
           "to": "em_andamento",
           "surfaces": [
@@ -422,8 +422,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
-          "occurredAt": "2026-07-15T03:49:10.759Z",
+          "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
+          "occurredAt": "2026-07-15T04:36:11.123Z",
           "source": "state-machine",
           "metadata": {
             "reason": "cascade:AppointmentStarted",
@@ -434,11 +434,11 @@
           }
         },
         {
-          "id": "cmrljjm64000krhd46p766er4",
-          "cursor": "730",
+          "id": "cmrll82dj000kp528vq6ghvp3",
+          "cursor": "1162",
           "name": "ServiceCompleted",
           "entity": "service",
-          "entityId": "77972b04-fff3-47ed-a6b6-04f814594239",
+          "entityId": "0551374e-e0db-4704-9d18-e4df37e080e5",
           "from": "em_andamento",
           "to": "concluido",
           "surfaces": [
@@ -449,8 +449,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
-          "occurredAt": "2026-07-15T03:49:10.774Z",
+          "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
+          "occurredAt": "2026-07-15T04:36:11.143Z",
           "source": "state-machine",
           "metadata": {
             "reason": "completeService",
@@ -469,8 +469,8 @@
           "ok": true,
           "evidence": {
             "appointment": {
-              "id": 211,
-              "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
+              "id": 293,
+              "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
               "status": "concluido",
               "tipo": "sessao",
               "data": "2026-08-12T15:00:00.000Z"
@@ -484,8 +484,8 @@
             "count": 1,
             "services": [
               {
-                "id": "77972b04-fff3-47ed-a6b6-04f814594239",
-                "appointmentId": 211,
+                "id": "0551374e-e0db-4704-9d18-e4df37e080e5",
+                "appointmentId": 293,
                 "status": "concluido",
                 "tipo": "sessao"
               }
@@ -507,7 +507,7 @@
                   "dashboard",
                   "estatisticas"
                 ],
-                "cursor": "730"
+                "cursor": "1162"
               }
             ]
           }
@@ -518,9 +518,9 @@
           "evidence": {
             "history": [
               {
-                "id": "cmrljjm60000jrhd4qzo68m9n",
+                "id": "cmrll82dd000jp528pimf920e",
                 "entity": "service",
-                "entityId": "77972b04-fff3-47ed-a6b6-04f814594239",
+                "entityId": "0551374e-e0db-4704-9d18-e4df37e080e5",
                 "fromStatus": "em_andamento",
                 "toStatus": "concluido",
                 "eventName": "ServiceCompleted",
@@ -528,12 +528,12 @@
                 "actorId": null,
                 "reason": "completeService",
                 "metadata": "{\"deliveryAudioUrl\":\"https://example.com/sim01-delivery.wav\",\"deliveryAudioFormat\":\"wav\"}",
-                "createdAt": "2026-07-15T03:49:10.777Z"
+                "createdAt": "2026-07-15T04:36:11.138Z"
               },
               {
-                "id": "cmrljjm5l000hrhd4gbtmbfug",
+                "id": "cmrll82cv000hp528j95fzlqj",
                 "entity": "service",
-                "entityId": "77972b04-fff3-47ed-a6b6-04f814594239",
+                "entityId": "0551374e-e0db-4704-9d18-e4df37e080e5",
                 "fromStatus": "aceito",
                 "toStatus": "em_andamento",
                 "eventName": "ServiceStarted",
@@ -541,12 +541,12 @@
                 "actorId": null,
                 "reason": "cascade:AppointmentStarted",
                 "metadata": "{}",
-                "createdAt": "2026-07-15T03:49:10.762Z"
+                "createdAt": "2026-07-15T04:36:11.120Z"
               },
               {
-                "id": "cmrljjm4q000drhd419wdxain",
+                "id": "cmrll82by000dp528q06duhhd",
                 "entity": "service",
-                "entityId": "77972b04-fff3-47ed-a6b6-04f814594239",
+                "entityId": "0551374e-e0db-4704-9d18-e4df37e080e5",
                 "fromStatus": "pendente",
                 "toStatus": "aceito",
                 "eventName": "ServiceAccepted",
@@ -554,7 +554,7 @@
                 "actorId": null,
                 "reason": "cascade:AppointmentAccepted",
                 "metadata": "{}",
-                "createdAt": "2026-07-15T03:49:10.731Z"
+                "createdAt": "2026-07-15T04:36:11.086Z"
               }
             ]
           }
@@ -563,8 +563,8 @@
           "name": "assertMinhaConta",
           "ok": true,
           "evidence": {
-            "userId": "d828627b-ec28-497e-a977-a6aaffefa8af",
-            "email": "sim02-sim-004-1784087342594@homolog.test",
+            "userId": "e8afc724-8ab1-4fe6-ab2a-1404aa7febcd",
+            "email": "sim02-sim-004-1784090163524@homolog.test",
             "appointments": 1,
             "services": 1,
             "payments": 1
@@ -594,25 +594,25 @@
         "users": 1
       },
       "artifacts": {
-        "appointmentId": 211
+        "appointmentId": 293
       }
     },
     {
       "simulationId": "SIM-005",
-      "sessionId": "sess_1784087350930_c76wpn",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090171299_s55cna",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Plano Bronze",
-      "userId": "e4184174-cd78-4f05-9adf-9044dcac9665",
-      "email": "sim02-sim-005-1784087350930@homolog.test",
+      "userId": "19ea5b3e-2664-4ef3-8062-c0a3e789ca9c",
+      "email": "sim02-sim-005-1784090171299@homolog.test",
       "result": "pass",
-      "durationMs": 4152,
+      "durationMs": 3868,
       "eventsProduced": [
         {
-          "id": "cmrljjmde000lrhd4g00t76fa",
-          "cursor": "731",
+          "id": "cmrll82kn000lp528msfkpu13",
+          "cursor": "1163",
           "name": "PaymentConfirmed",
           "entity": "payment",
-          "entityId": "b3ffa279-f060-403f-9e75-b8956464905e",
+          "entityId": "8f341610-fde2-44fb-a5b4-0b598b7f0c98",
           "from": "pending",
           "to": "confirmado",
           "surfaces": [
@@ -625,11 +625,11 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "e4184174-cd78-4f05-9adf-9044dcac9665",
-          "occurredAt": "2026-07-15T03:49:11.037Z",
+          "userId": "19ea5b3e-2664-4ef3-8062-c0a3e789ca9c",
+          "occurredAt": "2026-07-15T04:36:11.398Z",
           "source": "lifecycle",
           "metadata": {
-            "asaasId": "pay_te_plan_1784087351028_toiaou",
+            "asaasId": "pay_te_plan_1784090171384_qjlt8q",
             "via": "processPaymentWebhook-create",
             "simSource": "sim-scenario",
             "publicAgenda": false,
@@ -643,15 +643,15 @@
           "ok": true,
           "evidence": {
             "plan": {
-              "id": "53c19d17-ddba-477d-8854-5568b7dcac02",
-              "userId": "e4184174-cd78-4f05-9adf-9044dcac9665",
+              "id": "ba122624-eef8-4494-9763-5c489a7357a1",
+              "userId": "19ea5b3e-2664-4ef3-8062-c0a3e789ca9c",
               "planId": "bronze",
               "planName": "Bronze",
               "modo": "mensal",
               "amount": 5,
               "status": "active",
-              "startDate": "2026-07-15T03:49:11.048Z",
-              "endDate": "2026-08-15T03:49:11.048Z",
+              "startDate": "2026-07-15T04:36:11.411Z",
+              "endDate": "2026-08-15T04:36:11.411Z",
               "readAt": null,
               "refundRequestedAt": null,
               "refundProcessedAt": null,
@@ -662,8 +662,8 @@
               "adminInactiveAt": null,
               "adminInactiveReason": null,
               "userHiddenAt": null,
-              "createdAt": "2026-07-15T03:49:11.054Z",
-              "updatedAt": "2026-07-15T03:49:11.054Z"
+              "createdAt": "2026-07-15T04:36:11.413Z",
+              "updatedAt": "2026-07-15T04:36:11.413Z"
             }
           }
         },
@@ -689,7 +689,7 @@
                   "dashboard",
                   "estatisticas"
                 ],
-                "cursor": "731"
+                "cursor": "1163"
               }
             ]
           }
@@ -698,8 +698,8 @@
           "name": "assertMinhaConta",
           "ok": true,
           "evidence": {
-            "userId": "e4184174-cd78-4f05-9adf-9044dcac9665",
-            "email": "sim02-sim-005-1784087350930@homolog.test",
+            "userId": "19ea5b3e-2664-4ef3-8062-c0a3e789ca9c",
+            "email": "sim02-sim-005-1784090171299@homolog.test",
             "appointments": 0,
             "services": 0,
             "payments": 1
@@ -719,25 +719,25 @@
         "users": 1
       },
       "artifacts": {
-        "userPlanId": "53c19d17-ddba-477d-8854-5568b7dcac02"
+        "userPlanId": "ba122624-eef8-4494-9763-5c489a7357a1"
       }
     },
     {
       "simulationId": "SIM-006",
-      "sessionId": "sess_1784087355082_92ksh9",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090175167_dypwe8",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Cupom Serviço",
-      "userId": "15ddeca5-f7ef-4392-b02c-87d46b2706b1",
-      "email": "sim02-sim-006-1784087355082@homolog.test",
+      "userId": "0b155e3a-8f84-4e9d-a965-f9165a8849b3",
+      "email": "sim02-sim-006-1784090175167@homolog.test",
       "result": "pass",
-      "durationMs": 8536,
+      "durationMs": 7331,
       "eventsProduced": [
         {
-          "id": "cmrljjpk8000nrhd44m5zdnw9",
-          "cursor": "732",
+          "id": "cmrll85jy000np528is6ejwk4",
+          "cursor": "1164",
           "name": "PaymentConfirmed",
           "entity": "payment",
-          "entityId": "720bcaca-c05e-4cb6-844f-cbf51d4d5b90",
+          "entityId": "fb6d55b7-29c8-43e6-a4a3-d8ba19798f52",
           "from": "pending",
           "to": "confirmado",
           "surfaces": [
@@ -750,11 +750,11 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "15ddeca5-f7ef-4392-b02c-87d46b2706b1",
-          "occurredAt": "2026-07-15T03:49:15.171Z",
+          "userId": "0b155e3a-8f84-4e9d-a965-f9165a8849b3",
+          "occurredAt": "2026-07-15T04:36:15.262Z",
           "source": "lifecycle",
           "metadata": {
-            "asaasId": "pay_te_1784087355163_qd2pc4",
+            "asaasId": "pay_te_1784090175250_xfvsrq",
             "via": "processPaymentWebhook-create",
             "simSource": "sim-scenario",
             "publicAgenda": false,
@@ -768,8 +768,8 @@
           "ok": true,
           "evidence": {
             "coupon": {
-              "id": "aa92d158-9a89-4a1c-b309-3811eaf8ff51",
-              "code": "TESTE_MRQ5U4F5",
+              "id": "316a2b1f-51ae-4cbe-963c-f43ef15fa46a",
+              "code": "TESTE_7WUK21WJ",
               "couponType": "test",
               "discountType": "service",
               "discountValue": 0,
@@ -781,9 +781,9 @@
               "usedBy": null,
               "appointmentId": null,
               "userPlanId": null,
-              "paymentId": "720bcaca-c05e-4cb6-844f-cbf51d4d5b90",
-              "assignedUserId": "15ddeca5-f7ef-4392-b02c-87d46b2706b1",
-              "expiresAt": "2026-08-14T03:49:15.175Z",
+              "paymentId": "fb6d55b7-29c8-43e6-a4a3-d8ba19798f52",
+              "assignedUserId": "0b155e3a-8f84-4e9d-a965-f9165a8849b3",
+              "expiresAt": "2026-08-14T04:36:15.267Z",
               "refundRequestedAt": null,
               "refundProcessedAt": null,
               "refundAmount": null,
@@ -791,7 +791,7 @@
               "refundUserConfirmedAt": null,
               "refundUserDisputedAt": null,
               "userRemovedAt": null,
-              "createdAt": "2026-07-15T03:49:15.181Z"
+              "createdAt": "2026-07-15T04:36:15.268Z"
             }
           }
         },
@@ -799,7 +799,7 @@
           "name": "assertDeepLink",
           "ok": true,
           "evidence": {
-            "deepLink": "/agendamento?cupom=TESTE_MRQ5U4F5",
+            "deepLink": "/agendamento?cupom=TESTE_7WUK21WJ",
             "serviceType": "sessao"
           }
         },
@@ -808,11 +808,11 @@
           "ok": true,
           "evidence": {
             "coupon": {
-              "id": "aa92d158-9a89-4a1c-b309-3811eaf8ff51",
-              "code": "TESTE_MRQ5U4F5",
+              "id": "316a2b1f-51ae-4cbe-963c-f43ef15fa46a",
+              "code": "TESTE_7WUK21WJ",
               "used": false,
-              "assignedUserId": "15ddeca5-f7ef-4392-b02c-87d46b2706b1",
-              "paymentId": "720bcaca-c05e-4cb6-844f-cbf51d4d5b90"
+              "assignedUserId": "0b155e3a-8f84-4e9d-a965-f9165a8849b3",
+              "paymentId": "fb6d55b7-29c8-43e6-a4a3-d8ba19798f52"
             }
           }
         },
@@ -821,8 +821,8 @@
           "ok": true,
           "evidence": {
             "appointment": {
-              "id": 212,
-              "userId": "15ddeca5-f7ef-4392-b02c-87d46b2706b1",
+              "id": 294,
+              "userId": "0b155e3a-8f84-4e9d-a965-f9165a8849b3",
               "status": "pendente",
               "tipo": "sessao",
               "data": "2026-08-13T18:00:00.000Z"
@@ -836,8 +836,8 @@
             "count": 1,
             "services": [
               {
-                "id": "7fa5b7ca-9440-43af-9f77-bc9d684b9795",
-                "appointmentId": 212,
+                "id": "1909b36e-07bc-4792-b24f-a92c9cb68614",
+                "appointmentId": 294,
                 "status": "pendente",
                 "tipo": "sessao"
               }
@@ -861,7 +861,7 @@
                   "dashboard",
                   "estatisticas"
                 ],
-                "cursor": "732"
+                "cursor": "1164"
               }
             ]
           }
@@ -880,20 +880,20 @@
         "users": 1
       },
       "artifacts": {
-        "code": "TESTE_MRQ5U4F5",
-        "deepLink": "/agendamento?cupom=TESTE_MRQ5U4F5",
-        "appointmentId": 212
+        "code": "TESTE_7WUK21WJ",
+        "deepLink": "/agendamento?cupom=TESTE_7WUK21WJ",
+        "appointmentId": 294
       }
     },
     {
       "simulationId": "SIM-007",
-      "sessionId": "sess_1784087363618_0coza6",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090182498_9dpu3i",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Cupom Desconto",
-      "userId": "78464df5-52f9-441b-8d33-86ebff3a7222",
-      "email": "sim02-sim-007-1784087363618@homolog.test",
+      "userId": "068c949c-0300-4ef2-86af-774211be9917",
+      "email": "sim02-sim-007-1784090182498@homolog.test",
       "result": "pass",
-      "durationMs": 104,
+      "durationMs": 109,
       "eventsProduced": [],
       "asserts": [
         {
@@ -924,25 +924,25 @@
         "users": 1
       },
       "artifacts": {
-        "code": "SIMDISC_S30Y6UDB"
+        "code": "SIMDISC_YZ7QON1Q"
       }
     },
     {
       "simulationId": "SIM-008",
-      "sessionId": "sess_1784087363722_zaodyd",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090182607_t2h0vy",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Reembolso financeiro",
-      "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
-      "email": "sim02-sim-008-1784087363723@homolog.test",
+      "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
+      "email": "sim02-sim-008-1784090182607@homolog.test",
       "result": "pass",
-      "durationMs": 7037,
+      "durationMs": 7548,
       "eventsProduced": [
         {
-          "id": "cmrljjw87000qrhd42jkso1yj",
-          "cursor": "733",
+          "id": "cmrll8bag000qp528i35kofiy",
+          "cursor": "1165",
           "name": "PaymentConfirmed",
           "entity": "payment",
-          "entityId": "4cd2be36-3c6d-4061-b003-ce146db0edc2",
+          "entityId": "4d29043e-db61-4f90-b83f-046783008f49",
           "from": "pending",
           "to": "confirmado",
           "surfaces": [
@@ -955,11 +955,11 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
-          "occurredAt": "2026-07-15T03:49:23.809Z",
+          "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
+          "occurredAt": "2026-07-15T04:36:22.696Z",
           "source": "lifecycle",
           "metadata": {
-            "asaasId": "pay_te_1784087363803_3voxjs",
+            "asaasId": "pay_te_1784090182690_ixq52d",
             "via": "processPaymentWebhook-create",
             "simSource": "sim-scenario",
             "publicAgenda": false,
@@ -967,11 +967,11 @@
           }
         },
         {
-          "id": "cmrljjw8h000rrhd4myhz0e38",
-          "cursor": "734",
+          "id": "cmrll8bat000rp528ulj9s76u",
+          "cursor": "1166",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "213",
+          "entityId": "295",
           "to": "pendente",
           "surfaces": [
             "agenda",
@@ -981,8 +981,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
-          "occurredAt": "2026-07-15T03:49:23.820Z",
+          "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
+          "occurredAt": "2026-07-15T04:36:22.708Z",
           "source": "lifecycle",
           "metadata": {
             "slotHint": "2026-08-13T13:00:00.000Z",
@@ -994,18 +994,18 @@
           }
         },
         {
-          "id": "cmrljjw8i000srhd45nbo0l72",
-          "cursor": "735",
+          "id": "cmrll8bau000sp528zt8ofrjh",
+          "cursor": "1167",
           "name": "AppointmentReserved",
           "entity": "appointment",
-          "entityId": "213",
+          "entityId": "295",
           "to": "pendente",
           "surfaces": [
             "agenda"
           ],
           "scope": "public",
           "userId": null,
-          "occurredAt": "2026-07-15T03:49:23.820Z",
+          "occurredAt": "2026-07-15T04:36:22.708Z",
           "source": "lifecycle",
           "metadata": {
             "publicAgenda": true,
@@ -1014,11 +1014,11 @@
           }
         },
         {
-          "id": "cmrljk1k0000urhd4jg7v9fy3",
-          "cursor": "736",
+          "id": "cmrll8gzq000up528kvj362w2",
+          "cursor": "1168",
           "name": "PaymentRefunded",
           "entity": "payment",
-          "entityId": "4cd2be36-3c6d-4061-b003-ce146db0edc2",
+          "entityId": "4d29043e-db61-4f90-b83f-046783008f49",
           "from": "confirmado",
           "to": "reembolsado",
           "surfaces": [
@@ -1029,8 +1029,8 @@
             "cupons"
           ],
           "scope": "user",
-          "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
-          "occurredAt": "2026-07-15T03:49:30.715Z",
+          "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
+          "occurredAt": "2026-07-15T04:36:30.085Z",
           "source": "state-machine",
           "metadata": {
             "reason": "refundPaymentStatus",
@@ -1051,13 +1051,13 @@
           "ok": true,
           "evidence": {
             "payment": {
-              "id": "4cd2be36-3c6d-4061-b003-ce146db0edc2",
-              "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
+              "id": "4d29043e-db61-4f90-b83f-046783008f49",
+              "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
               "status": "refunded",
               "type": "agendamento",
               "amount": 5,
-              "asaasId": "pay_te_1784087363803_3voxjs",
-              "appointmentId": 213
+              "asaasId": "pay_te_1784090182690_ixq52d",
+              "appointmentId": 295
             }
           }
         },
@@ -1076,7 +1076,7 @@
                   "estatisticas",
                   "cupons"
                 ],
-                "cursor": "736"
+                "cursor": "1168"
               }
             ]
           }
@@ -1086,9 +1086,9 @@
           "ok": true,
           "evidence": {
             "latest": {
-              "id": "cmrljk1jw000trhd430g886fx",
+              "id": "cmrll8gzk000tp528udzuv2e8",
               "entity": "payment",
-              "entityId": "4cd2be36-3c6d-4061-b003-ce146db0edc2",
+              "entityId": "4d29043e-db61-4f90-b83f-046783008f49",
               "fromStatus": "confirmado",
               "toStatus": "reembolsado",
               "eventName": "PaymentRefunded",
@@ -1096,7 +1096,7 @@
               "actorId": null,
               "reason": "refundPaymentStatus",
               "metadata": "{}",
-              "createdAt": "2026-07-15T03:49:30.717Z"
+              "createdAt": "2026-07-15T04:36:30.080Z"
             }
           }
         },
@@ -1112,8 +1112,8 @@
           "name": "assertMinhaConta",
           "ok": true,
           "evidence": {
-            "userId": "5280cbf4-ee52-4f8c-9aab-5595370bae24",
-            "email": "sim02-sim-008-1784087363723@homolog.test",
+            "userId": "eb745a43-a60e-4664-9b39-dbc23d648684",
+            "email": "sim02-sim-008-1784090182607@homolog.test",
             "appointments": 1,
             "services": 1,
             "payments": 1
@@ -1133,25 +1133,25 @@
         "users": 1
       },
       "artifacts": {
-        "paymentId": "4cd2be36-3c6d-4061-b003-ce146db0edc2"
+        "paymentId": "4d29043e-db61-4f90-b83f-046783008f49"
       }
     },
     {
       "simulationId": "SIM-009",
-      "sessionId": "sess_1784087370759_f1up7o",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090190155_891430",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Cancelamento após aceite",
-      "userId": "53e99f38-1993-4895-bc27-886f968d5963",
-      "email": "sim02-sim-009-1784087370759@homolog.test",
+      "userId": "f7ca12ee-71a4-4859-ad54-88c1ac973084",
+      "email": "sim02-sim-009-1784090190156@homolog.test",
       "result": "pass",
-      "durationMs": 7925,
+      "durationMs": 8025,
       "eventsProduced": [
         {
-          "id": "cmrljk7ny0014rhd4vehwq08b",
-          "cursor": "743",
+          "id": "cmrll8n7c0014p528yhyiigtv",
+          "cursor": "1175",
           "name": "AppointmentCancelled",
           "entity": "appointment",
-          "entityId": "214",
+          "entityId": "296",
           "from": "aceito",
           "to": "cancelado",
           "surfaces": [
@@ -1165,8 +1165,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "53e99f38-1993-4895-bc27-886f968d5963",
-          "occurredAt": "2026-07-15T03:49:38.638Z",
+          "userId": "f7ca12ee-71a4-4859-ad54-88c1ac973084",
+          "occurredAt": "2026-07-15T04:36:38.136Z",
           "source": "state-machine",
           "metadata": {
             "reason": "SIM-01 cancelamento após aceite",
@@ -1177,11 +1177,11 @@
           }
         },
         {
-          "id": "cmrljk7nz0015rhd4lxp14si9",
-          "cursor": "744",
+          "id": "cmrll8n7e0015p528xnxzg8ot",
+          "cursor": "1176",
           "name": "AppointmentCancelled",
           "entity": "appointment",
-          "entityId": "214",
+          "entityId": "296",
           "from": "aceito",
           "to": "cancelado",
           "surfaces": [
@@ -1189,7 +1189,7 @@
           ],
           "scope": "public",
           "userId": null,
-          "occurredAt": "2026-07-15T03:49:38.638Z",
+          "occurredAt": "2026-07-15T04:36:38.136Z",
           "source": "state-machine",
           "metadata": {
             "publicAgenda": true,
@@ -1197,11 +1197,11 @@
           }
         },
         {
-          "id": "cmrljk7oe0017rhd49wim2q9g",
-          "cursor": "745",
+          "id": "cmrll8n7q0017p5288avp28ra",
+          "cursor": "1177",
           "name": "ServiceCancelled",
           "entity": "service",
-          "entityId": "68264341-2493-438c-9fdf-c01c683d4dd4",
+          "entityId": "0c99e4cd-52df-4eb0-a446-782fbb76b939",
           "from": "aceito",
           "to": "cancelado",
           "surfaces": [
@@ -1212,8 +1212,8 @@
             "estatisticas"
           ],
           "scope": "user",
-          "userId": "53e99f38-1993-4895-bc27-886f968d5963",
-          "occurredAt": "2026-07-15T03:49:38.653Z",
+          "userId": "f7ca12ee-71a4-4859-ad54-88c1ac973084",
+          "occurredAt": "2026-07-15T04:36:38.150Z",
           "source": "state-machine",
           "metadata": {
             "reason": "cascade:AppointmentCancelled",
@@ -1234,8 +1234,8 @@
           "ok": true,
           "evidence": {
             "appointment": {
-              "id": 214,
-              "userId": "53e99f38-1993-4895-bc27-886f968d5963",
+              "id": 296,
+              "userId": "f7ca12ee-71a4-4859-ad54-88c1ac973084",
               "status": "cancelado",
               "tipo": "sessao",
               "data": "2026-08-13T14:00:00.000Z"
@@ -1260,14 +1260,14 @@
                   "dashboard",
                   "estatisticas"
                 ],
-                "cursor": "743"
+                "cursor": "1175"
               },
               {
                 "name": "AppointmentCancelled",
                 "surfaces": [
                   "agenda"
                 ],
-                "cursor": "744"
+                "cursor": "1176"
               }
             ]
           }
@@ -1278,9 +1278,9 @@
           "evidence": {
             "history": [
               {
-                "id": "cmrljk7nv0013rhd43ujpc65l",
+                "id": "cmrll8n790013p528oonple6c",
                 "entity": "appointment",
-                "entityId": "214",
+                "entityId": "296",
                 "fromStatus": "aceito",
                 "toStatus": "cancelado",
                 "eventName": "AppointmentCancelled",
@@ -1288,12 +1288,12 @@
                 "actorId": null,
                 "reason": "SIM-01 cancelamento após aceite",
                 "metadata": "{}",
-                "createdAt": "2026-07-15T03:49:38.635Z"
+                "createdAt": "2026-07-15T04:36:38.134Z"
               },
               {
-                "id": "cmrljk7ms000yrhd4tk93a1lx",
+                "id": "cmrll8n5w000yp528iquifvs1",
                 "entity": "appointment",
-                "entityId": "214",
+                "entityId": "296",
                 "fromStatus": "pendente",
                 "toStatus": "aceito",
                 "eventName": "AppointmentAccepted",
@@ -1301,7 +1301,7 @@
                 "actorId": null,
                 "reason": "approveAppointment",
                 "metadata": "{}",
-                "createdAt": "2026-07-15T03:49:38.597Z"
+                "createdAt": "2026-07-15T04:36:38.085Z"
               }
             ]
           }
@@ -1320,25 +1320,25 @@
         "users": 1
       },
       "artifacts": {
-        "appointmentId": 214
+        "appointmentId": 296
       }
     },
     {
       "simulationId": "SIM-010",
-      "sessionId": "sess_1784087378684_kgkfoc",
-      "timestamp": "2026-07-15T03:48:36.872Z",
+      "sessionId": "sess_1784090198180_armn33",
+      "timestamp": "2026-07-15T04:35:39.820Z",
       "scenario": "Remarcação",
-      "userId": "fde5cdff-7b7d-453b-9c3d-f62961505fb6",
-      "email": "sim02-sim-010-1784087378684@homolog.test",
+      "userId": "eb5e3c7b-3ebb-4389-9cfa-ec94146b52cb",
+      "email": "sim02-sim-010-1784090198181@homolog.test",
       "result": "pass",
-      "durationMs": 8299,
+      "durationMs": 8516,
       "eventsProduced": [
         {
-          "id": "cmrljke2s001hrhd4civlixs8",
-          "cursor": "752",
+          "id": "cmrll8ts9001hp528iysejqgi",
+          "cursor": "1184",
           "name": "AppointmentRebooked",
           "entity": "appointment",
-          "entityId": "215",
+          "entityId": "297",
           "from": "aceito",
           "to": "remarcado",
           "surfaces": [
@@ -1348,8 +1348,8 @@
             "dashboard"
           ],
           "scope": "user",
-          "userId": "fde5cdff-7b7d-453b-9c3d-f62961505fb6",
-          "occurredAt": "2026-07-15T03:49:46.947Z",
+          "userId": "eb5e3c7b-3ebb-4389-9cfa-ec94146b52cb",
+          "occurredAt": "2026-07-15T04:36:46.663Z",
           "source": "state-machine",
           "metadata": {
             "reason": "SIM-01 remarcação",
@@ -1360,11 +1360,11 @@
           }
         },
         {
-          "id": "cmrljke2u001irhd4jag56ltc",
-          "cursor": "753",
+          "id": "cmrll8tsa001ip528zhmzn8z7",
+          "cursor": "1185",
           "name": "AppointmentRebooked",
           "entity": "appointment",
-          "entityId": "215",
+          "entityId": "297",
           "from": "aceito",
           "to": "remarcado",
           "surfaces": [
@@ -1372,7 +1372,7 @@
           ],
           "scope": "public",
           "userId": null,
-          "occurredAt": "2026-07-15T03:49:46.947Z",
+          "occurredAt": "2026-07-15T04:36:46.663Z",
           "source": "state-machine",
           "metadata": {
             "publicAgenda": true,
@@ -1390,8 +1390,8 @@
           "ok": true,
           "evidence": {
             "appointment": {
-              "id": 215,
-              "userId": "fde5cdff-7b7d-453b-9c3d-f62961505fb6",
+              "id": 297,
+              "userId": "eb5e3c7b-3ebb-4389-9cfa-ec94146b52cb",
               "status": "remarcado",
               "tipo": "sessao",
               "data": "2026-08-13T15:00:00.000Z"
@@ -1412,14 +1412,14 @@
                   "admin-agendamentos",
                   "dashboard"
                 ],
-                "cursor": "752"
+                "cursor": "1184"
               },
               {
                 "name": "AppointmentRebooked",
                 "surfaces": [
                   "agenda"
                 ],
-                "cursor": "753"
+                "cursor": "1185"
               }
             ]
           }
@@ -1438,11 +1438,11 @@
           "evidence": {
             "events": [
               {
-                "id": "cmrljke2s001hrhd4civlixs8",
-                "cursor": "752",
+                "id": "cmrll8ts9001hp528iysejqgi",
+                "cursor": "1184",
                 "name": "AppointmentRebooked",
                 "entity": "appointment",
-                "entityId": "215",
+                "entityId": "297",
                 "from": "aceito",
                 "to": "remarcado",
                 "surfaces": [
@@ -1452,8 +1452,8 @@
                   "dashboard"
                 ],
                 "scope": "user",
-                "userId": "fde5cdff-7b7d-453b-9c3d-f62961505fb6",
-                "occurredAt": "2026-07-15T03:49:46.947Z",
+                "userId": "eb5e3c7b-3ebb-4389-9cfa-ec94146b52cb",
+                "occurredAt": "2026-07-15T04:36:46.663Z",
                 "source": "state-machine",
                 "metadata": {
                   "reason": "SIM-01 remarcação",
@@ -1464,11 +1464,11 @@
                 }
               },
               {
-                "id": "cmrljke2u001irhd4jag56ltc",
-                "cursor": "753",
+                "id": "cmrll8tsa001ip528zhmzn8z7",
+                "cursor": "1185",
                 "name": "AppointmentRebooked",
                 "entity": "appointment",
-                "entityId": "215",
+                "entityId": "297",
                 "from": "aceito",
                 "to": "remarcado",
                 "surfaces": [
@@ -1476,7 +1476,7 @@
                 ],
                 "scope": "public",
                 "userId": null,
-                "occurredAt": "2026-07-15T03:49:46.947Z",
+                "occurredAt": "2026-07-15T04:36:46.663Z",
                 "source": "state-machine",
                 "metadata": {
                   "publicAgenda": true,
@@ -1500,7 +1500,7 @@
         "users": 1
       },
       "artifacts": {
-        "appointmentId": 215
+        "appointmentId": 297
       }
     }
   ],
@@ -1508,102 +1508,102 @@
     {
       "step": "running",
       "simulationId": "SIM-001",
-      "at": "2026-07-15T03:48:36.890Z"
+      "at": "2026-07-15T04:35:39.846Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-001",
-      "at": "2026-07-15T03:48:46.725Z"
+      "at": "2026-07-15T04:35:47.996Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-002",
-      "at": "2026-07-15T03:48:46.725Z"
+      "at": "2026-07-15T04:35:47.996Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-002",
-      "at": "2026-07-15T03:48:46.835Z"
+      "at": "2026-07-15T04:35:48.106Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-003",
-      "at": "2026-07-15T03:48:46.835Z"
+      "at": "2026-07-15T04:35:48.106Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-003",
-      "at": "2026-07-15T03:49:02.593Z"
+      "at": "2026-07-15T04:36:03.523Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-004",
-      "at": "2026-07-15T03:49:02.593Z"
+      "at": "2026-07-15T04:36:03.523Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-004",
-      "at": "2026-07-15T03:49:10.930Z"
+      "at": "2026-07-15T04:36:11.299Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-005",
-      "at": "2026-07-15T03:49:10.930Z"
+      "at": "2026-07-15T04:36:11.299Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-005",
-      "at": "2026-07-15T03:49:15.082Z"
+      "at": "2026-07-15T04:36:15.167Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-006",
-      "at": "2026-07-15T03:49:15.082Z"
+      "at": "2026-07-15T04:36:15.167Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-006",
-      "at": "2026-07-15T03:49:23.618Z"
+      "at": "2026-07-15T04:36:22.498Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-007",
-      "at": "2026-07-15T03:49:23.618Z"
+      "at": "2026-07-15T04:36:22.498Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-007",
-      "at": "2026-07-15T03:49:23.722Z"
+      "at": "2026-07-15T04:36:22.607Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-008",
-      "at": "2026-07-15T03:49:23.722Z"
+      "at": "2026-07-15T04:36:22.607Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-008",
-      "at": "2026-07-15T03:49:30.759Z"
+      "at": "2026-07-15T04:36:30.155Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-009",
-      "at": "2026-07-15T03:49:30.759Z"
+      "at": "2026-07-15T04:36:30.155Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-009",
-      "at": "2026-07-15T03:49:38.684Z"
+      "at": "2026-07-15T04:36:38.180Z"
     },
     {
       "step": "running",
       "simulationId": "SIM-010",
-      "at": "2026-07-15T03:49:38.684Z"
+      "at": "2026-07-15T04:36:38.180Z"
     },
     {
       "step": "completed",
       "simulationId": "SIM-010",
-      "at": "2026-07-15T03:49:46.983Z"
+      "at": "2026-07-15T04:36:46.696Z"
     }
   ],
   "summary": {
@@ -1612,6 +1612,6 @@
     "failed": 0,
     "errors": 0,
     "skipped": 0,
-    "avgDurationMs": 7009
+    "avgDurationMs": 6685
   }
 }

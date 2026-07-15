@@ -44,7 +44,12 @@ export type ScenarioId =
   | "SYNC-004"
   | "SYNC-005"
   | "SYNC-006"
-  | "SYNC-007";
+  | "SYNC-007"
+  | "PH01-001"
+  | "PH01-002"
+  | "PH01-003"
+  | "PH01-004"
+  | "PH01-005";
 
 export type ScenarioStatus = "implemented" | "stub" | "skipped" | "pass" | "fail" | "error";
 
@@ -92,7 +97,7 @@ export type ScenarioDefinition = {
 };
 
 export type ExecutionReport = {
-  reportId: "TE-01B-execution" | "TE-02A-execution" | "SYNC-01A-execution";
+  reportId: "TE-01B-execution" | "TE-02A-execution" | "SYNC-01A-execution" | "PH-01-execution";
   runId: string;
   startedAt: string;
   finishedAt: string;

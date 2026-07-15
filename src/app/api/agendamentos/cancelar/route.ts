@@ -54,6 +54,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const result = await cancelAppointment({
+      appointmentId: aptIdNum,
+      actor: "user",
+      userId: user.id,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.httpStatus });
+    }
+
     const refundAmount = payment.amount;
     let couponCode: string | null = null;
     let refundDirectSuccess = false;
@@ -95,16 +105,6 @@ export async function POST(req: Request) {
           console.error("[Cancelar Agendamento] Erro ao criar cupom de reembolso:", couponError);
         }
       }
-    }
-
-    const result = await cancelAppointment({
-      appointmentId: aptIdNum,
-      actor: "user",
-      userId: user.id,
-    });
-
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.httpStatus });
     }
 
     if (!result.alreadyProcessed) {

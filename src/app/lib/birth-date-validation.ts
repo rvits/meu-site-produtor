@@ -1,5 +1,11 @@
 export const BIRTH_DATE_MIN_YEAR = 1900;
-export const BIRTH_DATE_MAX_YEAR = 2026;
+
+/** Menor idade permitida — ano máximo = ano atual menos esta idade. */
+export const BIRTH_DATE_MIN_AGE = 12;
+
+export function getBirthDateMaxYear(): number {
+  return new Date().getFullYear() - BIRTH_DATE_MIN_AGE;
+}
 
 export function validateBirthDateString(dateStr: string): { valid: true } | { valid: false; error: string } {
   const trimmed = String(dateStr || "").trim();
@@ -12,10 +18,10 @@ export function validateBirthDateString(dateStr: string): { valid: true } | { va
   const month = Number(match[2]);
   const day = Number(match[3]);
 
-  if (year < BIRTH_DATE_MIN_YEAR || year > BIRTH_DATE_MAX_YEAR) {
+  if (year < BIRTH_DATE_MIN_YEAR || year > getBirthDateMaxYear()) {
     return {
       valid: false,
-      error: `Data de nascimento deve estar entre ${BIRTH_DATE_MIN_YEAR} e ${BIRTH_DATE_MAX_YEAR}.`,
+      error: `Data de nascimento deve estar entre ${BIRTH_DATE_MIN_YEAR} e ${getBirthDateMaxYear()}.`,
     };
   }
 

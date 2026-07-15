@@ -23,6 +23,7 @@ export function toTeExecutionReport(report: ExecutionReport): TeExecutionReport 
   return {
     reportId: (report.reportId === "TE-02A-execution" ||
     report.reportId === "SYNC-01A-execution" ||
+    report.reportId === "PH-01-execution" ||
     report.reportId === "TE-01B-execution"
       ? report.reportId
       : "TE-01B-execution") as TeExecutionReport["reportId"],

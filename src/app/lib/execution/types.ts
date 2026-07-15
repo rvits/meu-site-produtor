@@ -12,6 +12,7 @@ export type ExecutionSuiteId =
   | "te-stubs"
   | "te02a"
   | "sync01a"
+  | "ph01"
   | "sim01"
   | "sim02";
 
@@ -20,6 +21,7 @@ export type ExecutionReportId =
   | "TE-01B-execution"
   | "TE-02A-execution"
   | "SYNC-01A-execution"
+  | "PH-01-execution"
   | "SIM-01-execution"
   | "SIM-02-execution";
 

@@ -25,6 +25,8 @@ function resolveReportId(suite?: ExecutionSuiteId): ExecutionReportId {
       return "TE-02A-execution";
     case "sync01a":
       return "SYNC-01A-execution";
+    case "ph01":
+      return "PH-01-execution";
     case "sim01":
       return "SIM-01-execution";
     case "sim02":
@@ -46,6 +48,8 @@ function defaultArtifactPrefix(suite?: ExecutionSuiteId): string {
       return "te02a";
     case "sync01a":
       return "sync01a";
+    case "ph01":
+      return "ph01";
     default:
       return "ec01";
   }

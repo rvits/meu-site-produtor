@@ -278,6 +278,11 @@ export default function MinhaContaPage() {
     return t === "REFUND";
   }
 
+  function isServiceFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "SERVICE" || t === "REBOOK";
+  }
+
   function getServiceName(serviceType: string, couponCode?: string) {
     const coupon = cupons.find((c) => c.code === couponCode);
     const isTeste = coupon
@@ -654,6 +659,52 @@ export default function MinhaContaPage() {
                           className="mt-3 w-full py-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-zinc-600 rounded hover:bg-zinc-700/50 transition-colors"
                         >
                           Excluir da minha lista
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cupons de Serviço (pós-compra / remarcação) */}
+              {cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-cyan-400 mb-2">
+                    🎵 Cupons de Serviço - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).map((cupom) => (
+                      <div
+                        key={cupom.id}
+                        className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 p-4"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="text-xs text-cyan-400 font-semibold mb-1">CÓDIGO DO CUPOM</p>
+                            <p className="text-2xl font-bold text-cyan-300 font-mono tracking-wider">
+                              {cupom.code}
+                            </p>
+                          </div>
+                        </div>
+                        {cupom.serviceType && (
+                          <p className="text-sm text-zinc-300 mt-2">
+                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType || "", cupom.code)}
+                          </p>
+                        )}
+                        {cupom.expiresAt && (
+                          <p className="text-xs text-zinc-400 mt-2">
+                            Válido até: {new Date(cupom.expiresAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                        <p className="text-xs text-cyan-400 mt-2">
+                          Cupom de serviço avulso — use para agendar o serviço indicado.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/agendamento?cupom=${encodeURIComponent(cupom.code)}`)}
+                          className="mt-3 w-full py-2 text-sm font-semibold text-zinc-100 bg-cyan-600 hover:bg-cyan-500 rounded transition-colors"
+                        >
+                          📅 Agendar com este cupom
                         </button>
                       </div>
                     ))}

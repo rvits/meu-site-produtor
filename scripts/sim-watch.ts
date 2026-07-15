@@ -62,7 +62,8 @@ async function main() {
   const filesArg = get("--files");
   if (filesArg) {
     changedFiles = filesArg.split(",").map((f) => f.trim().replace(/\\/g, "/"));
-  } else if (has("--from-git") || args.length === 0 || !filesArg) {
+  } else if (has("--from-git") || args.length === 0) {
+    // --from-git explícito, ou invocação sem args: working tree via git status
     changedFiles = gitChangedFiles();
   }
 

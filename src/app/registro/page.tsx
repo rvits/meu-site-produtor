@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
-import { validateBirthDateString, BIRTH_DATE_MIN_YEAR, BIRTH_DATE_MAX_YEAR } from "../lib/birth-date-validation";
+import { validateBirthDateString, BIRTH_DATE_MIN_YEAR, getBirthDateMaxYear } from "../lib/birth-date-validation";
 
 export default function RegistroPage() {
   const { registro } = useAuth();
@@ -239,7 +239,7 @@ export default function RegistroPage() {
           value={dataNascimento}
           onChange={setDataNascimento}
           min={`${BIRTH_DATE_MIN_YEAR}-01-01`}
-          max={`${BIRTH_DATE_MAX_YEAR}-12-31`}
+          max={`${getBirthDateMaxYear()}-12-31`}
           required
         />
 

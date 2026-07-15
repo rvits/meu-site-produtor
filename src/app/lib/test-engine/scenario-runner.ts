@@ -28,14 +28,16 @@ export async function runScenario(
     cliToken: opts.cliToken,
     artifactPrefix:
       opts.artifactPrefix ||
-      (suite === "sync01a" ? "sync01a" : suite === "te02a" ? "te02a" : "te01b"),
+      (suite === "sync01a" ? "sync01a" : suite === "te02a" ? "te02a" : suite === "ph01" ? "ph01" : "te01b"),
     print: false,
     reportId:
       suite === "sync01a"
         ? "SYNC-01A-execution"
         : suite === "te02a"
           ? "TE-02A-execution"
-          : "TE-01B-execution",
+          : suite === "ph01"
+            ? "PH-01-execution"
+            : "TE-01B-execution",
   });
   const teReport = toTeExecutionReport(report);
   if (opts.print !== false) printExecutionReport(teReport);
