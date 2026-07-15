@@ -163,18 +163,17 @@ export class AsaasProvider implements PaymentProvider {
       // permitidas na conta (evita erro 400 "A forma de pagamento não é permitida para cobranças")
       const billingType = "UNDEFINED";
       
-      // IMPORTANTE: Asaas limita externalReference a 100 caracteres
-      // Usar APENAS userId no externalReference (máximo 36 caracteres para UUID)
-      // O metadata completo DEVE ser armazenado em PaymentMetadata ANTES de chamar createCheckout
-      const externalReference = params.metadata?.userId;
+      // GL-01: externalReference identifica a operação, nunca apenas o usuário.
+      // PaymentMetadata.id é UUID e permanece dentro do limite de 100 caracteres.
+      const externalReference = params.metadata?.operationId;
       
       if (!externalReference) {
-        throw new Error("userId é obrigatório no metadata para criar pagamento no Asaas");
+        throw new Error("operationId é obrigatório no metadata para criar pagamento no Asaas");
       }
       
       // Validar que externalReference não excede 100 caracteres
       if (externalReference.length > 100) {
-        throw new Error(`externalReference (${externalReference.length} caracteres) excede o limite de 100 caracteres do Asaas. Use apenas userId.`);
+        throw new Error(`externalReference (${externalReference.length} caracteres) excede o limite de 100 caracteres do Asaas.`);
       }
       
       const paymentPayload: any = {
@@ -183,13 +182,12 @@ export class AsaasProvider implements PaymentProvider {
         value: Number(totalAmount.toFixed(2)),
         dueDate: this.formatDateForAsaas(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), // 3 dias a partir de hoje
         description: params.items.map(item => item.title).join(", ") || "Pagamento THouse Rec",
-        externalReference: externalReference, // APENAS userId (máximo 36 caracteres)
+        externalReference,
       };
 
       // Log para debug (metadata completo deve estar em PaymentMetadata)
       if (params.metadata && Object.keys(params.metadata).length > 0) {
-        console.log("[Asaas] ExternalReference (apenas userId):", externalReference);
-        console.log("[Asaas] Metadata completo deve estar em PaymentMetadata antes desta chamada");
+        console.log("[Asaas] ExternalReference da operação:", externalReference);
       }
 
       // Adicionar informações do cliente se não tiver customerId

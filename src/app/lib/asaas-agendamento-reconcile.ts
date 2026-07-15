@@ -81,45 +81,13 @@ function expectedServiceLines(services: ItemLine[], beats: ItemLine[]): number {
 async function loadMetadataForPayment(
   userId: string,
   asaasPaymentId: string,
-  options?: { linkAsaasId?: boolean }
 ): Promise<Record<string, any>> {
   let metadata: Record<string, any> = {};
-  let paymentMetadata = await prisma.paymentMetadata.findFirst({
-    where: { userId, asaasId: asaasPaymentId },
-    orderBy: { createdAt: "desc" },
+  const paymentMetadata = await prisma.paymentMetadata.findUnique({
+    where: { asaasId: asaasPaymentId },
   });
-  if (!paymentMetadata) {
-    paymentMetadata = await prisma.paymentMetadata.findFirst({
-      where: {
-        userId,
-        expiresAt: { gt: new Date() },
-        OR: [{ asaasId: null }, { asaasId: asaasPaymentId }],
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-  if (!paymentMetadata) {
-    paymentMetadata = await prisma.paymentMetadata.findFirst({
-      where: {
-        userId,
-        OR: [{ asaasId: null }, { asaasId: asaasPaymentId }],
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-  if (!paymentMetadata) {
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setHours(twoDaysAgo.getHours() - 48);
-    paymentMetadata = await prisma.paymentMetadata.findFirst({
-      where: { userId, createdAt: { gte: twoDaysAgo } },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-  if (!paymentMetadata) {
-    paymentMetadata = await prisma.paymentMetadata.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+  if (paymentMetadata && paymentMetadata.userId !== userId) {
+    throw new Error("WEBHOOK_OPERATION_OWNER_MISMATCH");
   }
   if (paymentMetadata) {
     try {
@@ -127,32 +95,91 @@ async function loadMetadataForPayment(
     } catch {
       metadata = {};
     }
-    if (options?.linkAsaasId && paymentMetadata.asaasId !== asaasPaymentId) {
-      await prisma.paymentMetadata.update({
-        where: { id: paymentMetadata.id },
-        data: { asaasId: asaasPaymentId },
-      });
-    }
   }
   return metadata;
 }
 
-function parsePayloadMetadata(raw: unknown): Record<string, unknown> {
-  if (raw == null) return {};
-  if (typeof raw === "object" && !Array.isArray(raw)) {
-    return raw as Record<string, unknown>;
+/**
+ * Identidade segura da operação: Asaas ID e/ou PaymentMetadata.id.
+ * Nunca infere operação a partir de userId, email, valor, descrição ou recência.
+ */
+export async function resolvePaymentOperationIdentity(params: {
+  asaasPaymentId: string;
+  externalReference?: string | null;
+}): Promise<{ userId: string; operationId: string }> {
+  const [byAsaas, byOperation] = await Promise.all([
+    prisma.paymentMetadata.findUnique({
+      where: { asaasId: params.asaasPaymentId },
+      select: { id: true, userId: true, asaasId: true },
+    }),
+    params.externalReference
+      ? prisma.paymentMetadata.findUnique({
+          where: { id: params.externalReference },
+          select: { id: true, userId: true, asaasId: true },
+        })
+      : null,
+  ]);
+
+  if (byAsaas && byOperation && byAsaas.id !== byOperation.id) {
+    console.error("[WEBHOOK_SECURITY_AUDIT]", {
+      code: "AMBIGUOUS_OPERATION",
+      asaasPaymentId: params.asaasPaymentId,
+      externalReference: params.externalReference,
+      byAsaas: byAsaas.id,
+      byOperation: byOperation.id,
+    });
+    throw new Error("WEBHOOK_AMBIGUOUS_OPERATION");
   }
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return typeof parsed === "object" && parsed != null && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : {};
-    } catch {
-      return {};
-    }
+
+  const operation = byAsaas || byOperation;
+  if (!operation) {
+    console.error("[WEBHOOK_SECURITY_AUDIT]", {
+      code: "OPERATION_NOT_FOUND",
+      asaasPaymentId: params.asaasPaymentId,
+      externalReference: params.externalReference,
+    });
+    throw new Error("WEBHOOK_OPERATION_NOT_FOUND");
   }
-  return {};
+  if (operation.asaasId && operation.asaasId !== params.asaasPaymentId) {
+    console.error("[WEBHOOK_SECURITY_AUDIT]", {
+      code: "PAYMENT_ID_MISMATCH",
+      operationId: operation.id,
+      expected: operation.asaasId,
+      received: params.asaasPaymentId,
+    });
+    throw new Error("WEBHOOK_PAYMENT_ID_MISMATCH");
+  }
+  if (!operation.asaasId) {
+    await prisma.paymentMetadata.update({
+      where: { id: operation.id },
+      data: { asaasId: params.asaasPaymentId },
+    });
+  }
+
+  return { userId: operation.userId, operationId: operation.id };
+}
+
+export function assertWebhookAmountMatchesMetadata(
+  metadata: Record<string, unknown>,
+  receivedValue: number
+): void {
+  const rawExpected =
+    metadata.chargedAmount ?? metadata.amount ?? metadata.total;
+  const expected = Number(rawExpected);
+  const received = Number(receivedValue);
+  if (
+    !Number.isFinite(expected) ||
+    !Number.isFinite(received) ||
+    expected <= 0 ||
+    Math.abs(expected - received) > 0.01
+  ) {
+    console.error("[WEBHOOK_SECURITY_AUDIT]", {
+      code: "AMOUNT_MISMATCH",
+      expected: Number.isFinite(expected) ? expected : null,
+      received: Number.isFinite(received) ? received : null,
+    });
+    throw new Error("WEBHOOK_AMOUNT_MISMATCH");
+  }
 }
 
 /**
@@ -164,19 +191,12 @@ export async function resolvePaymentMetadataForWebhook(params: {
   paymentMetadata?: unknown;
   description?: string | null;
 }): Promise<Record<string, unknown>> {
-  let metadata = parsePayloadMetadata(params.paymentMetadata);
+  // Payload, descrição e userId do provedor não são fontes de verdade.
+  // A operação já foi vinculada de forma exata a PaymentMetadata.asaasId.
+  const metadata = await loadMetadataForPayment(params.userId, params.asaasPaymentId);
 
   if (Object.keys(metadata).length === 0) {
-    metadata = await loadMetadataForPayment(params.userId, params.asaasPaymentId, {
-      linkAsaasId: true,
-    });
-  }
-
-  if (Object.keys(metadata).length === 0 && params.description) {
-    const descMatch = params.description.match(/Plano (\w+)/i);
-    if (descMatch) {
-      metadata = { tipo: "plano", planId: descMatch[1].toLowerCase() };
-    }
+    throw new Error("WEBHOOK_METADATA_NOT_FOUND");
   }
 
   if (!metadata.userId) {

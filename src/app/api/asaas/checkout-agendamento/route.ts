@@ -4,7 +4,6 @@ import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
-import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 import {
   countAgendamentoItemLines,
@@ -12,6 +11,8 @@ import {
 } from "@/app/lib/agendamento-payment-rules";
 import { getAsaasApiKey } from "@/app/lib/env";
 import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -23,9 +24,9 @@ const agendamentoCheckoutSchema = z
       .array(
         z.object({
           id: z.string(),
-          nome: z.string(),
-          quantidade: z.number(),
-          preco: z.number(),
+          nome: z.string().optional(),
+          quantidade: z.number().int().min(1).max(20),
+          preco: z.number().optional(),
         })
       )
       .optional(),
@@ -33,9 +34,9 @@ const agendamentoCheckoutSchema = z
       .array(
         z.object({
           id: z.string(),
-          nome: z.string(),
-          quantidade: z.number(),
-          preco: z.number(),
+          nome: z.string().optional(),
+          quantidade: z.number().int().min(1).max(20),
+          preco: z.number().optional(),
         })
       )
       .optional(),
@@ -44,7 +45,6 @@ const agendamentoCheckoutSchema = z
     duracaoMinutos: z.number().optional(),
     tipo: z.string().optional(),
     observacoes: z.string().optional(),
-    total: z.number(),
     paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
     cupomCode: z.string().optional(),
     symbolicAgendamento: z.boolean().optional(),
@@ -78,6 +78,8 @@ export async function POST(req: Request) {
   try {
     // 🔒 Verificar autenticação
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     // Debug: Verificar se a variável está sendo lida
     console.log("[Asaas Checkout Agendamento] Verificando ASAAS_API_KEY...");
@@ -102,7 +104,7 @@ export async function POST(req: Request) {
       );
     }
 
-    let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, total, paymentMethod, cupomCode, symbolicAgendamento } =
+    let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, paymentMethod, cupomCode, symbolicAgendamento } =
       validation.data;
     const userName = user.nomeArtistico;
 
@@ -115,21 +117,34 @@ export async function POST(req: Request) {
       }
     }
 
-    // Validar cupom e recalcular total quando aplicável
-    if (cupomCode && cupomCode.trim()) {
-      const totalRaw =
-        (servicos || []).reduce((a: number, s: any) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
-        (beats || []).reduce((a: number, b: any) => a + (b.preco || 0) * (b.quantidade || 1), 0);
-      const result = await validateCouponAndGetTotal(
-        cupomCode.trim(),
-        totalRaw,
-        servicos || [],
-        beats || []
+    let calculation;
+    try {
+      calculation = await calculateServerCheckout({
+        userId: user.id,
+        services: servicos,
+        beats,
+        couponCode: cupomCode,
+        allowTestCoupon: Boolean(symbolicAgendamento && canUseSymbolicSimulation(user)),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json(
+        {
+          error: message.startsWith("CUPOM_INVALIDO:")
+            ? message.slice("CUPOM_INVALIDO:".length)
+            : "Serviço ou quantidade inválida.",
+        },
+        { status: 400 }
       );
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      total = result.finalTotal;
+    }
+    servicos = calculation.services;
+    beats = calculation.beats;
+    const total = calculation.total;
+    if (total <= 0 && !symbolicAgendamento) {
+      return NextResponse.json(
+        { error: "Use o fluxo de resgate para concluir um agendamento sem cobrança." },
+        { status: 400 }
+      );
     }
     const userEmail = user.email;
     
@@ -237,22 +252,17 @@ export async function POST(req: Request) {
     const expiresAtAg = new Date();
     expiresAtAg.setHours(expiresAtAg.getHours() + 24);
 
-    let paymentMetadataRow: { id: string } | null = null;
-    try {
-      paymentMetadataRow = await prisma.paymentMetadata.create({
-        data: {
-          userId: user.id,
-          metadata: JSON.stringify(metadataCompleto),
-          expiresAt: expiresAtAg,
-        },
-      });
-    } catch (metaErr: any) {
-      console.warn("[Asaas Checkout Agendamento] PaymentMetadata não criado (continuando):", metaErr?.message);
-    }
+    const paymentMetadataRow = await prisma.paymentMetadata.create({
+      data: {
+        userId: user.id,
+        metadata: JSON.stringify(metadataCompleto),
+        expiresAt: expiresAtAg,
+      },
+    });
 
     const backSuccess = symbolicAgendamento
-      ? `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=agendamento`
-      : `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`;
+      ? `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=agendamento&operationId=${encodeURIComponent(paymentMetadataRow.id)}`
+      : `${SITE_URL}/pagamentos/sucesso?tipo=agendamento&operationId=${encodeURIComponent(paymentMetadataRow.id)}`;
     const backFailure = symbolicAgendamento
       ? `${SITE_URL}/pagamentos/falha?teste=true`
       : `${SITE_URL}/pagamentos/falha`;
@@ -260,7 +270,7 @@ export async function POST(req: Request) {
       ? `${SITE_URL}/pagamentos/pendente?teste=true`
       : `${SITE_URL}/pagamentos/pendente`;
 
-    // Criar checkout (externalReference = apenas userId; metadata completo está em PaymentMetadata)
+    // Criar checkout com identificador único da operação.
     const checkoutResponse = await provider.createCheckout({
       items,
       payer: {
@@ -270,7 +280,7 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {
-        userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
+        operationId: paymentMetadataRow.id,
       },
       backUrls: {
         success: backSuccess,

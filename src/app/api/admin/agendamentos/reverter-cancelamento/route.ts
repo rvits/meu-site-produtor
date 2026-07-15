@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
+import { revertAppointmentCancellation } from "@/app/lib/domain/workflow";
 
 export async function POST(req: Request) {
   try {
@@ -13,73 +14,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
     }
 
-    const agendamento = await prisma.appointment.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        user: {
-          select: {
-            email: true,
-            nomeArtistico: true,
-          },
-        },
-      },
-    });
-
-    if (!agendamento) {
-      return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    const idNum = parseInt(id, 10);
+    const result = await revertAppointmentCancellation(idNum);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.httpStatus });
     }
 
-    // Só pode reverter cancelamento de agendamentos cancelados
-    if (agendamento.status !== "cancelado") {
-      return NextResponse.json(
-        { error: "Apenas agendamentos cancelados podem ter o cancelamento revertido" },
-        { status: 400 }
-      );
-    }
+    console.log(`[Admin] Cancelamento do agendamento ${id} revertido via workflow.`);
 
-    // Verificar se o horário ainda está disponível
-    const dataHoraISO = new Date(agendamento.data);
-    const duracao = agendamento.duracaoMinutos || 60;
-
-    const conflito = await prisma.appointment.findFirst({
-      where: {
-        id: { not: parseInt(id) }, // Excluir o próprio agendamento
-        status: { in: ["aceito", "confirmado"] }, // Apenas agendamentos aceitos ocupam horário
-        AND: [
-          { data: { lt: new Date(dataHoraISO.getTime() + (duracao * 60000)) } },
-          { data: { gte: new Date(dataHoraISO.getTime() - (duracao * 60000)) } },
-        ],
-      },
-    });
-
-    if (conflito) {
-      return NextResponse.json(
-        { error: "Este horário não está mais disponível. Já existe outro agendamento aceito neste período." },
-        { status: 409 }
-      );
-    }
-
-    // Reverter cancelamento: voltar para status "aceito" e limpar campos de cancelamento
-    await prisma.appointment.update({
-      where: { id: parseInt(id) },
-      data: {
-        status: "aceito",
-        cancelReason: null,
-        cancelledAt: null,
-        cancelRefundOption: null,
-        refundProcessedAt: null,
-        refundCouponId: null,
-      },
-    });
-
-    console.log(`[Admin] Cancelamento do agendamento ${id} revertido. Horário reservado novamente.`);
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Cancelamento revertido com sucesso",
-      agendamento: {
-        id: agendamento.id,
-        status: "aceito",
-      },
+      agendamento: result.data.agendamento,
     });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {

@@ -3,7 +3,9 @@
 import { prisma } from "@/app/lib/prisma";
 import { processAgendamentoPaymentEffects } from "@/app/lib/asaas-agendamento-payment-effects";
 import {
+  assertWebhookAmountMatchesMetadata,
   reconcileAgendamentoPaymentArtifacts,
+  resolvePaymentOperationIdentity,
   resolvePaymentMetadataForWebhook,
 } from "@/app/lib/asaas-agendamento-reconcile";
 import { enrichPlanoMetadata, processPlanoPaymentEffects } from "@/app/lib/asaas-plano-payment-effects";
@@ -15,6 +17,25 @@ import {
 
 function isConfirmedPaymentEvent(event: string, status: string): boolean {
   return event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED");
+}
+
+async function publishPaymentEffectsReady(
+  paymentDbId: string,
+  userId: string,
+  paymentType: string
+): Promise<void> {
+  const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+  await publishSyncEvent({
+    name: "PaymentConfirmed",
+    entity: "payment",
+    entityId: paymentDbId,
+    to: "confirmado",
+    options: {
+      source: "lifecycle",
+      userId,
+      metadata: { effectsReady: true, paymentType },
+    },
+  });
 }
 
 export async function processPaymentWebhook(body: { event: string; payment: any }) {
@@ -45,12 +66,6 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       return { received: true };
     }
 
-    let userId = externalReference;
-    if (!userId) {
-      console.error("[Process Payment Webhook] ❌ Não foi possível identificar o usuário");
-      return { received: true, error: "Usuário não identificado" };
-    }
-
     const isPlanoDesc = isPlanoPaymentDescription(payment.description);
     const isAgendamentoDesc = isAgendamentoPaymentDescription(payment.description);
 
@@ -59,6 +74,34 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         OR: [{ asaasId: paymentId }, { mercadopagoId: paymentId }],
       },
     });
+
+    let userId: string;
+    if (existingPayment) {
+      userId = existingPayment.userId;
+    } else {
+      try {
+        const identity = await resolvePaymentOperationIdentity({
+          asaasPaymentId: paymentId,
+          externalReference,
+        });
+        userId = identity.userId;
+      } catch (identityError) {
+        console.error("[Process Payment Webhook] Operação rejeitada:", {
+          paymentId,
+          externalReference,
+          error:
+            identityError instanceof Error ? identityError.message : String(identityError),
+        });
+        return { received: true, error: "Operação de pagamento não identificada" };
+      }
+    }
+    const metadata = await resolvePaymentMetadataForWebhook({
+      userId,
+      asaasPaymentId: paymentId,
+      paymentMetadata: payment.metadata,
+      description: payment.description,
+    });
+    assertWebhookAmountMatchesMetadata(metadata, value);
 
     const wasDuplicate = !!existingPayment;
     let paymentRecord: { id: string; userId: string; type: string };
@@ -75,28 +118,63 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         paymentId,
         "- verificando efeitos pendentes"
       );
+      // HS-03B: status pending → confirmado apenas via State Machine
+      const st = String(existingPayment.status || "").toLowerCase();
+      if (st === "pending" || st === "pendente" || st === "recebido" || st === "received") {
+        const { confirmPayment } = await import("@/app/lib/domain/workflow");
+        await confirmPayment(existingPayment.id, { type: "webhook", id: paymentId });
+      }
     } else {
       const created = await prisma.payment.create({
         data: {
           userId,
           amount: value,
           status: "approved",
-          type: isPlanoDesc ? "plano" : isAgendamentoDesc ? "agendamento" : "outro",
+          type: isPlanoDesc
+            ? "plano"
+            : isAgendamentoDesc
+              ? "agendamento"
+              : "outro",
           currency: "BRL",
           asaasId: paymentId,
           planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
         },
       });
-      paymentRecord = { id: created.id, userId: created.userId, type: created.type };
+      // Ajuste pós-create: metadata tipado como carrinho deve contar como agendamento
+      const metaPeek = await resolvePaymentMetadataForWebhook({
+        userId,
+        asaasPaymentId: paymentId,
+        paymentMetadata: payment.metadata,
+        description: payment.description,
+      }).catch(() => ({}) as Record<string, unknown>);
+      if (String((metaPeek as any)?.tipo || "") === "carrinho" && created.type === "outro") {
+        await prisma.payment.update({
+          where: { id: created.id },
+          data: { type: "agendamento" },
+        });
+        paymentRecord = { id: created.id, userId: created.userId, type: "agendamento" };
+      } else {
+        paymentRecord = { id: created.id, userId: created.userId, type: created.type };
+      }
       console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", paymentRecord.id);
+      try {
+        const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+        await publishSyncEvent({
+          name: "PaymentConfirmed",
+          entity: "payment",
+          entityId: paymentRecord.id,
+          from: "pending",
+          to: "confirmado",
+          options: {
+            source: "lifecycle",
+            userId,
+            metadata: { asaasId: paymentId, via: "processPaymentWebhook-create" },
+          },
+        });
+      } catch (syncErr) {
+        console.error("[Process Payment Webhook] sync PaymentConfirmed falhou (non-fatal):", syncErr);
+      }
     }
-
-    const metadata = await resolvePaymentMetadataForWebhook({
-      userId,
-      asaasPaymentId: paymentId,
-      paymentMetadata: payment.metadata,
-      description: payment.description,
-    });
 
     const tipo = resolvePaymentTipo({
       metadata,
@@ -149,6 +227,7 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
           select: { id: true, planId: true, planName: true, status: true },
         });
         console.log("[Process Payment Webhook] ✅✅✅ PLANO PROCESSADO COM SUCESSO ✅✅✅");
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "plano");
         return {
           received: true,
           success: true,
@@ -158,6 +237,32 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       }
 
       return { received: true };
+    }
+
+    // Carrinho antes de isAgendamentoDesc: descrições com "Agendamento" não podem
+    // short-circuitar metadata.tipo === "carrinho" (1 Payment → N Appointments).
+    if (tipo === "carrinho") {
+      const { processCarrinhoPaymentEffects } = await import(
+        "@/app/lib/asaas-carrinho-payment-effects"
+      );
+      const fx = await processCarrinhoPaymentEffects({
+        paymentDbId: paymentRecord.id,
+        userId,
+        value,
+        metadata,
+        options: { sendEmails: false, source: "webhook" },
+      });
+      if (fx.skippedReason) {
+        console.warn("[Process Payment Webhook] Carrinho — efeitos não aplicados:", fx.skippedReason);
+      }
+      if (fx.paymentLinked) {
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "carrinho");
+      }
+      return {
+        received: true,
+        success: fx.paymentLinked,
+        appointmentIds: fx.appointmentIds,
+      };
     }
 
     if (tipo === "agendamento" || isAgendamentoDesc) {
@@ -170,16 +275,15 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       if (fx.skippedReason) {
         console.warn("[Process Payment Webhook] Agendamento — efeitos não aplicados:", fx.skippedReason);
       }
+      if (fx.paymentLinked) {
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "agendamento");
+      }
       return {
         received: true,
         success: fx.paymentLinked,
         agendamentoFinalId: fx.agendamentoFinalId,
         couponsCount: fx.couponsCount,
       };
-    }
-
-    if (tipo === "carrinho" && wasDuplicate) {
-      return { received: true, success: true };
     }
 
     return { received: true };

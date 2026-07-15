@@ -25,18 +25,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Debug: Verificar se a variável está sendo lida
-    console.log("[Test Payment] Verificando variáveis de ambiente...");
-    console.log("[Test Payment] process.env.ASAAS_API_KEY tipo:", typeof process.env.ASAAS_API_KEY);
-    console.log("[Test Payment] process.env.ASAAS_API_KEY valor (raw):", JSON.stringify(process.env.ASAAS_API_KEY));
-    console.log("[Test Payment] process.env.ASAAS_API_KEY existe:", !!process.env.ASAAS_API_KEY);
-    console.log("[Test Payment] process.env.ASAAS_API_KEY length:", process.env.ASAAS_API_KEY?.length || 0);
-    console.log("[Test Payment] ASAAS_API_KEY (após getAsaasApiKey) existe:", !!ASAAS_API_KEY);
-    console.log("[Test Payment] ASAAS_API_KEY (após getAsaasApiKey) valor:", JSON.stringify(ASAAS_API_KEY?.substring(0, 50) + '...'));
-    console.log("[Test Payment] ASAAS_API_KEY (após getAsaasApiKey) length:", ASAAS_API_KEY?.length || 0);
-    console.log("[Test Payment] INFINITYPAY_API_KEY existe:", !!INFINITYPAY_API_KEY);
-    console.log("[Test Payment] Todas as variáveis ASAAS:", Object.keys(process.env).filter(k => k.includes('ASAAS')));
-
     // Detectar qual provedor usar (prioridade: Asaas > Infinity Pay)
     let provider: AsaasProvider | InfinityPayProvider;
     let providerName: string;
@@ -85,6 +73,7 @@ export async function POST(req: Request) {
       tipo: tipo || "teste",
       userId: user.id,
       isTest: true,
+      chargedAmount: SYMBOLIC_AGENDAMENTO_BRL,
     };
 
     const items = [
@@ -136,7 +125,7 @@ export async function POST(req: Request) {
     });
     
     console.log("[Test Payment] PaymentMetadata criado:", paymentMetadata.id);
-    console.log("[Test Payment] Usando apenas userId no externalReference:", user.id);
+    console.log("[Test Payment] Operação de teste criada:", paymentMetadata.id);
 
     const checkoutResponse = await provider.createCheckout({
       items,
@@ -147,7 +136,7 @@ export async function POST(req: Request) {
       },
       paymentMethod: undefined, // Para teste, deixar usuário escolher (UNDEFINED)
       metadata: {
-        userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
+        operationId: paymentMetadata.id,
       },
       backUrls: {
         success: `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=${tipo === "plano" ? "plano" : "teste"}`,

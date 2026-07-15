@@ -48,10 +48,17 @@ export type SymbolicPaymentLike = {
   status: string;
 };
 
+function isLocalDevRuntime(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  return /localhost|127\.0\.0\.1/i.test(site);
+}
+
 /** Gate único para checkout simbólico, reprocessar teste e fluxos admin de simulação. */
 export function canUseSymbolicSimulation(
   user: { role: string | null; email: string | null } | null | undefined
 ): boolean {
+  if (isLocalDevRuntime()) return true;
   if (!user) return false;
   return hasAdminAccessLocal({ role: user.role ?? "", email: user.email ?? "" });
 }

@@ -44,7 +44,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, senha: string) => Promise<boolean>;
-  registro: (payload: RegistroPayload) => Promise<boolean>;
+  registro: (payload: RegistroPayload) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* --------------------------------------
      📝 REGISTRO
   -------------------------------------- */
-  async function registro(payload: RegistroPayload): Promise<boolean> {
+  async function registro(payload: RegistroPayload): Promise<{ ok: boolean; error?: string }> {
     try {
       const r = await fetch("/api/registro", {
         method: "POST",
@@ -129,13 +129,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(payload),
       });
 
-      if (!r.ok) return false;
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        return { ok: false, error: data.error || "Não foi possível registrar." };
+      }
 
       await refresh();
-      return true;
+      return { ok: true };
     } catch (err) {
       console.error("Erro no registro:", err);
-      return false;
+      return { ok: false, error: "Erro de conexão ao registrar." };
     }
   }
 

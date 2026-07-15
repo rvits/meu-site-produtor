@@ -20,9 +20,7 @@ export async function normalizeStaleCouponAppointmentLink(couponId: string): Pro
   if (
     !apt ||
     apt.status === "cancelado" ||
-    apt.status === "recusado" ||
-    /* recuperação: agendamento concluído mas cupom não marcado used (estado residual) */
-    (apt.status === "concluido" && !c.used)
+    apt.status === "recusado"
   ) {
     await prisma.coupon.update({
       where: { id: couponId },

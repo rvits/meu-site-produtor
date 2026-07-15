@@ -1,4 +1,32 @@
 import { z } from "zod";
+import { validateBirthDateString } from "@/app/lib/birth-date-validation";
+
+const sexoEnum = z.enum(["masculino", "feminino", "prefiro_nao_declarar"], {
+  errorMap: () => ({ message: "Selecione o sexo." }),
+});
+
+const generoEnum = z.enum(
+  [
+    "heterossexual",
+    "homossexual",
+    "bissexual",
+    "transsexual",
+    "nao_binario",
+    "outro",
+    "prefiro_nao_informar",
+  ],
+  { errorMap: () => ({ message: "Selecione o gênero." }) }
+);
+
+const birthDateSchema = z
+  .string()
+  .min(1, "Data de nascimento é obrigatória.")
+  .superRefine((val, ctx) => {
+    const result = validateBirthDateString(val);
+    if (!result.valid) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error });
+    }
+  });
 
 export const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -17,9 +45,9 @@ export const registroSchema = z.object({
   estado: z.string().min(1, "Estado é obrigatório"),
   cidade: z.string().min(1, "Cidade é obrigatória"),
   bairro: z.string().min(1, "Bairro é obrigatório"),
-  dataNascimento: z.string(),
-  sexo: z.enum(["masculino", "feminino", "prefiro_nao_declarar"]).optional().nullable(),
-  genero: z.enum(["heterossexual", "homossexual", "bissexual", "transsexual", "nao_binario", "outro"]).optional().nullable(),
+  dataNascimento: birthDateSchema,
+  sexo: sexoEnum,
+  genero: generoEnum,
   generoOutro: z.string().optional().nullable(),
   estilosMusicais: z.string().optional().nullable(),
   nacionalidade: z.string().optional().nullable(),
@@ -38,14 +66,14 @@ export const updateContaSchema = z.object({
   nomeSocial: z.string().optional(),
   email: z.string().email().optional(),
   telefone: z.string().optional(),
-  sexo: z.enum(["masculino", "feminino", "prefiro_nao_declarar"]).optional(),
-  genero: z.enum(["heterossexual", "homossexual", "bissexual", "transsexual", "nao_binario", "outro"]).optional(),
+  sexo: sexoEnum.optional(),
+  genero: generoEnum.optional(),
   generoOutro: z.string().optional(),
   senha: z.string().min(6).optional(),
   senhaAtual: z.string().optional(),
   cpf: z.string().optional(),
   cep: z.string().optional(),
-  dataNascimento: z.string().optional(),
+  dataNascimento: birthDateSchema.optional(),
   pais: z.string().optional(),
   cidade: z.string().optional(),
   bairro: z.string().optional(),
@@ -60,7 +88,7 @@ export const checkoutSchema = z.object({
 
 export const pagamentoInfoSchema = z.object({
   nome: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento inválida (YYYY-MM-DD)"),
+  dataNascimento: birthDateSchema,
   cpf: z.string().regex(/^\d{11}$/, "CPF deve conter 11 dígitos"),
   pais: z.string().min(1, "País é obrigatório"),
   cidade: z.string().min(1, "Cidade é obrigatória"),

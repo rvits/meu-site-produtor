@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
+import { isLocalhostClient } from "../lib/app-data-events";
+import { useDomainRefresh } from "../hooks/useDomainRefresh";
+import { resolveCanonicalCouponType } from "../lib/domain/coupon-types";
 
 interface EntregaServico {
   id: string;
@@ -55,20 +58,25 @@ interface Plano {
 interface Cupom {
   id: string;
   code: string;
-  couponType: string; // "plano" ou "reembolso"
+  couponType: string; // persistido: plano | agendamento | reembolso | desconto | test | ...
+  canonicalCouponType?: string;
   discountType: string;
   discountValue: number;
-  serviceType: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  used: boolean;
-  usedAt: string | null;
+  serviceType?: string | null;
+  expiresAt?: string | null;
+  createdAt?: string;
+  used?: boolean;
+  usedAt?: string | null;
   status: "disponivel" | "usado" | "expirado";
+  paymentId?: string | null;
+  userPlanId?: string | null;
+  appointmentId?: number | null;
+  refundAsaasStatus?: string | null;
   userPlan?: {
     id: string;
     planId: string;
     planName: string;
-    endDate: string | null;
+    endDate?: string | null;
   } | null;
 }
 
@@ -100,6 +108,27 @@ export default function MinhaContaPage() {
   const [processandoPlano, setProcessandoPlano] = useState(false);
   const [erroProcessarPlano, setErroProcessarPlano] = useState<string | null>(null);
   const [vincularCuponsTeste, setVincularCuponsTeste] = useState(false);
+  const [showTestCouponTools, setShowTestCouponTools] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setShowTestCouponTools(false);
+      return;
+    }
+    setShowTestCouponTools(
+      isLocalhostClient() ||
+        user.role === "ADMIN" ||
+        user.email === "thouse.rec.tremv@gmail.com"
+    );
+  }, [user]);
+
+  const { refresh: refreshConta } = useDomainRefresh(
+    ["minha-conta", "cupons", "planos", "pagamentos"],
+    async () => {
+      if (!user) return;
+      await carregarDados();
+    }
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -107,15 +136,8 @@ export default function MinhaContaPage() {
       router.push("/login");
       return;
     }
-    carregarDados();
-    
-    // Atualizar dados automaticamente a cada 1 minuto
-    const interval = setInterval(() => {
-      carregarDados();
-    }, 60000);
-    
-    return () => clearInterval(interval);
-  }, [user, authLoading]);
+    void refreshConta();
+  }, [user, authLoading, refreshConta]);
 
   async function carregarDados() {
     try {
@@ -246,8 +268,26 @@ export default function MinhaContaPage() {
     return labels[status] || status;
   }
 
+  function isPlanFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "PLAN" || t === "DISCOUNT" || (t === "TEST" && Boolean(c.userPlanId));
+  }
+
+  function isRefundFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "REFUND";
+  }
+
+  function isServiceFamilyCoupon(c: Cupom): boolean {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    return t === "SERVICE" || t === "REBOOK";
+  }
+
   function getServiceName(serviceType: string, couponCode?: string) {
-    const isTeste = couponCode?.startsWith("TESTE_");
+    const coupon = cupons.find((c) => c.code === couponCode);
+    const isTeste = coupon
+      ? resolveCanonicalCouponType(coupon) === "TEST"
+      : false;
     const names: Record<string, string> = {
       sessao: isTeste ? "Sessão Teste" : "Sessão",
       captacao: isTeste ? "Captação Teste" : "Captação",
@@ -482,6 +522,8 @@ export default function MinhaContaPage() {
                 Se o admin associou cupons ao seu e-mail, clique em <strong>Atualizar</strong> no topo da página ou recarregue (F5).
               </p>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                {showTestCouponTools && (
+                  <>
                 <p className="text-sm text-zinc-300 mb-2">
                   Pagou R$ 5 de teste (agendamento) e os cupons não aparecem aqui?
                 </p>
@@ -516,18 +558,20 @@ export default function MinhaContaPage() {
                 >
                   {vincularCuponsTeste ? "Vinculando..." : "Vincular cupons de teste à minha conta"}
                 </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Cupons de Plano Disponíveis */}
-              {cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").length > 0 && (
+              {cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-2">
-                    ✅ Cupons de Plano - Disponíveis ({cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").length})
+                    ✅ Cupons de Plano - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).length})
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {cupons.filter(c => c.status === "disponivel" && c.couponType === "plano").map((cupom) => (
+                    {cupons.filter(c => c.status === "disponivel" && isPlanFamilyCoupon(c)).map((cupom) => (
                       <div
                         key={cupom.id}
                         className="rounded-lg border border-green-500/50 bg-green-500/10 p-4"
@@ -622,14 +666,60 @@ export default function MinhaContaPage() {
                 </div>
               )}
 
-              {/* Cupons de Reembolso Disponíveis */}
-              {cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").length > 0 && (
+              {/* Cupons de Serviço (pós-compra / remarcação) */}
+              {cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-blue-400 mb-2">
-                    💰 Cupons de Reembolso - Disponíveis ({cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").length})
+                  <h3 className="text-sm font-semibold text-cyan-400 mb-2">
+                    🎵 Cupons de Serviço - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).length})
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {cupons.filter(c => c.status === "disponivel" && c.couponType === "reembolso").map((cupom) => (
+                    {cupons.filter(c => c.status === "disponivel" && isServiceFamilyCoupon(c)).map((cupom) => (
+                      <div
+                        key={cupom.id}
+                        className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 p-4"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="text-xs text-cyan-400 font-semibold mb-1">CÓDIGO DO CUPOM</p>
+                            <p className="text-2xl font-bold text-cyan-300 font-mono tracking-wider">
+                              {cupom.code}
+                            </p>
+                          </div>
+                        </div>
+                        {cupom.serviceType && (
+                          <p className="text-sm text-zinc-300 mt-2">
+                            <strong>Serviço:</strong> {getServiceName(cupom.serviceType || "", cupom.code)}
+                          </p>
+                        )}
+                        {cupom.expiresAt && (
+                          <p className="text-xs text-zinc-400 mt-2">
+                            Válido até: {new Date(cupom.expiresAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                        <p className="text-xs text-cyan-400 mt-2">
+                          Cupom de serviço avulso — use para agendar o serviço indicado.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/agendamento?cupom=${encodeURIComponent(cupom.code)}`)}
+                          className="mt-3 w-full py-2 text-sm font-semibold text-zinc-100 bg-cyan-600 hover:bg-cyan-500 rounded transition-colors"
+                        >
+                          📅 Agendar com este cupom
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cupons de Reembolso Disponíveis */}
+              {cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-400 mb-2">
+                    💰 Cupons de Reembolso - Disponíveis ({cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cupons.filter(c => c.status === "disponivel" && isRefundFamilyCoupon(c)).map((cupom) => (
                       <div
                         key={cupom.id}
                         className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-4"
@@ -791,7 +881,7 @@ export default function MinhaContaPage() {
                           <span className={`text-xs px-2 py-1 rounded ${
                             cupom.couponType === "plano" ? "bg-green-900/30 text-green-400" : "bg-blue-900/30 text-blue-400"
                           }`}>
-                            {cupom.couponType === "plano" ? "Plano" : "Reembolso"}
+                            {isPlanFamilyCoupon(cupom) ? "Plano" : "Reembolso"}
                           </span>
                         </div>
                         {cupom.serviceType && (

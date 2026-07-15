@@ -10,6 +10,12 @@ import {
   isCouponRefundLocked,
   isCupomPermitidoNoAgendamentoComum,
 } from "@/app/lib/checkout-coupon-gates";
+import {
+  resolveCanonicalCouponType,
+  type CanonicalCouponType,
+} from "@/app/lib/domain/coupon-types";
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
 
 type ServicoItem = { preco?: number; quantidade?: number };
 type BeatItem = { preco?: number; quantidade?: number };
@@ -18,6 +24,15 @@ type CartTotals = {
   total: number;
   totalServicos: number;
   totalBeats: number;
+};
+
+export type CouponCheckoutMode = "discount" | "service-redemption";
+
+export type CouponCheckoutOptions = {
+  userId?: string;
+  mode?: CouponCheckoutMode;
+  selectedServiceIds?: string[];
+  allowTest?: boolean;
 };
 
 function computeCartTotals(servicos: ServicoItem[], beats: BeatItem[]): CartTotals {
@@ -34,6 +49,93 @@ async function loadCoupon(code: string): Promise<Coupon | null> {
   return prisma.coupon.findUnique({
     where: { code: code.toUpperCase() },
   });
+}
+
+async function validateOwnership(
+  coupon: Coupon,
+  userId?: string
+): Promise<{ ok: false; error: string } | null> {
+  if (!userId) return null;
+  if (coupon.assignedUserId && coupon.assignedUserId !== userId) {
+    return { ok: false, error: "Este cupom pertence a outro usuário." };
+  }
+
+  const [plan, payment, appointment] = await Promise.all([
+    coupon.userPlanId
+      ? prisma.userPlan.findUnique({
+          where: { id: coupon.userPlanId },
+          select: { userId: true },
+        })
+      : null,
+    coupon.paymentId
+      ? prisma.payment.findUnique({
+          where: { id: coupon.paymentId },
+          select: { userId: true, status: true },
+        })
+      : null,
+    coupon.appointmentId
+      ? prisma.appointment.findUnique({
+          where: { id: coupon.appointmentId },
+          select: { userId: true },
+        })
+      : null,
+  ]);
+
+  if (plan && plan.userId !== userId) {
+    return { ok: false, error: "Este cupom pertence ao plano de outro usuário." };
+  }
+  if (payment && payment.userId !== userId) {
+    return { ok: false, error: "Este cupom pertence ao pagamento de outro usuário." };
+  }
+  if (payment && payment.status !== "approved") {
+    return { ok: false, error: "O pagamento associado a este cupom não está aprovado." };
+  }
+  if (appointment && appointment.userId !== userId) {
+    return { ok: false, error: "Este cupom pertence ao agendamento de outro usuário." };
+  }
+  return null;
+}
+
+function validateCanonicalUsage(
+  coupon: Coupon,
+  options: CouponCheckoutOptions
+): { ok: false; error: string } | null {
+  const type = resolveCanonicalCouponType(coupon);
+  const mode = options.mode ?? "discount";
+
+  if (type === "TEST" && !options.allowTest) {
+    return { ok: false, error: "Cupom de teste indisponível neste ambiente." };
+  }
+
+  const serviceLike =
+    type === "SERVICE" ||
+    type === "REBOOK" ||
+    (type === "REFUND" && coupon.discountType === "service") ||
+    (type === "TEST" && coupon.discountType === "service");
+
+  if (mode === "discount" && serviceLike) {
+    return {
+      ok: false,
+      error: "Use este cupom pelo botão Agendar com este cupom em Minha Conta.",
+    };
+  }
+  if (mode === "service-redemption" && !serviceLike) {
+    return { ok: false, error: "Este cupom não é válido para resgate de serviço." };
+  }
+  if (mode === "service-redemption") {
+    const selected = (options.selectedServiceIds || []).map(normalizeServiceTypeId);
+    const expected = coupon.serviceType
+      ? normalizeServiceTypeId(coupon.serviceType)
+      : null;
+    if (!expected || selected.length !== 1 || selected[0] !== expected) {
+      return {
+        ok: false,
+        error: `Este cupom agenda exclusivamente o serviço ${expected || "definido no cupom"}.`,
+      };
+    }
+  }
+
+  return null;
 }
 
 function validateCouponExists(coupon: Coupon | null): { ok: false; error: string } | null {
@@ -85,7 +187,10 @@ async function validateAppointmentBlock(
     where: { id: coupon.appointmentId },
     select: { status: true },
   });
-  if (agendamentoAssociado?.status === "pendente") {
+  if (
+    agendamentoAssociado &&
+    agendamentoBloqueiaReusoCupom(agendamentoAssociado.status)
+  ) {
     return {
       ok: false,
       error:
@@ -173,7 +278,7 @@ function computeDiscountedTotal(
   let discount = 0;
   let finalTotal = total;
   let isServiceCoupon = false;
-  const isRefundCoupon = coupon.couponType === "reembolso";
+  const isRefundCoupon = resolveCanonicalCouponType(coupon) === "REFUND";
 
   if (coupon.discountType === "service") {
     isServiceCoupon = true;
@@ -219,10 +324,21 @@ export async function validateCouponAndGetTotal(
   code: string,
   _totalRaw: number,
   servicos: ServicoItem[] = [],
-  beats: BeatItem[] = []
-): Promise<{ ok: true; finalTotal: number } | { ok: false; error: string }> {
+  beats: BeatItem[] = [],
+  options: CouponCheckoutOptions = {}
+): Promise<
+  | { ok: true; finalTotal: number; couponId: string; couponType: CanonicalCouponType }
+  | { ok: false; error: string }
+> {
   const totals = computeCartTotals(servicos, beats);
   const coupon = await loadCoupon(code);
+
+  if (coupon) {
+    const canonicalError = validateCanonicalUsage(coupon, options);
+    if (canonicalError) return canonicalError;
+    const ownershipError = await validateOwnership(coupon, options.userId);
+    if (ownershipError) return ownershipError;
+  }
 
   const gates: Array<
     | { ok: false; error: string }
@@ -230,7 +346,9 @@ export async function validateCouponAndGetTotal(
     | Promise<{ ok: false; error: string } | null>
   > = [
     validateCouponExists(coupon),
-    coupon ? validateSchedulingType(coupon) : null,
+    coupon && (options.mode ?? "discount") === "discount"
+      ? validateSchedulingType(coupon)
+      : null,
     coupon ? validateUsed(coupon) : null,
     coupon ? validateRefundLock(coupon) : null,
     coupon ? validatePlanBlock(coupon) : null,
@@ -252,5 +370,10 @@ export async function validateCouponAndGetTotal(
     return { ok: false, error: "Cupom inexistente. Verifique o código e tente novamente." };
   }
 
-  return { ok: true, finalTotal: computeDiscountedTotal(coupon, totals) };
+  return {
+    ok: true,
+    finalTotal: computeDiscountedTotal(coupon, totals),
+    couponId: coupon.id,
+    couponType: resolveCanonicalCouponType(coupon),
+  };
 }

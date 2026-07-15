@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { notifyAppDataChanged } from "@/app/lib/app-data-events";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 interface PagamentoConfirmado {
   id: string;
@@ -60,10 +62,13 @@ function AdminAgendamentosContent() {
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [reprocessando, setReprocessando] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
     carregarAgendamentos();
   }, []);
+
+  useDomainRefresh("admin-agendamentos", () => carregarAgendamentos());
 
   const porBusca = useMemo(() => {
     if (busca.trim() === "") return agendamentos;
@@ -103,6 +108,14 @@ function AdminAgendamentosContent() {
   }
 
   async function atualizarAgendamento(id: number, updates: { status?: string; blocked?: boolean; blockedReason?: string }) {
+    if (updatingId != null) return;
+    setUpdatingId(id);
+    // Optimistic lock local: desabilita botões pelo status atual até refetch
+    if (updates.status) {
+      setAgendamentos((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: updates.status as string } : a))
+      );
+    }
     try {
       const res = await fetch(`/api/admin/agendamentos?id=${id}`, {
         method: "PATCH",
@@ -112,9 +125,15 @@ function AdminAgendamentosContent() {
 
       if (res.ok) {
         await carregarAgendamentos();
+        notifyAppDataChanged("admin-agendamento-updated");
+      } else {
+        await carregarAgendamentos();
       }
     } catch (err) {
       console.error("Erro ao atualizar agendamento", err);
+      await carregarAgendamentos();
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -505,13 +524,15 @@ function AdminAgendamentosContent() {
                     <>
                       <button
                         onClick={() => atualizarAgendamento(a.id, { status: "aceito" })}
-                        className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition"
+                        disabled={updatingId === a.id}
+                        className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition disabled:opacity-50"
                       >
                         Aceitar
                       </button>
                       <button
                         onClick={() => atualizarAgendamento(a.id, { status: "recusado" })}
-                        className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition"
+                        disabled={updatingId === a.id}
+                        className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition disabled:opacity-50"
                       >
                         Recusar
                       </button>
@@ -522,14 +543,16 @@ function AdminAgendamentosContent() {
                       <button
                         type="button"
                         onClick={() => atualizarAgendamento(a.id, { status: "em_andamento" })}
-                        className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition"
+                        disabled={updatingId === a.id}
+                        className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50"
                       >
                         Começar
                       </button>
                       <select
                         value={a.status}
+                        disabled={updatingId === a.id}
                         onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
-                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300"
+                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300 disabled:opacity-50"
                       >
                         <option value="pendente">Pendente</option>
                         <option value="aceito">Aceito</option>

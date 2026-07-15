@@ -3,11 +3,16 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 import { createUserSession } from "@/app/lib/auth";
 import { registroSchema } from "@/app/lib/validations";
+import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const goLiveBlocked = goLiveBlockIfNeeded();
+  if (goLiveBlocked) return goLiveBlocked;
+
   try {
     console.error("\n🔵 ========================================");
     console.error("🔵 [REGISTRO] Recebendo requisição de registro");
@@ -71,6 +76,15 @@ export async function POST(req: Request) {
     
     console.error("✅ [REGISTRO] Email não existe, pode criar conta");
 
+    const cpfDigits = normalizeCpfDigits(cpf);
+    const cpfEmUso = await prisma.user.findFirst({
+      where: { cpf: cpfDigits },
+      select: { id: true },
+    });
+    if (cpfEmUso) {
+      return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
+    }
+
     const hash = await bcrypt.hash(senha, 10);
 
     const user = await prisma.user.create({
@@ -81,14 +95,14 @@ export async function POST(req: Request) {
         email,
         senha: hash,
         telefone,
-        cpf: cpf || null,
+        cpf: cpfDigits,
         pais,
         estado,
         cidade,
         bairro,
         dataNascimento: new Date(dataNascimento),
-        sexo: sexo || null,
-        genero: genero || null,
+        sexo,
+        genero,
         generoOutro: generoOutro || null,
         estilosMusicais: estilosMusicais || null,
         nacionalidade: nacionalidade || null,
@@ -125,6 +139,10 @@ export async function POST(req: Request) {
     
     // Se for erro de constraint único (email duplicado)
     if (err?.code === 'P2002' || err?.message?.includes('Unique constraint') || err?.message?.includes('UNIQUE constraint')) {
+      const target = String((err?.meta as { target?: string[] })?.target?.join(",") || "");
+      if (target.includes("cpf")) {
+        return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
+      }
       return NextResponse.json(
         { error: "Email já registrado." },
         { status: 400 }

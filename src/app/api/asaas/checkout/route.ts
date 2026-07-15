@@ -13,6 +13,7 @@ const IS_TEST = process.env.NODE_ENV !== "production";
 
 import { PLAN_PRICES } from "@/app/lib/plan-prices";
 import { findActiveUserPlan, ACTIVE_PLAN_BLOCK_MESSAGE } from "@/app/lib/checkout-active-plan-gate";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 type ModoPlano = "mensal" | "anual";
 
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   try {
     // 🔒 Verificar autenticação
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     // Debug: Verificar se a variável está sendo lida
     console.log("[Asaas Checkout] Verificando ASAAS_API_KEY...");
@@ -141,7 +144,7 @@ export async function POST(req: Request) {
     });
     
     console.log("[Asaas] PaymentMetadata criado:", paymentMetadata.id);
-    console.log("[Asaas] Usando apenas userId no externalReference:", user.id);
+    console.log("[Asaas] Operação de checkout criada:", paymentMetadata.id);
 
     // Criar checkout
     const checkoutResponse = await provider.createCheckout({
@@ -153,10 +156,10 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {
-        userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
+        operationId: paymentMetadata.id,
       },
       backUrls: {
-        success: `${SITE_URL}/pagamentos/sucesso?tipo=plano`,
+        success: `${SITE_URL}/pagamentos/sucesso?tipo=plano&operationId=${encodeURIComponent(paymentMetadata.id)}`,
         failure: `${SITE_URL}/pagamentos/falha`,
         pending: `${SITE_URL}/pagamentos/pendente`,
       },

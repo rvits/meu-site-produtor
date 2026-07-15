@@ -50,6 +50,18 @@ export function expectedServiceLines(services: ItemLine[], beats: ItemLine[]): n
   );
 }
 
+async function countServicesByTipo(appointmentId: number): Promise<Map<string, number>> {
+  const rows = await prisma.service.findMany({
+    where: { appointmentId },
+    select: { tipo: true },
+  });
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    counts.set(row.tipo, (counts.get(row.tipo) || 0) + 1);
+  }
+  return counts;
+}
+
 /** Cria Services pendentes para um agendamento quando ainda não existem (idempotente). */
 export async function createServicesForAppointmentIfMissing(params: {
   appointmentId: number;
@@ -67,7 +79,12 @@ export async function createServicesForAppointmentIfMissing(params: {
     where: { appointmentId },
   });
 
-  if (svcCount >= expected) {
+  if (svcCount > 0 && svcCount < expected) {
+    console.warn(
+      `${logPrefix} Serviços incompletos (${svcCount}/${expected}) — reparando linhas faltantes`
+    );
+    // Continua para criar serviços faltantes abaixo
+  } else if (svcCount >= expected) {
     console.log(`${logPrefix} Serviços já presentes na quantidade esperada; não duplicando`, {
       appointmentId,
       svcCount,
@@ -76,14 +93,8 @@ export async function createServicesForAppointmentIfMissing(params: {
     return 0;
   }
 
-  if (svcCount > 0 && svcCount < expected) {
-    console.warn(
-      `${logPrefix} Serviços incompletos (${svcCount}/${expected}) para agendamento ${appointmentId} — não criando linhas extras automaticamente`
-    );
-    return 0;
-  }
-
   let servicesCreatedThisRun = 0;
+  const byTipo = svcCount > 0 ? await countServicesByTipo(appointmentId) : new Map<string, number>();
 
   if (Array.isArray(services) && services.length > 0) {
     for (const svc of services) {
@@ -92,7 +103,10 @@ export async function createServicesForAppointmentIfMissing(params: {
         [svc.nome, svc.quantidade && svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null]
           .filter(Boolean)
           .join(" — ") || tipoSvc;
-      for (let q = 0; q < (svc.quantidade || 1); q++) {
+      const needed = Math.max(1, Number(svc.quantidade) || 1);
+      const have = byTipo.get(tipoSvc) || 0;
+      const toCreate = Math.max(0, needed - have);
+      for (let q = 0; q < toCreate; q++) {
         try {
           await prisma.service.create({
             data: {
@@ -108,6 +122,7 @@ export async function createServicesForAppointmentIfMissing(params: {
           console.error(`${logPrefix} Erro ao criar Service (não crítico):`, serviceErr);
         }
       }
+      byTipo.set(tipoSvc, have + toCreate);
     }
   }
   if (Array.isArray(beats) && beats.length > 0) {
@@ -117,7 +132,10 @@ export async function createServicesForAppointmentIfMissing(params: {
         [b.nome, b.quantidade && b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null]
           .filter(Boolean)
           .join(" — ") || tipoBeat;
-      for (let q = 0; q < (b.quantidade || 1); q++) {
+      const needed = Math.max(1, Number(b.quantidade) || 1);
+      const have = byTipo.get(tipoBeat) || 0;
+      const toCreate = Math.max(0, needed - have);
+      for (let q = 0; q < toCreate; q++) {
         try {
           await prisma.service.create({
             data: {
@@ -133,6 +151,7 @@ export async function createServicesForAppointmentIfMissing(params: {
           console.error(`${logPrefix} Erro ao criar Service beat (não crítico):`, serviceErr);
         }
       }
+      byTipo.set(tipoBeat, have + toCreate);
     }
   }
 
@@ -331,6 +350,17 @@ export async function processAgendamentoPaymentEffects(params: {
       });
       agendamentoFinalId = novoAgendamento.id;
       log("Agendamento criado", agendamentoFinalId);
+      try {
+        const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+        await emitAppointmentReserved({
+          appointmentId: novoAgendamento.id,
+          userId,
+          dataIso: dataHoraISO.toISOString(),
+          duracaoMinutos,
+        });
+      } catch (e) {
+        console.error("[AgendamentoEffects] sync AppointmentReserved falhou (non-fatal):", e);
+      }
     } else {
       const msg = "Conflito de horário: agendamento não criado";
       console.warn("[AgendamentoEffects]", msg);

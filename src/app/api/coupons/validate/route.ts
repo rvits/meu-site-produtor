@@ -1,202 +1,99 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
+import {
+  priceCheckoutItems,
+  totalPricedCheckoutItems,
+} from "@/app/lib/service-catalog";
 import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
+import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
+import { canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 
 export async function POST(req: Request) {
   try {
+    const user = await requireAuth();
     const body = await req.json();
-    const { code, total, servicos = [], beats = [] } = body;
+    const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+    if (!code) {
+      return NextResponse.json({ error: "Código do cupom é obrigatório" }, { status: 400 });
+    }
 
-    if (!code || typeof code !== "string") {
+    let services;
+    let beats;
+    try {
+      services = priceCheckoutItems(body.servicos, "service");
+      beats = priceCheckoutItems(body.beats, "beat");
+    } catch {
       return NextResponse.json(
-        { error: "Código do cupom é obrigatório" },
+        { error: "Serviço ou quantidade inválida." },
         { status: 400 }
       );
     }
-
-    if (typeof total !== "number" || total < 0) {
-      return NextResponse.json(
-        { error: "Valor total inválido" },
-        { status: 400 }
-      );
+    if (services.length + beats.length === 0) {
+      return NextResponse.json({ error: "Selecione ao menos um serviço." }, { status: 400 });
     }
 
-    const totalServicos = Array.isArray(servicos)
-      ? servicos.reduce((acc: number, s: any) => acc + ((s.preco || 0) * (s.quantidade || 0)), 0)
-      : 0;
-    const totalBeats = Array.isArray(beats)
-      ? beats.reduce((acc: number, b: any) => acc + ((b.preco || 0) * (b.quantidade || 0)), 0)
-      : 0;
-
-    // Buscar cupom
-    let coupon = await prisma.coupon.findUnique({
-      where: { code: code.toUpperCase() },
-    });
-
+    const coupon = await prisma.coupon.findUnique({ where: { code } });
     if (!coupon) {
       return NextResponse.json(
         { error: "Cupom inexistente. Verifique o código e tente novamente." },
         { status: 404 }
       );
     }
-
     await normalizeStaleCouponAppointmentLink(coupon.id);
-    coupon =
-      (await prisma.coupon.findUnique({
-        where: { code: code.toUpperCase() },
-      })) ?? null;
-    if (!coupon) {
+    const currentCoupon = await prisma.coupon.findUnique({ where: { id: coupon.id } });
+    if (!currentCoupon) {
       return NextResponse.json({ error: "Cupom inexistente." }, { status: 404 });
     }
 
-    // Verificar se já foi usado
-    if (coupon.used) {
-      return NextResponse.json(
-        { error: "Este cupom já foi utilizado e não pode ser usado novamente." },
-        { status: 400 }
-      );
-    }
-
-    // Cupom já reservado a agendamento em fluxo ativo (pendente, aceito, confirmado, em andamento)
-    if (coupon.appointmentId) {
-      const agendamentoAssociado = await prisma.appointment.findUnique({
-        where: { id: coupon.appointmentId },
-      });
-      if (agendamentoAssociado && agendamentoBloqueiaReusoCupom(agendamentoAssociado.status)) {
-        return NextResponse.json(
-          {
-            error:
-              "Este cupom já está vinculado a um agendamento em andamento. Aguarde a conclusão, cancele ou aguarde recusa antes de usar novamente.",
-          },
-          { status: 400 }
-        );
+    const canonicalType = resolveCanonicalCouponType(currentCoupon);
+    const serviceLike =
+      canonicalType === "SERVICE" ||
+      canonicalType === "REBOOK" ||
+      (canonicalType === "REFUND" && currentCoupon.discountType === "service") ||
+      (canonicalType === "TEST" && currentCoupon.discountType === "service");
+    const subtotal = totalPricedCheckoutItems([...services, ...beats]);
+    const result = await validateCouponAndGetTotal(
+      code,
+      subtotal,
+      services,
+      beats,
+      {
+        userId: user.id,
+        mode: serviceLike ? "service-redemption" : "discount",
+        selectedServiceIds: [...services, ...beats].flatMap((item) =>
+          Array.from({ length: item.quantidade }, () => item.id)
+        ),
+        allowTest: canUseSymbolicSimulation(user),
       }
+    );
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    // Verificar se expirou
-    const agora = new Date();
-    if (coupon.expiresAt && new Date(coupon.expiresAt) < agora) {
-      return NextResponse.json(
-        { error: "Este cupom expirou" },
-        { status: 400 }
-      );
-    }
-
-    // Verificar regra especial: cupons de plano (serviço ou percent) expiram 1 mês após expiração do plano
-    if (coupon.userPlanId && (coupon.discountType === "service" || coupon.discountType === "percent")) {
-      const userPlan = await prisma.userPlan.findUnique({
-        where: { id: coupon.userPlanId },
-      });
-
-      if (userPlan && userPlan.endDate) {
-        const umMesAposPlano = new Date(userPlan.endDate);
-        umMesAposPlano.setMonth(umMesAposPlano.getMonth() + 1);
-        
-        // Se passou 1 mês após expiração do plano, cupom é inválido
-        if (agora > umMesAposPlano) {
-          return NextResponse.json(
-            { error: "Este cupom expirou. Cupons de plano são válidos até 1 mês após a expiração do plano." },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // Verificar valor mínimo
-    if (coupon.minValue && total < coupon.minValue) {
-      return NextResponse.json(
-        { error: `Valor mínimo para usar este cupom é R$ ${coupon.minValue.toFixed(2).replace(".", ",")}` },
-        { status: 400 }
-      );
-    }
-
-    // Cupom 10% serviços avulsos: NÃO permite uso em beats
-    if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
-      return NextResponse.json(
-        { error: "Este cupom de 10% é válido apenas para serviços avulsos (captação, mix, master, etc.). Não pode ser usado em beats. Para beats, use o cupom de desconto específico para beats." },
-        { status: 400 }
-      );
-    }
-
-    // Cupom 10% beats: NÃO permite uso em outros serviços
-    if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
-      return NextResponse.json(
-        { error: "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos (captação, mix, master, etc.). Para serviços, use o cupom de desconto específico para serviços." },
-        { status: 400 }
-      );
-    }
-
-    // Calcular desconto baseado no tipo de cupom
-    let discount = 0;
-    let finalTotal = total;
-    let isServiceCoupon = false;
-    const isRefundCoupon = coupon.couponType === "reembolso";
-    const isPlanCoupon = coupon.couponType === "plano";
-
-    if (coupon.discountType === "service") {
-      // Cupom de serviço (só de planos) - zera o valor do serviço específico
-      isServiceCoupon = true;
-      discount = total;
-      finalTotal = 0;
-    } else if (coupon.discountType === "percent") {
-      const baseParaDesconto =
-        coupon.serviceType === "percent_servicos" ? totalServicos :
-        coupon.serviceType === "percent_beats" ? totalBeats :
-        total;
-      discount = (baseParaDesconto * coupon.discountValue) / 100;
-      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
-        discount = coupon.maxDiscount;
-      }
-      finalTotal = total - discount;
-    } else {
-      // Fixed discount
-      if (isRefundCoupon) {
-        // Cupom de reembolso: pode ser usado como desconto parcial
-        // Se o valor do cupom for maior que o total, apenas zera (não acumula sobras)
-        if (coupon.discountValue >= total) {
-          discount = total;
-          finalTotal = 0;
-        } else {
-          // Desconto parcial: usuário paga a diferença
-          discount = coupon.discountValue;
-          finalTotal = total - discount;
-        }
-      } else {
-        // Cupom de plano (fixed): comportamento normal
-        discount = coupon.discountValue;
-        finalTotal = total - discount;
-      }
-    }
-
-    // Garantir que desconto não seja maior que o total (exceto para cupons de serviço)
-    if (!isServiceCoupon && discount > total) {
-      discount = total;
-      finalTotal = 0;
-    }
-
-    // IMPORTANTE: Cupons de reembolso não acumulam sobras
-    // Se o cupom for maior que o total, o desconto é apenas o total (sobras se perdem)
-
+    const discount = Math.round((subtotal - result.finalTotal) * 100) / 100;
     return NextResponse.json({
       valid: true,
+      subtotal,
       discount,
-      finalTotal,
-      isServiceCoupon,
-      couponType: coupon.couponType,
+      finalTotal: result.finalTotal,
+      isServiceCoupon: serviceLike,
+      couponType: canonicalType,
       coupon: {
-        code: coupon.code,
-        couponType: coupon.couponType,
-        discountType: coupon.discountType,
-        discountValue: coupon.discountValue,
-        serviceType: coupon.serviceType,
+        code: currentCoupon.code,
+        couponType: currentCoupon.couponType,
+        discountType: currentCoupon.discountType,
+        discountValue: currentCoupon.discountValue,
+        serviceType: currentCoupon.serviceType,
       },
     });
-  } catch (error: any) {
-    console.error("[API] Erro ao validar cupom:", error);
-    return NextResponse.json(
-      { error: "Erro ao validar cupom" },
-      { status: 500 }
-    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "Não autenticado") {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    console.error("[API coupons/validate]", error);
+    return NextResponse.json({ error: "Erro ao validar cupom" }, { status: 500 });
   }
 }

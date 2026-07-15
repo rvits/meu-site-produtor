@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import DuvidasBox from "../components/DuvidasBox";
 import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
+import { useDomainRefresh } from "../hooks/useDomainRefresh";
 
 type Servico = {
   id: string;
@@ -282,6 +283,7 @@ function AgendamentoContent() {
 
   // Usar hook de atualização inteligente (atualiza a cada 5 min, mas garante atualização no início de cada hora)
   useIntelligentRefresh(carregarHorarios, [dataBase]);
+  useDomainRefresh("agenda", () => carregarHorarios());
 
   // Calcular horários ocupados por dia
   const horariosOcupadosPorDia: Record<string, Set<string>> = useMemo(() => {
@@ -520,8 +522,8 @@ function AgendamentoContent() {
           setCupomAplicado(null);
           setCupomCode("");
           setAceiteTermos(false);
-          // Recarregar página para atualizar horários
-          window.location.reload();
+          // SYNC-01A — invalidação sem reload
+          await carregarHorarios();
           return;
         } else {
           const errorMessage = data.error || "Erro ao criar agendamento com cupom";

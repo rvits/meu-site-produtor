@@ -6,6 +6,8 @@ import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
 import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -19,29 +21,26 @@ const itemSchema = z.object({
   tipo: z.string().optional(),
   servicos: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    quantidade: z.number().int().min(1).max(20),
   })).optional(),
   beats: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    quantidade: z.number().int().min(1).max(20),
   })).optional(),
-  total: z.number(),
   observacoes: z.string().optional(),
+  cupomCode: z.string().trim().min(1).optional(),
 });
 
 const carrinhoCheckoutSchema = z.object({
   items: z.array(itemSchema).min(1, "Carrinho deve ter pelo menos um agendamento"),
-  total: z.number().positive("Total deve ser maior que zero"),
   paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
 });
 
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     if (!ASAAS_API_KEY) {
       return NextResponse.json(
@@ -59,7 +58,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { items, total, paymentMethod } = validation.data;
+    const { items, paymentMethod } = validation.data;
     const userEmail = user.email || "";
     const userName = (user.nomeArtistico || user.nomeCompleto || "Cliente") as string;
 
@@ -71,6 +70,58 @@ export async function POST(req: Request) {
     if (!cpfLimpo || cpfLimpo.length !== 11) {
       return NextResponse.json(
         { error: "CPF é obrigatório para pagamentos. Preencha seu CPF na página de pagamentos antes de continuar." },
+        { status: 400 }
+      );
+    }
+
+    const couponCodes = items
+      .map((item) => item.cupomCode?.toUpperCase())
+      .filter((code): code is string => Boolean(code));
+    if (new Set(couponCodes).size !== couponCodes.length) {
+      return NextResponse.json(
+        { error: "O mesmo cupom não pode ser aplicado mais de uma vez na compra." },
+        { status: 400 }
+      );
+    }
+
+    const safeItems: Array<Record<string, unknown>> = [];
+    let total = 0;
+    for (const item of items) {
+      let calculation;
+      try {
+        calculation = await calculateServerCheckout({
+          userId: user.id,
+          services: item.servicos,
+          beats: item.beats,
+          couponCode: item.cupomCode,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const safeError = message.startsWith("CUPOM_INVALIDO:")
+          ? message.slice("CUPOM_INVALIDO:".length)
+          : "Item ou quantidade inválida no carrinho.";
+        return NextResponse.json({ error: safeError }, { status: 400 });
+      }
+      total = Math.round((total + calculation.total) * 100) / 100;
+      safeItems.push({
+        data: item.data,
+        hora: item.hora,
+        somenteCupons: item.somenteCupons,
+        duracaoMinutos: item.duracaoMinutos ?? 60,
+        tipo: item.tipo,
+        servicos: calculation.services,
+        beats: calculation.beats,
+        subtotal: calculation.subtotal,
+        total: calculation.total,
+        observacoes: item.observacoes,
+        cupomCode: item.cupomCode?.toUpperCase(),
+        couponId: calculation.couponId,
+        couponType: calculation.couponType,
+      });
+    }
+    if (total <= 0) {
+      return NextResponse.json(
+        { error: "Compras com valor zero devem ser concluídas pelo fluxo de resgate do cupom." },
         { status: 400 }
       );
     }
@@ -98,30 +149,25 @@ export async function POST(req: Request) {
       }
     }
 
-    let paymentMetadataRow: { id: string } | null = null;
-    try {
-      const metadataCompleto = {
-        tipo: "carrinho",
+    const metadataCompleto = {
+      tipo: "carrinho",
+      userId: user.id,
+      items: JSON.stringify(safeItems),
+      total: total.toString(),
+      paymentMethod: paymentMethod || null,
+    };
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    const paymentMetadataRow = await prisma.paymentMetadata.create({
+      data: {
         userId: user.id,
-        items: JSON.stringify(items),
-        total: total.toString(),
-        paymentMethod: paymentMethod || null,
-      };
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-      paymentMetadataRow = await prisma.paymentMetadata.create({
-        data: {
-          userId: user.id,
-          metadata: JSON.stringify(metadataCompleto),
-          expiresAt,
-        },
-      });
-    } catch (metaErr) {
-      console.warn("[Asaas Checkout Carrinho] PaymentMetadata não criado (continuando):", metaErr);
-    }
+        metadata: JSON.stringify(metadataCompleto),
+        expiresAt,
+      },
+    });
 
     const provider = new AsaasProvider(ASAAS_API_KEY, IS_TEST);
-    const descricao = `Carrinho THouse Rec - ${items.length} agendamento(s)`;
+    const descricao = `Carrinho THouse Rec - ${safeItems.length} agendamento(s)`;
 
     const checkoutResponse = await provider.createCheckout({
       items: [
@@ -140,10 +186,10 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined,
       metadata: {
-        userId: user.id,
+        operationId: paymentMetadataRow.id,
       },
       backUrls: {
-        success: `${SITE_URL}/pagamentos/sucesso?tipo=agendamento`,
+        success: `${SITE_URL}/pagamentos/sucesso?tipo=agendamento&operationId=${encodeURIComponent(paymentMetadataRow.id)}`,
         failure: `${SITE_URL}/pagamentos/falha`,
         pending: `${SITE_URL}/pagamentos/pendente`,
       },

@@ -7,6 +7,7 @@ import { checkoutSchema } from "@/app/lib/validations";
 export const runtime = "nodejs";
 
 import { PLAN_PRICES } from "@/app/lib/plan-prices";
+import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 // const INTEGRATOR_ID = process.env.MP_INTEGRATOR_ID;
@@ -28,8 +29,8 @@ function getPreferenceClient() {
     console.log(
       "[MP] Criando cliente Preference. SITE_URL:",
       SITE_URL,
-      "token prefix:",
-      ACCESS_TOKEN.slice(0, 10) + "..."
+      "token configurado:",
+      true
     );
 
     const client = new MercadoPagoConfig({
@@ -47,6 +48,8 @@ export async function POST(req: Request) {
   try {
     // 🔒 Verificar autenticação
     const user = await requireAuth();
+    const goLiveBlocked = goLiveBlockIfNeeded(user.role);
+    if (goLiveBlocked) return goLiveBlocked;
 
     const body = await req.json();
     

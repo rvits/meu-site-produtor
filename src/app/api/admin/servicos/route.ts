@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAdmin } from "@/app/lib/auth";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
-import { pickPrimaryCouponForDisplay } from "@/app/lib/coupon-selection";
-import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
-import { validateDeliveryAudioUrl } from "@/app/lib/delivery-url-validation";
+import { repairOrphanAppointmentServices } from "@/app/lib/ensure-appointment-services";
+import { updateServiceFields } from "@/app/lib/domain/workflow";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -13,67 +11,23 @@ const updateSchema = z.object({
   deliveryAudioFormat: z.enum(["wav", "mp3"]).optional(),
 });
 
-function mapAppointmentStatusToServiceStatus(appointmentStatus: string): string {
-  if (appointmentStatus === "em_andamento") return "em_andamento";
-  if (appointmentStatus === "concluido") return "concluido";
-  if (appointmentStatus === "aceito" || appointmentStatus === "confirmado") return "aceito";
-  if (appointmentStatus === "cancelado") return "cancelado";
-  if (appointmentStatus === "recusado") return "recusado";
-  return "pendente";
-}
+const NO_STORE = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+};
 
-export async function GET() {
+/**
+ * GET puro da autoridade Service.
+ * Repair opcional via ?repair=1 (usa ensureServices — sem lógica duplicada de create).
+ */
+export async function GET(req: Request) {
   try {
     await requireAdmin();
 
-    // Backfill: agendamentos que ainda não têm nenhum serviço vinculado (ex.: criados com cupom antes desta feature)
-    const appointmentIdsComServico = await prisma.service.findMany({
-      where: { appointmentId: { not: null } },
-      select: { appointmentId: true },
-      distinct: ["appointmentId"],
-    });
-    const idsComServico = appointmentIdsComServico
-      .map((s) => s.appointmentId)
-      .filter((id): id is number => id != null);
-
-    const appointmentsSemServicos = await prisma.appointment.findMany({
-      where: { id: { notIn: idsComServico.length > 0 ? idsComServico : [0] } },
-      include: {
-        user: { select: { id: true } },
-      },
-    });
-
-    for (const apt of appointmentsSemServicos) {
-      const couponsApt = await prisma.coupon.findMany({
-        where: { appointmentId: apt.id },
-        select: {
-          id: true,
-          appointmentId: true,
-          serviceType: true,
-          paymentId: true,
-          userPlanId: true,
-          couponType: true,
-          createdAt: true,
-        },
-      });
-      const coupon = pickPrimaryCouponForDisplay(couponsApt);
-      const tipo = normalizeServiceTypeId(String(coupon?.serviceType || apt.tipo || "sessao"));
-      const description = `Agendamento ${tipo}`;
-      const status = mapAppointmentStatusToServiceStatus(apt.status);
-      try {
-        await prisma.service.create({
-          data: {
-            userId: apt.userId,
-            appointmentId: apt.id,
-            tipo,
-            description,
-            status,
-            ...(status === "aceito" ? { acceptedAt: new Date() } : {}),
-          },
-        });
-      } catch (e) {
-        console.warn("[Admin Serviços] Backfill skip agendamento", apt.id, e);
-      }
+    const { searchParams } = new URL(req.url);
+    let repaired = 0;
+    if (searchParams.get("repair") === "1") {
+      repaired = await repairOrphanAppointmentServices();
     }
 
     const servicos = await prisma.service.findMany({
@@ -96,7 +50,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ servicos });
+    return NextResponse.json({ servicos, repaired }, { headers: NO_STORE });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
@@ -123,161 +77,21 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
 
-    const anterior = await prisma.service.findUnique({
-      where: { id },
-      select: {
-        status: true,
-        deliveryAudioUrl: true,
-        deliveryAudioFormat: true,
-        appointmentId: true,
-      },
+    const result = await updateServiceFields({
+      serviceId: id,
+      status: validation.data.status,
+      deliveryAudioUrl: validation.data.deliveryAudioUrl,
+      deliveryAudioFormat: validation.data.deliveryAudioFormat,
     });
 
-    if (!anterior) {
-      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.httpStatus });
     }
 
-    const updateData: any = {};
-    if (validation.data.status !== undefined) {
-      updateData.status = validation.data.status;
-      if (validation.data.status === "aceito") {
-        updateData.acceptedAt = new Date();
-      }
-    }
-    if (validation.data.deliveryAudioUrl !== undefined) {
-      updateData.deliveryAudioUrl = validation.data.deliveryAudioUrl || null;
-    }
-    if (validation.data.deliveryAudioFormat !== undefined) {
-      updateData.deliveryAudioFormat = validation.data.deliveryAudioFormat || null;
-    }
-
-    const novoStatus = validation.data.status ?? anterior.status;
-    const wantsProbe =
-      process.env.DELIVERY_AUDIO_URL_PROBE === "1" ||
-      process.env.DELIVERY_AUDIO_URL_PROBE === "true";
-
-    if (novoStatus === "concluido" && anterior.appointmentId == null) {
-      return NextResponse.json(
-        {
-          error:
-            "Este serviço não está vinculado a um agendamento; não é possível concluir com entrega aqui.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (novoStatus === "concluido") {
-      const urlMerged =
-        (validation.data.deliveryAudioUrl !== undefined
-          ? validation.data.deliveryAudioUrl
-          : anterior.deliveryAudioUrl) || "";
-      const fmtMerged =
-        validation.data.deliveryAudioFormat !== undefined
-          ? validation.data.deliveryAudioFormat
-          : anterior.deliveryAudioFormat;
-      const urlTrim = String(urlMerged).trim();
-      if (fmtMerged !== "wav" && fmtMerged !== "mp3") {
-        return NextResponse.json(
-          {
-            error:
-              "Para concluir o serviço é obrigatório informar uma URL http(s) válida do arquivo de áudio e o formato (wav ou mp3).",
-          },
-          { status: 400 }
-        );
-      }
-      const urlValidation = await validateDeliveryAudioUrl(urlTrim, { probe: wantsProbe });
-      if (!urlValidation.ok) {
-        return NextResponse.json({ error: urlValidation.error }, { status: 400 });
-      }
-      updateData.deliveryAudioUrl = urlTrim;
-      updateData.deliveryAudioFormat = fmtMerged;
-      updateData.status = "concluido";
-    }
-
-    const includeRelations = {
-      user: {
-        select: {
-          nomeArtistico: true,
-          email: true,
-        },
-      },
-      appointment: {
-        select: {
-          id: true,
-          data: true,
-          status: true,
-          tipo: true,
-        },
-      },
-    } as const;
-
-    let servico: NonNullable<Awaited<ReturnType<typeof prisma.service.findUnique>>>;
-
-    if (validation.data.status === "concluido") {
-      const cnt = await prisma.service.updateMany({
-        where: { id, status: { not: "concluido" } },
-        data: updateData,
-      });
-      servico = (await prisma.service.findUnique({
-        where: { id },
-        include: includeRelations,
-      })) as typeof servico;
-      if (cnt.count === 0 && anterior.status === "concluido") {
-        if (servico?.appointmentId) {
-          await reconcileAppointmentWithServices(servico.appointmentId);
-        }
-        return NextResponse.json({ servico, alreadyProcessed: true });
-      }
-    } else if (validation.data.status === "em_andamento") {
-      const cnt = await prisma.service.updateMany({
-        where: { id, status: { in: ["pendente", "aceito"] } },
-        data: updateData,
-      });
-      servico = (await prisma.service.findUnique({
-        where: { id },
-        include: includeRelations,
-      })) as typeof servico;
-      if (cnt.count === 0 && anterior.status === "em_andamento") {
-        if (servico?.appointmentId) {
-          await reconcileAppointmentWithServices(servico.appointmentId);
-        }
-        return NextResponse.json({ servico, alreadyProcessed: true });
-      }
-    } else {
-      servico = await prisma.service.update({
-        where: { id },
-        data: updateData,
-        include: includeRelations,
-      });
-    }
-
-    if (!servico) {
-      return NextResponse.json({ error: "Serviço não encontrado após atualização" }, { status: 500 });
-    }
-
-    if (
-      servico.appointmentId &&
-      validation.data.status === "concluido"
-    ) {
-      const abertos = await prisma.service.count({
-        where: {
-          appointmentId: servico.appointmentId,
-          status: { notIn: ["concluido", "cancelado", "recusado"] },
-        },
-      });
-      if (abertos === 0) {
-        await prisma.appointment.update({
-          where: { id: servico.appointmentId },
-          data: { status: "concluido" },
-        });
-      }
-    }
-
-    if (servico.appointmentId) {
-      await reconcileAppointmentWithServices(servico.appointmentId);
-    }
-
-    return NextResponse.json({ servico });
+    return NextResponse.json({
+      servico: result.data.servico,
+      alreadyProcessed: result.alreadyProcessed,
+    });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });

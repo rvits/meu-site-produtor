@@ -110,7 +110,6 @@ export async function POST(req: Request) {
 
     console.log("[MP-PLANO] Criando preferência com body:", JSON.stringify(preferenceBody, null, 2));
     console.log("[MP-PLANO] Token type:", ACCESS_TOKEN?.startsWith("TEST-") ? "TEST" : "PRODUCTION");
-    console.log("[MP-PLANO] Token prefix:", ACCESS_TOKEN?.substring(0, 20) + "...");
     console.log("[MP-PLANO] Integrator ID:", INTEGRATOR_ID || "não configurado (removido para evitar erro UNAUTHORIZED)");
 
     const prefResult = await preference.create({
@@ -188,7 +187,6 @@ export async function POST(req: Request) {
             message: err?.message,
             code: err?.code,
             status: err?.status,
-            tokenPrefix: ACCESS_TOKEN?.substring(0, 20) + "..."
           } : undefined
         },
         { status: 403 }

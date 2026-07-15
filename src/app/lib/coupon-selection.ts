@@ -3,6 +3,8 @@
  * Prioridade: sem paymentId (uso/checkout no agendamento) → com userPlanId → mais recente.
  */
 
+import { isRefundCoupon } from "@/app/lib/domain/coupon-types";
+
 export type CouponComparable = {
   id: string;
   paymentId: string | null;
@@ -38,5 +40,5 @@ export function pickPrimaryCouponForDisplay<T extends CouponComparable>(coupons:
 export function filterBookingCouponsEligibleForRelease<T extends CouponComparable & { appointmentId: number | null }>(
   coupons: T[]
 ): T[] {
-  return coupons.filter((c) => c.appointmentId != null && c.couponType !== "reembolso");
+  return coupons.filter((c) => c.appointmentId != null && !isRefundCoupon(c));
 }

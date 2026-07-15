@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ACTIVE_OPERATIONAL_SERVICE_STATUSES } from "@/app/lib/service-authority";
+import { notifyAppDataChanged } from "@/app/lib/app-data-events";
+import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
+
+const ACTIVE_SERVICE_STATUSES = ACTIVE_OPERATIONAL_SERVICE_STATUSES;
 
 interface Appointment {
   id: number;
@@ -41,18 +46,22 @@ export default function AdminServicosSelecionadosPage() {
     formato: "wav" | "mp3";
   } | null>(null);
 
-  useEffect(() => {
-    carregarServicos();
-  }, []);
-
-  async function carregarServicos() {
+  const carregarServicos = useCallback(async (withRepair = false) => {
     try {
-      setLoading(true);
-      const res = await fetch("/api/admin/servicos");
+      if (withRepair) setLoading(true);
+      const url = withRepair ? "/api/admin/servicos?repair=1" : "/api/admin/servicos";
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         const comAgendamento = (data.servicos || []).filter(
-          (s: Service) => s.appointmentId != null
+          (s: Service) =>
+            s.appointmentId != null && ACTIVE_SERVICE_STATUSES.has(s.status)
         );
         setServicos(comAgendamento);
       }
@@ -61,7 +70,13 @@ export default function AdminServicosSelecionadosPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useDomainRefresh("servicos-selecionados", () => carregarServicos(false));
+
+  useEffect(() => {
+    void carregarServicos(true);
+  }, [carregarServicos]);
 
   function abrirModalConcluir(s: Service) {
     setConcluirModal({
@@ -113,8 +128,10 @@ export default function AdminServicosSelecionadosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "aceito" }),
       });
-      if (res.ok) await carregarServicos();
-      else alert("Erro ao atualizar. Tente novamente.");
+      if (res.ok) {
+        await carregarServicos();
+        notifyAppDataChanged("admin-servico-updated");
+      } else alert("Erro ao atualizar. Tente novamente.");
     } catch (err) {
       console.error("Erro ao atualizar serviço", err);
       alert("Erro ao atualizar serviço.");

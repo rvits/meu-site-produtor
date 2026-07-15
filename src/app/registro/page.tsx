@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
+import { validateBirthDateString, BIRTH_DATE_MIN_YEAR, getBirthDateMaxYear } from "../lib/birth-date-validation";
 
 export default function RegistroPage() {
   const { registro } = useAuth();
@@ -69,34 +70,59 @@ export default function RegistroPage() {
       return;
     }
 
+    const cpfDigits = cpf.replace(/\D/g, "");
+    if (cpfDigits.length !== 11) {
+      setErro("CPF deve conter 11 dígitos numéricos.");
+      return;
+    }
+
+    const birthCheck = validateBirthDateString(dataNascimento);
+    if (!birthCheck.valid) {
+      setErro(birthCheck.error);
+      return;
+    }
+
+    if (!sexo) {
+      setErro("Selecione o sexo.");
+      return;
+    }
+
+    if (!genero) {
+      setErro("Selecione o gênero.");
+      return;
+    }
+
+    if (genero === "outro" && !generoOutro.trim()) {
+      setErro("Especifique seu gênero.");
+      return;
+    }
+
     setCarregando(true);
 
-    const ok = await registro({
+    const result = await registro({
       nomeCompleto,
       nomeArtistico,
       nomeSocial: nomeSocial || null,
       email,
       senha,
       telefone,
-      cpf: cpf.replace(/\D/g, ''), // Remove formatação, só números
+      cpf: cpfDigits,
       pais,
       estado,
       cidade,
       bairro,
       dataNascimento,
-      sexo: sexo || null,
-      genero: genero || null,
-      generoOutro: genero && genero === "outro" ? generoOutro : null,
+      sexo,
+      genero,
+      generoOutro: genero === "outro" ? generoOutro : null,
       estilosMusicais: estilosMusicais || null,
       nacionalidade: nacionalidade || null,
     });
 
     setCarregando(false);
 
-    if (!ok) {
-      setErro(
-        "Não foi possível registrar. Verifique os dados ou se o email já está em uso."
-      );
+    if (!result.ok) {
+      setErro(result.error || "Não foi possível registrar. Verifique os dados ou se o email já está em uso.");
       return;
     }
 
@@ -212,6 +238,8 @@ export default function RegistroPage() {
           type="date"
           value={dataNascimento}
           onChange={setDataNascimento}
+          min={`${BIRTH_DATE_MIN_YEAR}-01-01`}
+          max={`${getBirthDateMaxYear()}-12-31`}
           required
         />
 
@@ -241,8 +269,8 @@ export default function RegistroPage() {
           label="Sexo"
           value={sexo}
           onChange={setSexo}
+          required
           options={[
-            { value: "", label: "Selecione..." },
             { value: "masculino", label: "Masculino" },
             { value: "feminino", label: "Feminino" },
             { value: "prefiro_nao_declarar", label: "Prefiro não declarar" },
@@ -259,14 +287,15 @@ export default function RegistroPage() {
               setGeneroOutro("");
             }
           }}
+          required
           options={[
-            { value: "", label: "Selecione..." },
             { value: "heterossexual", label: "Heterossexual" },
             { value: "homossexual", label: "Homossexual" },
             { value: "bissexual", label: "Bissexual" },
             { value: "transsexual", label: "Transsexual" },
             { value: "nao_binario", label: "Não-binário" },
             { value: "outro", label: "Outro" },
+            { value: "prefiro_nao_informar", label: "Prefiro não informar" },
           ]}
         />
 
@@ -394,11 +423,13 @@ function Select({
   value,
   onChange,
   options,
+  required,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -406,6 +437,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        required={required}
         className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 pr-8 text-sm text-zinc-100 outline-none focus:border-red-500 appearance-none cursor-pointer"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,

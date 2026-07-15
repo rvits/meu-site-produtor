@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { updateContaSchema } from "@/app/lib/validations";
+import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
 
 export async function POST(req: Request) {
   try {
@@ -89,7 +90,21 @@ export async function POST(req: Request) {
     if (sexo !== undefined) updateData.sexo = sexo || null;
     if (genero !== undefined) updateData.genero = genero || null;
     if (generoOutro !== undefined) updateData.generoOutro = generoOutro || null;
-    if (cpf !== undefined) updateData.cpf = cpf || null;
+    if (cpf !== undefined) {
+      const cpfDigits = normalizeCpfDigits(cpf);
+      if (cpfDigits) {
+        const cpfEmUso = await prisma.user.findFirst({
+          where: { cpf: cpfDigits, NOT: { id: user.id } },
+          select: { id: true },
+        });
+        if (cpfEmUso) {
+          return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
+        }
+        updateData.cpf = cpfDigits;
+      } else {
+        updateData.cpf = null;
+      }
+    }
     if (cep !== undefined) updateData.cep = cep || null;
     if (pais !== undefined) updateData.pais = pais;
     if (cidade !== undefined) updateData.cidade = cidade;
@@ -117,6 +132,12 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("Erro update conta:", err);
+    if (err?.code === "P2002") {
+      const target = String((err?.meta as { target?: string[] })?.target?.join(",") || "");
+      if (target.includes("cpf")) {
+        return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
+      }
+    }
     if (err.message === "Não autenticado") {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }

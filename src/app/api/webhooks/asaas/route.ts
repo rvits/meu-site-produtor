@@ -6,7 +6,9 @@ import { parsePaymentAppointmentIds } from "@/app/lib/symbolic-payment";
 import { processAgendamentoPaymentEffects } from "@/app/lib/asaas-agendamento-payment-effects";
 import { processCarrinhoPaymentEffects } from "@/app/lib/asaas-carrinho-payment-effects";
 import {
+  assertWebhookAmountMatchesMetadata,
   reconcileAgendamentoPaymentArtifacts,
+  resolvePaymentOperationIdentity,
   resolvePaymentMetadataForWebhook,
 } from "@/app/lib/asaas-agendamento-reconcile";
 import { enrichPlanoMetadata, processPlanoPaymentEffects } from "@/app/lib/asaas-plano-payment-effects";
@@ -15,6 +17,7 @@ import {
   isPlanoPaymentDescription,
   resolvePaymentTipo,
 } from "@/app/lib/agendamento-payment-rules";
+import { publishSyncEvent } from "@/app/lib/synchronization/engine";
 
 /**
  * Webhook do Asaas para notificações de pagamento
@@ -110,49 +113,80 @@ export async function POST(req: Request) {
     if (event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED")) {
       console.log("[Asaas Webhook] ✅ Condições atendidas, processando pagamento...");
       try {
-        let userId = externalReference;
-
-        // NOTA C-03e: fetch direto Asaas GET /customers/{id} — fora payment-providers (ADR-009).
-        // Mantido para resolver userId quando externalReference ausente; não removido neste escopo.
-        if (!userId && customerId) {
-          console.log("[Asaas Webhook] Tentando buscar usuário por customerId:", customerId);
-          try {
-            const { getAsaasApiKey } = await import("@/app/lib/env");
-            const apiKey = getAsaasApiKey();
-            if (apiKey) {
-              const isProduction = apiKey.startsWith("$aact_prod_");
-              const apiUrl = isProduction ? "https://www.asaas.com/api/v3" : "https://sandbox.asaas.com/api/v3";
-
-              const customerRes = await fetch(`${apiUrl}/customers/${customerId}`, {
-                headers: {
-                  "Content-Type": "application/json",
-                  access_token: apiKey,
-                  "User-Agent": "THouseRec/1.0",
+        const paymentByProviderId = await prisma.payment.findFirst({
+          where: {
+            OR: [{ asaasId: paymentId }, { mercadopagoId: paymentId }],
+          },
+          select: { userId: true },
+        });
+        let userId: string;
+        let operationId: string | null = null;
+        let subscriptionMetadata: Record<string, unknown> | null = null;
+        if (paymentByProviderId) {
+          userId = paymentByProviderId.userId;
+          const operation = await prisma.paymentMetadata.findUnique({
+            where: { asaasId: paymentId },
+            select: { id: true },
+          });
+          operationId = operation?.id || null;
+        } else if (payment.subscription) {
+          const subscription = await prisma.subscription.findUnique({
+            where: { asaasSubscriptionId: payment.subscription },
+            select: {
+              userId: true,
+              userPlan: {
+                select: {
+                  planId: true,
+                  planName: true,
+                  modo: true,
+                  amount: true,
                 },
-              });
-
-              if (customerRes.ok) {
-                const customerData = await customerRes.json();
-                const userByEmail = await prisma.user.findUnique({
-                  where: { email: customerData.email },
-                });
-                if (userByEmail) {
-                  userId = userByEmail.id;
-                  console.log("[Asaas Webhook] Usuário encontrado por email do customer:", userId);
-                }
-              }
-            }
-          } catch (customerError: any) {
-            console.error("[Asaas Webhook] Erro ao buscar customer:", customerError);
+              },
+            },
+          });
+          if (!subscription) {
+            console.error("[WEBHOOK_SECURITY_AUDIT]", {
+              code: "SUBSCRIPTION_NOT_FOUND",
+              subscriptionId: payment.subscription,
+              paymentId,
+            });
+            return NextResponse.json(
+              { received: true, error: "Assinatura não identificada" },
+              { status: 200 }
+            );
           }
-        }
-
-        if (!userId) {
-          console.error("[Asaas Webhook] ❌ Não foi possível identificar o usuário");
-          console.error("[Asaas Webhook] externalReference:", externalReference);
-          console.error("[Asaas Webhook] customerId:", customerId);
-          console.error("[Asaas Webhook] payment completo:", JSON.stringify(payment, null, 2));
-          return NextResponse.json({ received: true, error: "Usuário não identificado" }, { status: 200 });
+          userId = subscription.userId;
+          subscriptionMetadata = {
+            tipo: "plano",
+            planId: subscription.userPlan.planId,
+            planName: subscription.userPlan.planName,
+            modo: subscription.userPlan.modo,
+            amount: subscription.userPlan.amount,
+            subscriptionId: payment.subscription,
+          };
+        } else {
+          try {
+            const identity = await resolvePaymentOperationIdentity({
+              asaasPaymentId: paymentId,
+              externalReference,
+            });
+            userId = identity.userId;
+            operationId = identity.operationId;
+          } catch (identityError) {
+            console.error("[Asaas Webhook] Operação rejeitada sem efeitos:", {
+              paymentId,
+              externalReference,
+              customerId,
+              error:
+                identityError instanceof Error
+                  ? identityError.message
+                  : String(identityError),
+            });
+            return NextResponse.json(
+              { received: true, error: "Operação de pagamento não identificada" },
+              { status: 200 }
+            );
+          }
         }
 
         const existingPayment = await prisma.payment.findFirst({
@@ -164,6 +198,19 @@ export async function POST(req: Request) {
 
         if (existingPayment) {
           console.log("[Asaas Webhook] Pagamento já processado:", paymentId);
+          if (Math.abs(Number(existingPayment.amount) - Number(value)) > 0.01) {
+            console.error("[WEBHOOK_SECURITY_AUDIT]", {
+              code: "DUPLICATE_AMOUNT_MISMATCH",
+              paymentId,
+              stored: existingPayment.amount,
+              received: value,
+            });
+            return NextResponse.json(
+              { received: true, error: "Valor divergente" },
+              { status: 200 }
+            );
+          }
+          let reconciliationReady = true;
           try {
             await reconcileAgendamentoPaymentArtifacts({
               paymentDbId: existingPayment.id,
@@ -171,6 +218,7 @@ export async function POST(req: Request) {
               asaasPaymentId: paymentId,
             });
           } catch (reconcileErr: any) {
+            reconciliationReady = false;
             console.error("[Asaas Webhook] Reconcile pós-duplicata falhou:", {
               paymentDbId: existingPayment.id,
               asaasPaymentId: paymentId,
@@ -179,11 +227,37 @@ export async function POST(req: Request) {
               stack: reconcileErr?.stack,
             });
           }
+          if (!reconciliationReady) {
+            return NextResponse.json(
+              { received: true, error: "Reconciliação incompleta" },
+              { status: 200 }
+            );
+          }
+          await publishSyncEvent({
+            name: "PaymentConfirmed",
+            entity: "payment",
+            entityId: existingPayment.id,
+            to: "confirmado",
+            options: {
+              source: "recovery",
+              userId,
+              metadata: { effectsReady: true, duplicate: true, operationId },
+            },
+          });
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
         const isPlanoDesc = isPlanoPaymentDescription(payment.description);
         const isAgendamentoDesc = isAgendamentoPaymentDescription(payment.description);
+        const metadata =
+          subscriptionMetadata ||
+          (await resolvePaymentMetadataForWebhook({
+            userId,
+            asaasPaymentId: paymentId,
+            paymentMetadata: payment.metadata,
+            description: payment.description,
+          }));
+        assertWebhookAmountMatchesMetadata(metadata, value);
 
         const newPayment = await prisma.payment.create({
           data: {
@@ -199,13 +273,6 @@ export async function POST(req: Request) {
 
         console.log("[Asaas Webhook] Pagamento registrado com sucesso:", newPayment.id);
 
-        const metadata = await resolvePaymentMetadataForWebhook({
-          userId,
-          asaasPaymentId: paymentId,
-          paymentMetadata: payment.metadata,
-          description: payment.description,
-        });
-
         const tipo = resolvePaymentTipo({
           metadata,
           paymentType: newPayment.type,
@@ -215,6 +282,7 @@ export async function POST(req: Request) {
         console.log("[Asaas Webhook] 📦 Metadata processado:", JSON.stringify(metadata, null, 2));
         console.log("[Asaas Webhook] 📋 Tipo detectado:", tipo);
 
+        let effectsReady = false;
         if (tipo === "plano" || isPlanoDesc) {
           const subscriptionId = payment.subscription;
 
@@ -222,6 +290,7 @@ export async function POST(req: Request) {
 
           if (subscriptionId) {
             await processSubscriptionPayment(subscriptionId, userId, value, paymentId);
+            effectsReady = true;
           } else {
             const planMetadata = enrichPlanoMetadata(metadata, payment.description);
             const fx = await processPlanoPaymentEffects({
@@ -234,6 +303,7 @@ export async function POST(req: Request) {
             if (fx.skippedReason && !fx.userPlanId) {
               console.warn("[Asaas Webhook] Plano não aplicado:", fx.skippedReason);
             } else if (fx.userPlanId) {
+              effectsReady = true;
               console.log("[Asaas Webhook] ✅✅✅ PLANO PROCESSADO COM SUCESSO ✅✅✅");
               console.log("[Asaas Webhook] UserPlan ID:", fx.userPlanId);
             }
@@ -249,6 +319,7 @@ export async function POST(req: Request) {
           if (fx.skippedReason) {
             console.warn("[Asaas Webhook] Carrinho — efeitos não aplicados:", fx.skippedReason);
           }
+          effectsReady = fx.paymentLinked;
         } else if (tipo === "agendamento" || isAgendamentoDesc) {
           const fx = await processAgendamentoPaymentEffects({
             paymentDbId: newPayment.id,
@@ -259,7 +330,30 @@ export async function POST(req: Request) {
           if (fx.skippedReason) {
             console.warn("[Asaas Webhook] Agendamento — efeitos não aplicados:", fx.skippedReason);
           }
+          effectsReady = fx.paymentLinked;
         }
+        if (!effectsReady) {
+          console.error("[Asaas Webhook] Efeitos incompletos; evento ready não publicado", {
+            paymentId,
+            tipo,
+          });
+          return NextResponse.json(
+            { received: true, error: "Efeitos de pagamento incompletos" },
+            { status: 200 }
+          );
+        }
+        await publishSyncEvent({
+          name: "PaymentConfirmed",
+          entity: "payment",
+          entityId: newPayment.id,
+          from: "pending",
+          to: "confirmado",
+          options: {
+            source: "lifecycle",
+            userId,
+            metadata: { effectsReady: true, paymentType: tipo, operationId },
+          },
+        });
       } catch (dbError: any) {
         console.error("[Asaas Webhook] ❌ Erro ao processar pagamento no banco:", dbError);
         console.error("[Asaas Webhook] Stack:", dbError.stack);

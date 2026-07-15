@@ -18,6 +18,8 @@ export type CarrinhoItemMeta = {
   observacoes?: string;
   servicos?: AgendamentoItemLine[];
   beats?: AgendamentoItemLine[];
+  cupomCode?: string;
+  couponId?: string;
 };
 
 export type ProcessCarrinhoPaymentEffectsResult = {
@@ -110,8 +112,39 @@ export async function processCarrinhoPaymentEffects(params: {
         status: "pendente",
       },
     });
+    if (item.couponId) {
+      const claimed = await prisma.coupon.updateMany({
+        where: {
+          id: item.couponId,
+          used: false,
+          appointmentId: null,
+          OR: [{ assignedUserId: null }, { assignedUserId: userId }],
+        },
+        data: {
+          used: true,
+          usedAt: new Date(),
+          usedBy: userId,
+          appointmentId: novoAgendamento.id,
+        },
+      });
+      if (claimed.count !== 1) {
+        await prisma.appointment.delete({ where: { id: novoAgendamento.id } });
+        throw new Error(`COUPON_CLAIM_CONFLICT:${item.couponId}`);
+      }
+    }
     appointmentIds.push(novoAgendamento.id);
     console.log(`${logPrefix} agendamento criado:`, novoAgendamento.id);
+    try {
+      const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
+      await emitAppointmentReserved({
+        appointmentId: novoAgendamento.id,
+        userId,
+        dataIso: dataHoraISO.toISOString(),
+        duracaoMinutos,
+      });
+    } catch (e) {
+      console.error(`${logPrefix} sync AppointmentReserved falhou (non-fatal):`, e);
+    }
 
     const servicesCreated = await createServicesForAppointmentIfMissing({
       appointmentId: novoAgendamento.id,

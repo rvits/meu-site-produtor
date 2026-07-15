@@ -3,13 +3,12 @@ import {
   REFUND_ASAAS_STATUS_SIMULATED,
   type SymbolicPaymentLike,
 } from "@/app/lib/symbolic-payment";
+import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
 
 /**
- * Gate mínimo de cupom de simulação (PR-03).
- * Subconjunto autocontido — sem dependência de simulation-coupon / simulation-coupon-codes (WIP PR-04+).
+ * Gate de cupom de simulação (HS-03A).
+ * Tipo canônico TEST ou marcas explícitas — sem startsWith para tipagem.
  */
-
-const ACTIVE_SIMULATION_COUPON_PREFIX = "TESTE_";
 
 type CouponLike = {
   code: string;
@@ -19,9 +18,9 @@ type CouponLike = {
   appointmentPayment?: SymbolicPaymentLike | null;
 };
 
-/** Cupom gerado por simulação / checkout simbólico (inclui reembolsos ligados a agendamento simbólico). */
+/** Cupom gerado por simulação / checkout simbólico. */
 export function isSimulationCoupon(coupon: CouponLike): boolean {
-  if (coupon.code.startsWith(ACTIVE_SIMULATION_COUPON_PREFIX)) return true;
+  if (resolveCanonicalCouponType(coupon) === "TEST") return true;
   if (coupon.refundAsaasStatus === REFUND_ASAAS_STATUS_SIMULATED) return true;
   if (coupon.payment && isSymbolicApprovedPayment(coupon.payment)) return true;
   if (coupon.appointmentPayment && isSymbolicApprovedPayment(coupon.appointmentPayment)) {

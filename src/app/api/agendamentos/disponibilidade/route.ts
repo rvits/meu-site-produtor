@@ -4,10 +4,11 @@ import { prisma } from "@/app/lib/prisma";
 // API pública para verificar disponibilidade de horários (sem autenticação)
 export async function GET() {
   try {
-    // Buscar apenas agendamentos aceitos/confirmados futuros
+    // Alinha com enforcement de escrita: qualquer status operacional (exceto cancelado)
+    // ocupa o slot — evita UI livre + 409 no checkout (SYNC-01A / A8).
     const agendamentos = await prisma.appointment.findMany({
       where: {
-        status: { in: ["aceito", "confirmado", "em_andamento"] },
+        status: { not: "cancelado" },
         data: { gte: new Date() },
       },
       select: {
