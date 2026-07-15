@@ -28,8 +28,8 @@ function getPreferenceClient() {
     console.log(
       "[MP] Criando cliente Preference. SITE_URL:",
       SITE_URL,
-      "token prefix:",
-      ACCESS_TOKEN.slice(0, 10) + "..."
+      "token configurado:",
+      true
     );
 
     const client = new MercadoPagoConfig({

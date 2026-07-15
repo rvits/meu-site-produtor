@@ -3,75 +3,33 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
+import { useDomainSync } from "@/app/lib/synchronization/DomainSyncProvider";
 
 function SucessoContent() {
   const searchParams = useSearchParams();
   const isTeste = searchParams.get("teste") === "true";
   const tipo = searchParams.get("tipo"); // "agendamento" ou "plano"
-  const paymentId = searchParams.get("paymentId");
-  const [verificando, setVerificando] = useState(!!paymentId || tipo === "plano");
+  const operationId = searchParams.get("operationId");
+  const { connected, lastEvent } = useDomainSync();
+  const [confirmado, setConfirmado] = useState(false);
 
   useEffect(() => {
-    if (tipo === "plano") {
-      processarPlanoAposPagamento();
+    if (
+      lastEvent?.name !== "PaymentConfirmed" ||
+      lastEvent.metadata?.effectsReady !== true ||
+      !operationId ||
+      lastEvent.metadata?.operationId !== operationId
+    ) {
       return;
     }
-    if (paymentId) {
-      verificarStatus();
-    }
-  }, [paymentId, tipo]);
+    setConfirmado(true);
+    const redirect = setTimeout(() => {
+      window.location.href = "/minha-conta";
+    }, 1200);
+    return () => clearTimeout(redirect);
+  }, [lastEvent, operationId]);
 
-  async function processarPlanoAposPagamento() {
-    try {
-      const res = await fetch("/api/pagamentos/processar-plano-apos-pagamento", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        console.log("[Sucesso] Plano processado:", data.userPlan || data.alreadyProcessed);
-        setTimeout(() => {
-          window.location.href = "/minha-conta";
-        }, 1500);
-        return;
-      }
-      setVerificando(false);
-    } catch (err) {
-      console.error("[Sucesso] Erro ao processar plano:", err);
-      setVerificando(false);
-    }
-  }
-
-  async function verificarStatus() {
-    try {
-      const res = await fetch(`/api/pagamentos/verificar?paymentId=${paymentId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === "RECEIVED" || data.status === "CONFIRMED") {
-          if (data.processed && data.userPlan) {
-            console.log("[Sucesso] Pagamento já processado, plano criado:", data.userPlan);
-            setTimeout(() => {
-              window.location.href = "/minha-conta";
-            }, 1000);
-            return;
-          }
-          if (!data.processed && tipo === "plano") {
-            await processarPlanoAposPagamento();
-            return;
-          }
-          setVerificando(false);
-        } else {
-          setTimeout(() => verificarStatus(), 3000);
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao verificar status:", error);
-      setVerificando(false);
-    }
-  }
-
-  if (verificando) {
+  if (!confirmado) {
     return (
       <main className="mx-auto max-w-xl px-6 py-16 text-zinc-100">
         <div className="text-center">
@@ -82,10 +40,16 @@ function SucessoContent() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-blue-400 mb-4">
-              Verificando Pagamento...
+              Aguardando confirmação
             </h1>
           </div>
-          <p className="text-zinc-300">Aguarde enquanto verificamos o status do seu pagamento.</p>
+          <p className="text-zinc-300">
+            O pagamento foi iniciado. Esta página será atualizada automaticamente quando o
+            Asaas confirmar a operação.
+          </p>
+          <p className="mt-3 text-xs text-zinc-500">
+            Sincronização {connected ? "conectada" : "reconectando…"}
+          </p>
         </div>
       </main>
     );
@@ -140,7 +104,7 @@ function SucessoContent() {
           )}
         </div>
         
-        {!paymentId && (
+        {!operationId && (
           <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500/50 rounded-lg">
             <p className="text-blue-300 text-sm">
               💡 <strong>Dica:</strong> Se você não foi redirecionado automaticamente após o pagamento, não se preocupe! 

@@ -3,10 +3,17 @@ import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { z } from "zod";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import {
+  normalizeServiceTypeId,
+  priceCheckoutItems,
+  totalPricedCheckoutItems,
+  type PricedCheckoutItem,
+} from "@/app/lib/service-catalog";
 import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
 import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
+import { canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 
 const agendamentoComCupomSchema = z.object({
   data: z.string(),
@@ -16,15 +23,15 @@ const agendamentoComCupomSchema = z.object({
   observacoes: z.string().optional(),
   servicos: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   beats: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   cupomCode: z.string(),
 });
@@ -43,11 +50,23 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data, hora, duracaoMinutos, tipo, observacoes, servicos, beats, cupomCode } = validation.data;
+    let { data, hora, duracaoMinutos, tipo, observacoes, servicos, beats, cupomCode } = validation.data;
 
-    // Calcular total dos serviços
-    const totalServicos = (servicos || []).reduce((acc: number, s: any) => acc + (s.preco * s.quantidade), 0);
-    const totalBeats = (beats || []).reduce((acc: number, b: any) => acc + (b.preco * b.quantidade), 0);
+    let pricedServices: PricedCheckoutItem[] = [];
+    let pricedBeats: PricedCheckoutItem[] = [];
+    try {
+      pricedServices = priceCheckoutItems(servicos, "service");
+      pricedBeats = priceCheckoutItems(beats, "beat");
+      servicos = pricedServices;
+      beats = pricedBeats;
+    } catch {
+      return NextResponse.json(
+        { error: "Serviço ou quantidade inválida." },
+        { status: 400 }
+      );
+    }
+    const totalServicos = totalPricedCheckoutItems(pricedServices);
+    const totalBeats = totalPricedCheckoutItems(pricedBeats);
     const total = totalServicos + totalBeats;
     
     console.log("[API Agendamento com Cupom] Dados recebidos:", {
@@ -78,6 +97,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cupom inexistente." }, { status: 404 });
     }
     couponRow = couponReload;
+
+    const couponValidation = await validateCouponAndGetTotal(
+      cupomCode,
+      total,
+      servicos || [],
+      beats || [],
+      {
+        userId: user.id,
+        mode: "service-redemption",
+        selectedServiceIds: [...(servicos || []), ...(beats || [])].flatMap((item) =>
+          Array.from({ length: item.quantidade }, () => item.id)
+        ),
+        allowTest: canUseSymbolicSimulation(user),
+      }
+    );
+    if (!couponValidation.ok) {
+      return NextResponse.json({ error: couponValidation.error }, { status: 400 });
+    }
 
     if (couponRow.used) {
       return NextResponse.json(

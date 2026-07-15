@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
 import { InfinityPayProvider } from "@/app/lib/payment-providers";
-import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
+import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 
 const INFINITYPAY_API_KEY = process.env.INFINITYPAY_API_KEY;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -12,22 +12,21 @@ const IS_TEST = process.env.NODE_ENV !== "production";
 const agendamentoCheckoutSchema = z.object({
   servicos: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   beats: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   data: z.string(),
   hora: z.string(),
   duracaoMinutos: z.number().optional(),
   tipo: z.string().optional(),
   observacoes: z.string().optional(),
-  total: z.number(),
   paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
   cupomCode: z.string().optional(),
 });
@@ -56,23 +55,34 @@ export async function POST(req: Request) {
       );
     }
 
-    let { servicos = [], beats = [], data, hora, total, paymentMethod, cupomCode } = validation.data;
-
-    // Validar cupom e recalcular total quando aplicável
-    if (cupomCode && cupomCode.trim()) {
-      const totalRaw =
-        servicos.reduce((a, s) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
-        beats.reduce((a, b) => a + (b.preco || 0) * (b.quantidade || 1), 0);
-      const result = await validateCouponAndGetTotal(
-        cupomCode.trim(),
-        totalRaw,
-        servicos,
-        beats
+    let { servicos = [], beats = [], data, hora, paymentMethod, cupomCode } = validation.data;
+    let calculation;
+    try {
+      calculation = await calculateServerCheckout({
+        userId: user.id,
+        services: servicos,
+        beats,
+        couponCode: cupomCode,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json(
+        {
+          error: message.startsWith("CUPOM_INVALIDO:")
+            ? message.slice("CUPOM_INVALIDO:".length)
+            : "Serviço ou quantidade inválida.",
+        },
+        { status: 400 }
       );
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      total = result.finalTotal;
+    }
+    servicos = calculation.services;
+    beats = calculation.beats;
+    const total = calculation.total;
+    if (total <= 0) {
+      return NextResponse.json(
+        { error: "Use o fluxo de resgate para concluir um agendamento sem cobrança." },
+        { status: 400 }
+      );
     }
 
     // Criar itens para o Infinity Pay
@@ -81,7 +91,7 @@ export async function POST(req: Request) {
 
     if (!usarItemUnico) {
     servicos.forEach((s) => {
-      const unitPrice = Number(s.preco.toFixed(2));
+      const unitPrice = Number(s.preco!.toFixed(2));
       if (unitPrice <= 0 || isNaN(unitPrice)) {
         throw new Error(`Preço inválido para serviço ${s.nome}: ${s.preco}`);
       }
@@ -95,7 +105,7 @@ export async function POST(req: Request) {
     });
 
     beats.forEach((b) => {
-      const unitPrice = Number(b.preco.toFixed(2));
+      const unitPrice = Number(b.preco!.toFixed(2));
       if (unitPrice <= 0 || isNaN(unitPrice)) {
         throw new Error(`Preço inválido para beat ${b.nome}: ${b.preco}`);
       }

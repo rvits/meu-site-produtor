@@ -459,7 +459,7 @@ export const sync01aScenarios: ScenarioDefinition[] = [
         const planCursor = planEvents[0]?.cursor;
         const cursorBefore =
           planCursor && /^\d+$/.test(planCursor)
-            ? String(BigInt(planCursor) - 1n)
+            ? String(BigInt(planCursor) - BigInt(1))
             : null;
         const replay = await listSyncEventsSince({
           userId,

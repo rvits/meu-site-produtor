@@ -3,7 +3,9 @@
 import { prisma } from "@/app/lib/prisma";
 import { processAgendamentoPaymentEffects } from "@/app/lib/asaas-agendamento-payment-effects";
 import {
+  assertWebhookAmountMatchesMetadata,
   reconcileAgendamentoPaymentArtifacts,
+  resolvePaymentOperationIdentity,
   resolvePaymentMetadataForWebhook,
 } from "@/app/lib/asaas-agendamento-reconcile";
 import { enrichPlanoMetadata, processPlanoPaymentEffects } from "@/app/lib/asaas-plano-payment-effects";
@@ -15,6 +17,25 @@ import {
 
 function isConfirmedPaymentEvent(event: string, status: string): boolean {
   return event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED");
+}
+
+async function publishPaymentEffectsReady(
+  paymentDbId: string,
+  userId: string,
+  paymentType: string
+): Promise<void> {
+  const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+  await publishSyncEvent({
+    name: "PaymentConfirmed",
+    entity: "payment",
+    entityId: paymentDbId,
+    to: "confirmado",
+    options: {
+      source: "lifecycle",
+      userId,
+      metadata: { effectsReady: true, paymentType },
+    },
+  });
 }
 
 export async function processPaymentWebhook(body: { event: string; payment: any }) {
@@ -45,12 +66,6 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       return { received: true };
     }
 
-    let userId = externalReference;
-    if (!userId) {
-      console.error("[Process Payment Webhook] ❌ Não foi possível identificar o usuário");
-      return { received: true, error: "Usuário não identificado" };
-    }
-
     const isPlanoDesc = isPlanoPaymentDescription(payment.description);
     const isAgendamentoDesc = isAgendamentoPaymentDescription(payment.description);
 
@@ -59,6 +74,34 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         OR: [{ asaasId: paymentId }, { mercadopagoId: paymentId }],
       },
     });
+
+    let userId: string;
+    if (existingPayment) {
+      userId = existingPayment.userId;
+    } else {
+      try {
+        const identity = await resolvePaymentOperationIdentity({
+          asaasPaymentId: paymentId,
+          externalReference,
+        });
+        userId = identity.userId;
+      } catch (identityError) {
+        console.error("[Process Payment Webhook] Operação rejeitada:", {
+          paymentId,
+          externalReference,
+          error:
+            identityError instanceof Error ? identityError.message : String(identityError),
+        });
+        return { received: true, error: "Operação de pagamento não identificada" };
+      }
+    }
+    const metadata = await resolvePaymentMetadataForWebhook({
+      userId,
+      asaasPaymentId: paymentId,
+      paymentMetadata: payment.metadata,
+      description: payment.description,
+    });
+    assertWebhookAmountMatchesMetadata(metadata, value);
 
     const wasDuplicate = !!existingPayment;
     let paymentRecord: { id: string; userId: string; type: string };
@@ -133,13 +176,6 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       }
     }
 
-    const metadata = await resolvePaymentMetadataForWebhook({
-      userId,
-      asaasPaymentId: paymentId,
-      paymentMetadata: payment.metadata,
-      description: payment.description,
-    });
-
     const tipo = resolvePaymentTipo({
       metadata,
       paymentType: paymentRecord.type,
@@ -191,6 +227,7 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
           select: { id: true, planId: true, planName: true, status: true },
         });
         console.log("[Process Payment Webhook] ✅✅✅ PLANO PROCESSADO COM SUCESSO ✅✅✅");
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "plano");
         return {
           received: true,
           success: true,
@@ -218,6 +255,9 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       if (fx.skippedReason) {
         console.warn("[Process Payment Webhook] Carrinho — efeitos não aplicados:", fx.skippedReason);
       }
+      if (fx.paymentLinked) {
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "carrinho");
+      }
       return {
         received: true,
         success: fx.paymentLinked,
@@ -234,6 +274,9 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
       });
       if (fx.skippedReason) {
         console.warn("[Process Payment Webhook] Agendamento — efeitos não aplicados:", fx.skippedReason);
+      }
+      if (fx.paymentLinked) {
+        await publishPaymentEffectsReady(paymentRecord.id, userId, "agendamento");
       }
       return {
         received: true,

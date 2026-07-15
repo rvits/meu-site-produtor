@@ -30,6 +30,7 @@
     "graph:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/knowledge-graph-audit.ts",
     "discovery:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/discovery-audit.ts",
     "regression:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/regression-audit.ts",
+    "golive:cleanup": "npx --yes tsx --tsconfig tsconfig.json scripts/golive-cleanup.ts",
     "migrate:postgresql": "node scripts/migrar-para-postgresql-v2.js"
   },
   "prisma": {

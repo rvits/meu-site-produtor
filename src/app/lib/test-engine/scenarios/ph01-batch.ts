@@ -31,6 +31,12 @@ import { generateCouponCode } from "@/app/lib/coupons";
 import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
 import { createServicesForAppointmentIfMissing } from "@/app/lib/asaas-agendamento-payment-effects";
 import { getBirthDateMaxYear, validateBirthDateString } from "@/app/lib/birth-date-validation";
+import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
+import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
+import {
+  assertWebhookAmountMatchesMetadata,
+  resolvePaymentOperationIdentity,
+} from "@/app/lib/asaas-agendamento-reconcile";
 
 type RunBody = Awaited<ReturnType<ScenarioDefinition["run"]>>;
 
@@ -342,6 +348,173 @@ export const ph01Scenarios: ScenarioDefinition[] = [
         });
         asserts.push(await assertCoupon({ userId, minCount: 1 }));
         return { status: "pass", asserts, errors: [], warnings: [], artifacts: { code } };
+      })
+  ),
+
+  def(
+    "GL01-001",
+    "Checkout ignora preços do cliente",
+    "IDs e quantidades são precificados exclusivamente pelo catálogo do servidor",
+    async (ctx) =>
+      withCleanup(ctx, "GL01-001", async (userId) => {
+        const calculation = await calculateServerCheckout({
+          userId,
+          services: [{ id: "sessao", quantidade: 2 }],
+          beats: [{ id: "beat1", quantidade: 1 }],
+        });
+        const asserts: AssertResult[] = [
+          {
+            name: "assertServerCatalogTotal",
+            ok: calculation.subtotal === 230 && calculation.total === 230,
+            evidence: {
+              subtotal: calculation.subtotal,
+              prices: [...calculation.services, ...calculation.beats].map((i) => ({
+                id: i.id,
+                price: i.preco,
+              })),
+            },
+            message: `total autoritativo esperado 230, obtido ${calculation.total}`,
+          },
+        ];
+        return { status: "pass", asserts, errors: [], warnings: [], artifacts: {} };
+      })
+  ),
+
+  def(
+    "GL01-002",
+    "Cupom exige owner e serviço exato",
+    "SERVICE não pode ser usado por outro usuário nem em serviço diferente",
+    async (ctx) =>
+      withCleanup(ctx, "GL01-002", async (userId) => {
+        const other = await seedTestUser({
+          email: `${ctx.artifactPrefix}-gl01-owner-${Date.now()}@homolog.test`,
+          nomeArtistico: "GL Owner",
+          nomeCompleto: "GL Owner Test",
+        });
+        const code = `GL01_${generateCouponCode()}`;
+        await prisma.coupon.create({
+          data: {
+            code,
+            couponType: toPersistedCouponType("SERVICE"),
+            discountType: "service",
+            discountValue: 0,
+            serviceType: "captacao",
+            assignedUserId: userId,
+            expiresAt: new Date(Date.now() + 7 * 864e5),
+          },
+        });
+        try {
+          const correct = await validateCouponAndGetTotal(
+            code,
+            55,
+            [{ preco: 55, quantidade: 1 }],
+            [],
+            {
+              userId,
+              mode: "service-redemption",
+              selectedServiceIds: ["captacao"],
+            }
+          );
+          const wrongService = await validateCouponAndGetTotal(
+            code,
+            40,
+            [{ preco: 40, quantidade: 1 }],
+            [],
+            {
+              userId,
+              mode: "service-redemption",
+              selectedServiceIds: ["sessao"],
+            }
+          );
+          const wrongOwner = await validateCouponAndGetTotal(
+            code,
+            55,
+            [{ preco: 55, quantidade: 1 }],
+            [],
+            {
+              userId: other.userId,
+              mode: "service-redemption",
+              selectedServiceIds: ["captacao"],
+            }
+          );
+          const asserts: AssertResult[] = [
+            { name: "assertCorrectServiceAllowed", ok: correct.ok },
+            { name: "assertWrongServiceBlocked", ok: !wrongService.ok },
+            { name: "assertWrongOwnerBlocked", ok: !wrongOwner.ok },
+          ];
+          return { status: "pass", asserts, errors: [], warnings: [], artifacts: { code } };
+        } finally {
+          await cleanupTeUserArtifacts(other.userId);
+        }
+      })
+  ),
+
+  def(
+    "GL01-003",
+    "Webhook resolve somente operação exata",
+    "Asaas ID/operationId prevalecem; userId e recência nunca são fallback",
+    async (ctx) =>
+      withCleanup(ctx, "GL01-003", async (userId) => {
+        const asaasId = `pay_gl01_${Date.now()}`;
+        const expiresAt = new Date(Date.now() + 864e5);
+        const exact = await prisma.paymentMetadata.create({
+          data: {
+            userId,
+            asaasId,
+            metadata: JSON.stringify({ tipo: "agendamento", chargedAmount: 40 }),
+            expiresAt,
+          },
+        });
+        await prisma.paymentMetadata.create({
+          data: {
+            userId,
+            metadata: JSON.stringify({ tipo: "plano", amount: 799.99 }),
+            expiresAt,
+          },
+        });
+        const identity = await resolvePaymentOperationIdentity({
+          asaasPaymentId: asaasId,
+          externalReference: userId,
+        });
+        let unknownRejected = false;
+        try {
+          await resolvePaymentOperationIdentity({
+            asaasPaymentId: `unknown_${Date.now()}`,
+            externalReference: userId,
+          });
+        } catch {
+          unknownRejected = true;
+        }
+        const asserts: AssertResult[] = [
+          {
+            name: "assertExactOperation",
+            ok: identity.operationId === exact.id && identity.userId === userId,
+            evidence: { identity, exactId: exact.id },
+          },
+          { name: "assertUserIdFallbackRejected", ok: unknownRejected },
+        ];
+        return { status: "pass", asserts, errors: [], warnings: [], artifacts: {} };
+      })
+  ),
+
+  def(
+    "GL01-004",
+    "Webhook rejeita valor divergente",
+    "Valor recebido deve coincidir com chargedAmount calculado no servidor",
+    async (ctx) =>
+      withCleanup(ctx, "GL01-004", async () => {
+        let mismatchRejected = false;
+        try {
+          assertWebhookAmountMatchesMetadata({ chargedAmount: 230 }, 1);
+        } catch {
+          mismatchRejected = true;
+        }
+        assertWebhookAmountMatchesMetadata({ chargedAmount: 230 }, 230);
+        const asserts: AssertResult[] = [
+          { name: "assertAmountMismatchRejected", ok: mismatchRejected },
+          { name: "assertExactAmountAccepted", ok: true },
+        ];
+        return { status: "pass", asserts, errors: [], warnings: [], artifacts: {} };
       })
   ),
 ];

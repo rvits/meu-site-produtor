@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     });
     
     console.log("[Asaas] PaymentMetadata criado:", paymentMetadata.id);
-    console.log("[Asaas] Usando apenas userId no externalReference:", user.id);
+    console.log("[Asaas] Operação de checkout criada:", paymentMetadata.id);
 
     // Criar checkout
     const checkoutResponse = await provider.createCheckout({
@@ -153,10 +153,10 @@ export async function POST(req: Request) {
       },
       paymentMethod: paymentMethod || undefined, // Passar método de pagamento escolhido
       metadata: {
-        userId: user.id, // APENAS userId - metadata completo está em PaymentMetadata
+        operationId: paymentMetadata.id,
       },
       backUrls: {
-        success: `${SITE_URL}/pagamentos/sucesso?tipo=plano`,
+        success: `${SITE_URL}/pagamentos/sucesso?tipo=plano&operationId=${encodeURIComponent(paymentMetadata.id)}`,
         failure: `${SITE_URL}/pagamentos/falha`,
         pending: `${SITE_URL}/pagamentos/pendente`,
       },

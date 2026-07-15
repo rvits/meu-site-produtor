@@ -228,7 +228,35 @@ export async function cleanupTeUserArtifacts(userId: string): Promise<{
     select: { id: true, asaasId: true },
   });
   const paymentIds = payments.map((p) => p.id);
+  const serviceRows = await prisma.service.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  const serviceIds = serviceRows.map((service) => service.id);
 
+  deleted.synchronizationEvents = (
+    await prisma.synchronizationEvent.deleteMany({ where: { userId } })
+  ).count;
+  deleted.transitionHistory = (
+    await prisma.domainTransitionHistory.deleteMany({
+      where: {
+        OR: [
+          {
+            entity: "appointment",
+            entityId: { in: aptIds.map(String) },
+          },
+          {
+            entity: "payment",
+            entityId: { in: paymentIds },
+          },
+          {
+            entity: "service",
+            entityId: { in: serviceIds },
+          },
+        ],
+      },
+    })
+  ).count;
   deleted.services = (
     await prisma.service.deleteMany({ where: { userId } })
   ).count;

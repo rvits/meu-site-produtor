@@ -49,7 +49,11 @@ export type ScenarioId =
   | "PH01-002"
   | "PH01-003"
   | "PH01-004"
-  | "PH01-005";
+  | "PH01-005"
+  | "GL01-001"
+  | "GL01-002"
+  | "GL01-003"
+  | "GL01-004";
 
 export type ScenarioStatus = "implemented" | "stub" | "skipped" | "pass" | "fail" | "error";
 

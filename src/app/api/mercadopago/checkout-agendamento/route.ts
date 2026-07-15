@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { requireAuth } from "@/app/lib/auth";
 import { z } from "zod";
-import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
+import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 
 const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
 const INTEGRATOR_ID = process.env.MP_INTEGRATOR_ID;
@@ -12,22 +12,21 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const agendamentoCheckoutSchema = z.object({
   servicos: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   beats: z.array(z.object({
     id: z.string(),
-    nome: z.string(),
-    quantidade: z.number(),
-    preco: z.number(),
+    nome: z.string().optional(),
+    quantidade: z.number().int().min(1).max(20),
+    preco: z.number().optional(),
   })).optional(),
   data: z.string(),
   hora: z.string(),
   duracaoMinutos: z.number().optional(),
   tipo: z.string().optional(),
   observacoes: z.string().optional(),
-  total: z.number(),
   paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
   cupomCode: z.string().optional(),
 });
@@ -65,23 +64,34 @@ export async function POST(req: Request) {
       );
     }
 
-    let { servicos = [], beats = [], data, hora, total, paymentMethod, cupomCode } = validation.data;
-
-    // Validar cupom e recalcular total quando aplicável
-    if (cupomCode && cupomCode.trim()) {
-      const totalRaw =
-        servicos.reduce((a, s) => a + (s.preco || 0) * (s.quantidade || 1), 0) +
-        beats.reduce((a, b) => a + (b.preco || 0) * (b.quantidade || 1), 0);
-      const result = await validateCouponAndGetTotal(
-        cupomCode.trim(),
-        totalRaw,
-        servicos,
-        beats
+    let { servicos = [], beats = [], data, hora, paymentMethod, cupomCode } = validation.data;
+    let calculation;
+    try {
+      calculation = await calculateServerCheckout({
+        userId: user.id,
+        services: servicos,
+        beats,
+        couponCode: cupomCode,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json(
+        {
+          error: message.startsWith("CUPOM_INVALIDO:")
+            ? message.slice("CUPOM_INVALIDO:".length)
+            : "Serviço ou quantidade inválida.",
+        },
+        { status: 400 }
       );
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      total = result.finalTotal;
+    }
+    servicos = calculation.services;
+    beats = calculation.beats;
+    const total = calculation.total;
+    if (total <= 0) {
+      return NextResponse.json(
+        { error: "Use o fluxo de resgate para concluir um agendamento sem cobrança." },
+        { status: 400 }
+      );
     }
 
     // Criar itens para o Mercado Pago
@@ -96,7 +106,7 @@ export async function POST(req: Request) {
         id: s.id,
         title: `${s.nome} (x${s.quantidade})`,
         quantity: s.quantidade,
-        unit_price: Number(s.preco.toFixed(2)),
+        unit_price: Number(s.preco!.toFixed(2)),
         currency_id: "BRL",
       });
     });
@@ -106,7 +116,7 @@ export async function POST(req: Request) {
         id: b.id,
         title: `${b.nome} (x${b.quantidade})`,
         quantity: b.quantidade,
-        unit_price: Number(b.preco.toFixed(2)),
+        unit_price: Number(b.preco!.toFixed(2)),
         currency_id: "BRL",
       });
     });
@@ -172,7 +182,6 @@ export async function POST(req: Request) {
 
     console.log("[MP-AGENDAMENTO] Criando preferência com body:", JSON.stringify(preferenceBody, null, 2));
     console.log("[MP-AGENDAMENTO] Token type:", ACCESS_TOKEN?.startsWith("TEST-") ? "TEST" : "PRODUCTION");
-    console.log("[MP-AGENDAMENTO] Token prefix:", ACCESS_TOKEN?.substring(0, 20) + "...");
     console.log("[MP-AGENDAMENTO] Integrator ID:", INTEGRATOR_ID || "não configurado (removido para evitar erro UNAUTHORIZED)");
 
     const prefResult = await preference.create({
@@ -264,7 +273,6 @@ IMPORTANTE:
 - Tokens de PRODUÇÃO começam com "APP_USR-"
 - Certifique-se de usar o token correto para o ambiente
 
-Token atual: ${ACCESS_TOKEN?.substring(0, 30)}...
       `.trim();
       
       return NextResponse.json(
@@ -274,7 +282,6 @@ Token atual: ${ACCESS_TOKEN?.substring(0, 30)}...
             message: err?.message,
             code: err?.code,
             status: err?.status,
-            tokenPrefix: ACCESS_TOKEN?.substring(0, 30) + "...",
             blockedBy: err?.blocked_by,
             suggestion: "Gere um novo Access Token no painel do Mercado Pago e atualize o .env"
           } : undefined

@@ -6,10 +6,17 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 
 export async function POST() {
   try {
     const user = await requireAuth();
+    if (!canUseSymbolicSimulation(user)) {
+      return NextResponse.json(
+        { error: "Funcionalidade de homologação indisponível." },
+        { status: 403 }
+      );
+    }
 
     let pagamento = await prisma.payment.findFirst({
       where: {
@@ -53,7 +60,13 @@ export async function POST() {
     if (!agendamentoId && appointmentIds.length === 1) {
       agendamentoId = appointmentIds[0];
     } else if (!agendamentoId && appointmentIds.length > 1) {
-      agendamentoId = appointmentIds[0];
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Associação ambígua. Use o painel administrativo para selecionar a operação correta.",
+        },
+        { status: 409 }
+      );
     }
 
     if (agendamentoId) {

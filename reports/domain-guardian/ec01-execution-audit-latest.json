@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-07-15T04:41:58.304Z",
+  "generatedAt": "2026-07-15T05:39:15.531Z",
   "pipeline": [
     "ExecutionCore",
     "Workflow",
@@ -11,7 +11,7 @@
     "Reports",
     "Cleanup"
   ],
-  "scenarios": 56,
+  "scenarios": 60,
   "entryPoint": "ExecutionCore.run()",
   "issues": [],
   "counts": {
