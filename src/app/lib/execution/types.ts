@@ -15,6 +15,7 @@ export type ExecutionSuiteId =
   | "ph01"
   | "rc01"
   | "rc02"
+  | "rc03"
   | "sim01"
   | "sim02";
 
@@ -26,6 +27,7 @@ export type ExecutionReportId =
   | "PH-01-execution"
   | "RC-01-execution"
   | "RC-02-execution"
+  | "RC-03-execution"
   | "SIM-01-execution"
   | "SIM-02-execution";
 

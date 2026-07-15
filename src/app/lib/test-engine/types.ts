@@ -66,7 +66,17 @@ export type ScenarioId =
   | "RC02-004"
   | "RC02-005"
   | "RC02-006"
-  | "RC02-007";
+  | "RC02-007"
+  | "RC03-001"
+  | "RC03-002"
+  | "RC03-003"
+  | "RC03-004"
+  | "RC03-005"
+  | "RC03-006"
+  | "RC03-007"
+  | "RC03-008"
+  | "RC03-009"
+  | "RC03-010";
 
 export type ScenarioStatus = "implemented" | "stub" | "skipped" | "pass" | "fail" | "error";
 
@@ -114,7 +124,7 @@ export type ScenarioDefinition = {
 };
 
 export type ExecutionReport = {
-  reportId: "TE-01B-execution" | "TE-02A-execution" | "SYNC-01A-execution" | "PH-01-execution" | "RC-01-execution" | "RC-02-execution";
+  reportId: "TE-01B-execution" | "TE-02A-execution" | "SYNC-01A-execution" | "PH-01-execution" | "RC-01-execution" | "RC-02-execution" | "RC-03-execution";
   runId: string;
   startedAt: string;
   finishedAt: string;

@@ -41,7 +41,9 @@ export async function runScenario(
               ? "RC-01-execution"
               : suite === "rc02"
                 ? "RC-02-execution"
-                : "TE-01B-execution",
+                : suite === "rc03"
+                  ? "RC-03-execution"
+                  : "TE-01B-execution",
   });
   const teReport = toTeExecutionReport(report);
   if (opts.print !== false) printExecutionReport(teReport);
@@ -78,7 +80,9 @@ export async function runScenarioIds(
           ? "rc01"
           : opts.reportId === "RC-02-execution"
             ? "rc02"
-            : "te02a";
+            : opts.reportId === "RC-03-execution"
+              ? "rc03"
+              : "te02a";
   const report = await ExecutionCore.run({
     scenarioIds: ids,
     suite,
@@ -96,7 +100,9 @@ export async function runScenarioIds(
               ? "rc01"
               : suite === "rc02"
                 ? "rc02"
-                : "te01b"),
+                : suite === "rc03"
+                  ? "rc03"
+                  : "te01b"),
     print: false,
     reportId: opts.reportId,
   });

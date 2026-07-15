@@ -9,6 +9,7 @@ import { te02aScenarios, TE02A_IDS } from "@/app/lib/test-engine/scenarios/te02a
 import { ph01Scenarios, PH01_IDS } from "@/app/lib/test-engine/scenarios/ph01-batch";
 import { rc01Scenarios, RC01_IDS } from "@/app/lib/test-engine/scenarios/rc01-batch";
 import { rc02Scenarios, RC02_IDS } from "@/app/lib/test-engine/scenarios/rc02-batch";
+import { rc03Scenarios, RC03_IDS } from "@/app/lib/test-engine/scenarios/rc03-batch";
 import { sync01aScenarios, SYNC01A_IDS } from "@/app/lib/test-engine/scenarios/sync01a-batch";
 import { sim01Scenarios, SIM01_IDS } from "@/app/lib/simulation/scenarios/sim01-batch";
 import type { ScenarioDefinition } from "@/app/lib/test-engine/types";
@@ -147,6 +148,13 @@ function buildBatches(): DiscoveredBatch[] {
       scenarios: rc02Scenarios.map((s) => adaptTeScenario(s, ["rc02"])),
     },
     {
+      suite: "rc03",
+      kind: "te",
+      modulePath: "src/app/lib/test-engine/scenarios/rc03-batch.ts",
+      scenarioIds: [...RC03_IDS],
+      scenarios: rc03Scenarios.map((s) => adaptTeScenario(s, ["rc03"])),
+    },
+    {
       suite: "sim01",
       kind: "sim",
       modulePath: "src/app/lib/simulation/scenarios/sim01-batch.ts",
@@ -185,7 +193,7 @@ export function discoverScenarioIdsBySuite(suite: ExecutionSuiteId): string[] {
 }
 
 export function discoverSuites(): ExecutionSuiteId[] {
-  return ["te-s01", "te-stubs", "te02a", "sync01a", "ph01", "rc01", "rc02", "sim01", "sim02"];
+  return ["te-s01", "te-stubs", "te02a", "sync01a", "ph01", "rc01", "rc02", "rc03", "sim01", "sim02"];
 }
 
 export function discoverModulePaths(): string[] {
