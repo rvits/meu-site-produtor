@@ -43,6 +43,7 @@
     "go01:orchestrate": "npx --yes tsx --tsconfig tsconfig.json scripts/go01-orchestrate.ts",
     "go02:assemble": "npx --yes tsx --tsconfig tsconfig.json scripts/go02-assemble.ts",
     "go03:execute": "npx --yes tsx --tsconfig tsconfig.json scripts/go03-execute.ts",
+    "go04:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/go04-certify.ts",
     "migrate:postgresql": "node scripts/migrar-para-postgresql-v2.js"
   },
   "prisma": {
