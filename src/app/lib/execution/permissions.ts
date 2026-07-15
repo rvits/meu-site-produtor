@@ -36,10 +36,12 @@ export function isProductionRuntimeBlocked(): boolean {
 export function assertExecutionAllowed(opts: {
   actor?: ExecutionActor;
   cliToken?: string | null;
+  /** Cenários TE — simula gate Production sem mutar process.env (webpack-safe). */
+  simulateProductionBlocked?: boolean;
 }): ExecutionGateResult {
   const warnings: string[] = [];
 
-  if (isProductionRuntimeBlocked()) {
+  if (opts.simulateProductionBlocked || isProductionRuntimeBlocked()) {
     return {
       allowed: false,
       reason: "Execution Core bloqueado em Production (EC-01).",

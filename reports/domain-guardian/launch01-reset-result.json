@@ -1,0 +1,35 @@
+{
+  "reportId": "LAUNCH-01-reset",
+  "executedAt": "2026-07-15T19:16:24.918Z",
+  "database": "local",
+  "mode": "execute",
+  "preservedAdmin": {
+    "id": "6fad51b2-e79c-4ed3-bfd3-684cdc15cd4f",
+    "email": "vicperra@gmail.com",
+    "nomeCompleto": "TremV"
+  },
+  "usersBefore": 25,
+  "usersAfter": 1,
+  "deleted": {
+    "_before": 25,
+    "synchronizationEvents": 890,
+    "domainTransitionHistory": 500,
+    "chatSessions": 0,
+    "userQuestions": 0,
+    "loginLogs": 7,
+    "sessions": 9,
+    "coupons": 1,
+    "services": 1,
+    "appointments": 1,
+    "subscriptions": 0,
+    "userPlans": 0,
+    "payments": 0,
+    "paymentMetadata": 2,
+    "accountDeletionLogs": 2,
+    "passwordResetCodes": 0,
+    "users": 24
+  },
+  "uploadsRemoved": 2,
+  "reportFilesRemoved": 5,
+  "warnings": []
+}

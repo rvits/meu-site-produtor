@@ -1,5 +1,5 @@
 -- SYNC-01A — Outbox persistido do Synchronization Engine
-CREATE TABLE "SynchronizationEvent" (
+CREATE TABLE IF NOT EXISTS "SynchronizationEvent" (
     "id" TEXT NOT NULL,
     "cursor" BIGSERIAL NOT NULL,
     "name" TEXT NOT NULL,
@@ -18,10 +18,10 @@ CREATE TABLE "SynchronizationEvent" (
     CONSTRAINT "SynchronizationEvent_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "SynchronizationEvent_cursor_key" ON "SynchronizationEvent"("cursor");
-CREATE INDEX "SynchronizationEvent_cursor_idx" ON "SynchronizationEvent"("cursor");
-CREATE INDEX "SynchronizationEvent_occurredAt_idx" ON "SynchronizationEvent"("occurredAt");
-CREATE INDEX "SynchronizationEvent_userId_cursor_idx" ON "SynchronizationEvent"("userId", "cursor");
-CREATE INDEX "SynchronizationEvent_scope_cursor_idx" ON "SynchronizationEvent"("scope", "cursor");
-CREATE INDEX "SynchronizationEvent_name_idx" ON "SynchronizationEvent"("name");
-CREATE INDEX "SynchronizationEvent_entity_entityId_idx" ON "SynchronizationEvent"("entity", "entityId");
+CREATE UNIQUE INDEX IF NOT EXISTS "SynchronizationEvent_cursor_key" ON "SynchronizationEvent"("cursor");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_cursor_idx" ON "SynchronizationEvent"("cursor");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_occurredAt_idx" ON "SynchronizationEvent"("occurredAt");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_userId_cursor_idx" ON "SynchronizationEvent"("userId", "cursor");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_scope_cursor_idx" ON "SynchronizationEvent"("scope", "cursor");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_name_idx" ON "SynchronizationEvent"("name");
+CREATE INDEX IF NOT EXISTS "SynchronizationEvent_entity_entityId_idx" ON "SynchronizationEvent"("entity", "entityId");

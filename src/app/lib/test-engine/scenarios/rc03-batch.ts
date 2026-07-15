@@ -129,23 +129,14 @@ export const rc03Scenarios: ScenarioDefinition[] = [
         ok: symUser === true || symUser === false,
       });
 
-      const env = process.env as Record<string, string | undefined>;
-      const prevNode = env.NODE_ENV;
-      const prevSite = env.NEXT_PUBLIC_SITE_URL;
-      try {
-        env.NODE_ENV = "production";
-        env.NEXT_PUBLIC_SITE_URL = "https://prod.example.com";
-        const prodGate = assertExecutionAllowed({
-          actor: { role: "ADMIN", email: "admin@homolog.test" },
-        });
-        asserts.push({
-          name: "assertProductionBlocked",
-          ok: prodGate.allowed === false,
-        });
-      } finally {
-        env.NODE_ENV = prevNode;
-        env.NEXT_PUBLIC_SITE_URL = prevSite;
-      }
+      const prodGate = assertExecutionAllowed({
+        actor: { role: "ADMIN", email: "admin@homolog.test" },
+        simulateProductionBlocked: true,
+      });
+      asserts.push({
+        name: "assertProductionBlocked",
+        ok: prodGate.allowed === false,
+      });
 
       void ctx;
       return { status: "pass", asserts, errors: [], warnings: [], artifacts: {} };
