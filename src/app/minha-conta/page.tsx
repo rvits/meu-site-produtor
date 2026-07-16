@@ -279,7 +279,23 @@ export default function MinhaContaPage() {
 
   function isServiceFamilyCoupon(c: Cupom): boolean {
     const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
-    return t === "SERVICE" || t === "REBOOK";
+    if (t === "SERVICE" || t === "REBOOK") return true;
+    if (
+      (t === "TEST" || t === "PLAN" || t === "BONUS" || t === "REFUND") &&
+      c.discountType === "service" &&
+      c.serviceType &&
+      !String(c.serviceType).startsWith("percent_")
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function couponScheduleHref(c: Cupom): string {
+    if (isServiceFamilyCoupon(c)) {
+      return `/agendamento/cupom/${encodeURIComponent(c.code)}`;
+    }
+    return `/agendamento?cupom=${encodeURIComponent(c.code)}`;
   }
 
   function getServiceName(serviceType: string, couponCode?: string) {
@@ -629,7 +645,9 @@ export default function MinhaContaPage() {
                         </p>
                         <button
                           type="button"
-                          onClick={() => router.push(`/agendamento?cupom=${encodeURIComponent(cupom.code)}`)}
+                          onClick={() =>
+                            router.push(`/agendamento/cupom/${encodeURIComponent(cupom.code)}`)
+                          }
                           className="mt-3 w-full py-2 text-sm font-semibold text-zinc-100 bg-green-600 hover:bg-green-500 rounded transition-colors"
                         >
                           📅 Agendar com este cupom
@@ -700,7 +718,9 @@ export default function MinhaContaPage() {
                         </p>
                         <button
                           type="button"
-                          onClick={() => router.push(`/agendamento?cupom=${encodeURIComponent(cupom.code)}`)}
+                          onClick={() =>
+                            router.push(`/agendamento/cupom/${encodeURIComponent(cupom.code)}`)
+                          }
                           className="mt-3 w-full py-2 text-sm font-semibold text-zinc-100 bg-cyan-600 hover:bg-cyan-500 rounded transition-colors"
                         >
                           📅 Agendar com este cupom

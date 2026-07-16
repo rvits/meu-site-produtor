@@ -1,7 +1,5 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
-import { generateCouponCode } from "./coupons";
-import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
+import { createDomainCoupon } from "@/app/lib/domain/coupon-domain";
 
 type PlanServiceDef = {
   type: string;
@@ -39,28 +37,9 @@ const planServices: Record<string, PlanServiceDef[]> = {
   ],
 };
 
-async function allocateUniquePlanCouponCode(
-  tx: Prisma.TransactionClient,
-  isTestPayment: boolean
-): Promise<string> {
-  if (isTestPayment) {
-    for (let attempt = 0; attempt < 25; attempt++) {
-      const code = `TESTE_${generateCouponCode()}`;
-      const existing = await tx.coupon.findUnique({ where: { code } });
-      if (!existing) return code;
-    }
-  }
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const code = generateCouponCode();
-    const existing = await tx.coupon.findUnique({ where: { code } });
-    if (!existing) return code;
-  }
-  return `CUP_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`.toUpperCase();
-}
-
 /**
- * Gera cupons de serviços baseados no plano do usuário.
- * Idempotente por `userPlanId` e por `paymentId` (retries do webhook).
+ * Gera cupons do plano via factory de domínio (OP-02A).
+ * Idempotente por paymentId.
  */
 export async function generatePlanServiceCoupons(params: {
   userId: string;
@@ -105,24 +84,21 @@ export async function generatePlanServiceCoupons(params: {
     const coupons = [];
     for (const service of services) {
       for (let i = 0; i < service.quantity; i++) {
-        const code = await allocateUniquePlanCouponCode(tx, isTestPayment);
-        const isPercentCoupon = service.type === "percent_servicos" || service.type === "percent_beats";
-        const coupon = await tx.coupon.create({
-          data: {
-            code,
-            couponType: isTestPayment
-              ? toPersistedCouponType("TEST")
-              : isPercentCoupon
-                ? toPersistedCouponType("DISCOUNT")
-                : toPersistedCouponType("PLAN"),
-            discountType: isPercentCoupon ? "percent" : "service",
-            discountValue: isPercentCoupon ? (service.discountValue ?? 10) : 0,
-            serviceType: service.type,
-            userPlanId: userPlan.id,
-            paymentId: paymentId ?? null,
-            assignedUserId: userId,
-            expiresAt,
-          },
+        const isPercentCoupon =
+          service.type === "percent_servicos" || service.type === "percent_beats";
+        const coupon = await createDomainCoupon(tx, {
+          canonicalType: isTestPayment
+            ? "TEST"
+            : isPercentCoupon
+              ? "DISCOUNT"
+              : "PLAN",
+          discountType: isPercentCoupon ? "percent" : "service",
+          discountValue: isPercentCoupon ? (service.discountValue ?? 10) : 0,
+          serviceType: service.type,
+          userPlanId: userPlan.id,
+          paymentId: paymentId ?? null,
+          assignedUserId: userId,
+          expiresAt,
         });
         coupons.push(coupon);
       }

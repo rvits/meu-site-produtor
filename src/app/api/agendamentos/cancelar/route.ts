@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { sendAppointmentCancelledEmail } from "@/app/lib/sendEmail";
-import { generateCouponCode } from "@/app/lib/coupons";
 import { refundAsaasPayment } from "@/app/lib/asaas-refund";
 import { cancelAppointment } from "@/app/lib/domain/workflow";
 import { getPaymentForAppointment } from "@/app/lib/domain/domain-service";
-import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
+import { createDomainCoupon } from "@/app/lib/domain/coupon-domain";
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
 
 export async function POST(req: Request) {
   try {
@@ -90,19 +90,24 @@ export async function POST(req: Request) {
 
       if (finalRefundType === "coupon" || (!refundDirectSuccess && finalRefundType === "direct")) {
         try {
-          const refundCoupon = await prisma.coupon.create({
-            data: {
-              code: generateCouponCode(),
-              couponType: toPersistedCouponType("REFUND"),
-              discountType: "fixed",
-              discountValue: refundAmount,
-              appointmentId: aptIdNum,
-              expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            },
+          const svc = await prisma.service.findFirst({
+            where: { appointmentId: aptIdNum },
+            select: { tipo: true },
+            orderBy: { createdAt: "asc" },
+          });
+          const serviceType = normalizeServiceTypeId(svc?.tipo || agendamento.tipo || "sessao");
+          const refundCoupon = await createDomainCoupon(prisma, {
+            canonicalType: "REBOOK",
+            discountType: "service",
+            discountValue: 0,
+            serviceType,
+            originAppointmentId: aptIdNum,
+            assignedUserId: user.id,
+            expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
           });
           couponCode = refundCoupon.code;
         } catch (couponError: any) {
-          console.error("[Cancelar Agendamento] Erro ao criar cupom de reembolso:", couponError);
+          console.error("[Cancelar Agendamento] Erro ao criar cupom de remarcação:", couponError);
         }
       }
     }

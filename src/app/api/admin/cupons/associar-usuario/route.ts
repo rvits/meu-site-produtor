@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { assertCouponOwnershipTransferAllowed } from "@/app/lib/domain/coupon-domain";
 
 export async function POST(req: Request) {
   try {
@@ -45,8 +46,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await prisma.coupon.updateMany({
+    const existing = await prisma.coupon.findMany({
       where: { id: { in: couponIds } },
+      select: { id: true, assignedUserId: true },
+    });
+    for (const c of existing) {
+      try {
+        assertCouponOwnershipTransferAllowed(c, user.id);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Transferência de cupom bloqueada.";
+        return NextResponse.json({ error: msg, couponId: c.id }, { status: 409 });
+      }
+    }
+
+    const result = await prisma.coupon.updateMany({
+      where: {
+        id: { in: couponIds },
+        OR: [{ assignedUserId: null }, { assignedUserId: user.id }],
+      },
       data: { assignedUserId: user.id },
     });
 

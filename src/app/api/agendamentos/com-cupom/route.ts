@@ -239,38 +239,8 @@ export async function POST(req: Request) {
       finalTotal,
     });
 
-    // Verificar se cupom de serviço corresponde aos serviços selecionados
-    if (couponRow.discountType === "service" && couponRow.serviceType) {
-      const servicosIds = (servicos || []).map((s: any) => s.id);
-      const beatsIds = (beats || []).map((b: any) => b.id);
-      const todosServicos = [...servicosIds, ...beatsIds];
-      
-      // Mapear tipos de serviço equivalentes (inclui cupons de teste: sessao, beat, beat1-beat4)
-      const serviceTypeMap: Record<string, string[]> = {
-        "sessao": ["sessao", "captacao"],
-        "captacao": ["captacao", "sessao"],
-        "mix": ["mix"],
-        "master": ["master"],
-        "mix_master": ["mix_master", "mix", "master"],
-        "sonoplastia": ["sonoplastia"],
-        "beat": ["beat1", "beat2", "beat3", "beat4"],
-        "beat1": ["beat1"],
-        "beat2": ["beat2"],
-        "beat3": ["beat3"],
-        "beat4": ["beat4"],
-        "producao_completa": ["producao_completa"],
-      };
-
-      const tiposPermitidos = serviceTypeMap[couponRow.serviceType] || [couponRow.serviceType];
-      const temServicoValido = todosServicos.some((id: string) => tiposPermitidos.includes(id));
-
-      if (!temServicoValido) {
-        return NextResponse.json(
-          { error: `Este cupom é válido apenas para o serviço: ${couponRow.serviceType}. Selecione o serviço correspondente.` },
-          { status: 400 }
-        );
-      }
-    }
+    // Cupom de serviço: vínculo exclusivo validado em validateCouponAndGetTotal (service-redemption).
+    // Removido mapa frouxo sessao↔captacao — OP-02A: cupom não troca de serviço.
 
     // Criar data/hora do agendamento
     const dataHoraISO = new Date(`${data}T${hora}:00`);
@@ -284,6 +254,7 @@ export async function POST(req: Request) {
       observacoes: string | null;
       status: string;
     };
+    let boundServiceId: string | null = null;
 
     try {
       await prisma.$transaction(
@@ -346,7 +317,7 @@ export async function POST(req: Request) {
                 [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") ||
                 tipoSvc;
               for (let q = 0; q < (svc.quantidade || 1); q++) {
-                await tx.service.create({
+                const created = await tx.service.create({
                   data: {
                     userId: user.id,
                     appointmentId: apt.id,
@@ -355,6 +326,7 @@ export async function POST(req: Request) {
                     status: "pendente",
                   },
                 });
+                if (!boundServiceId) boundServiceId = created.id;
               }
             }
           }
@@ -365,7 +337,7 @@ export async function POST(req: Request) {
               const descB =
                 [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoB;
               for (let q = 0; q < (b.quantidade || 1); q++) {
-                await tx.service.create({
+                const created = await tx.service.create({
                   data: {
                     userId: user.id,
                     appointmentId: apt.id,
@@ -374,8 +346,16 @@ export async function POST(req: Request) {
                     status: "pendente",
                   },
                 });
+                if (!boundServiceId) boundServiceId = created.id;
               }
             }
+          }
+
+          if (boundServiceId) {
+            await tx.coupon.updateMany({
+              where: { id: couponRow.id, serviceId: null },
+              data: { serviceId: boundServiceId },
+            });
           }
         },
         {

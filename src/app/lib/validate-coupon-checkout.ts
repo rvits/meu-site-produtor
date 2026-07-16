@@ -111,12 +111,14 @@ function validateCanonicalUsage(
     type === "SERVICE" ||
     type === "REBOOK" ||
     (type === "REFUND" && coupon.discountType === "service") ||
-    (type === "TEST" && coupon.discountType === "service");
+    (type === "TEST" && coupon.discountType === "service") ||
+    (type === "PLAN" && coupon.discountType === "service") ||
+    (type === "BONUS" && coupon.discountType === "service");
 
   if (mode === "discount" && serviceLike) {
     return {
       ok: false,
-      error: "Use este cupom pelo botão Agendar com este cupom em Minha Conta.",
+      error: "Use este cupom pela página exclusiva em Minha Conta (Agendar com este cupom).",
     };
   }
   if (mode === "service-redemption" && !serviceLike) {

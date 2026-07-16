@@ -1,9 +1,13 @@
 import { prisma } from "@/app/lib/prisma";
-import { isRefundCoupon, isServiceCoupon } from "@/app/lib/domain/coupon-types";
+import {
+  isRefundCoupon,
+  isServiceCoupon,
+  resolveCanonicalCouponType,
+} from "@/app/lib/domain/coupon-types";
+import { couponUsesExclusiveSchedulingPage } from "@/app/lib/domain/coupon-domain";
 
 /**
- * Gates mínimos de cupom no checkout (PR-03 / HS-03A).
- * Tipagem via enum canônico — sem includes/startsWith.
+ * Gates mínimos de cupom no checkout (PR-03 / HS-03A / OP-02A).
  */
 
 export const COUPON_REFUND_USAGE_ERROR =
@@ -21,18 +25,25 @@ type CheckoutCouponLike = {
   serviceType?: string | null;
   paymentId?: string | null;
   userPlanId?: string | null;
+  appointmentId?: number | null;
 };
 
+/** Cupom de resgate exclusivo (agenda serviço; não digita no checkout comum). */
 function isCupomResgateAgendamento(coupon: CheckoutCouponLike): boolean {
-  if (coupon.paymentId) return true;
+  if (couponUsesExclusiveSchedulingPage(coupon)) return true;
   if (isServiceCoupon(coupon) && coupon.serviceType) return true;
-  if (isRefundCoupon(coupon)) return true;
+  if (isRefundCoupon(coupon) && coupon.discountType === "service") return true;
   return false;
 }
 
 /** Cupom que pode ser digitado no agendamento comum (promocional / percentual de plano / reembolso em valor). */
 export function isCupomPermitidoNoAgendamentoComum(coupon: CheckoutCouponLike): boolean {
   if (isCupomResgateAgendamento(coupon)) return false;
+  const t = resolveCanonicalCouponType(coupon);
+  if (t === "DISCOUNT") return true;
+  if (t === "REFUND" && coupon.discountType === "fixed") return true;
+  if (t === "TEST" && coupon.discountType !== "service") return true;
+  if (t === "PLAN" && coupon.discountType === "percent") return true;
   return true;
 }
 

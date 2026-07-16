@@ -260,18 +260,46 @@ function AgendamentoContent() {
     if (restore) window.history.replaceState({}, "", "/agendamento");
   }, [searchParams, aplicarRestore]);
 
-  // Preencher cupom quando vier da Minha Conta com ?cupom=CODE
+  // OP-02A: cupons de serviço → página exclusiva; desconto permanece no checkout comum
   useEffect(() => {
     const cupomFromUrl = searchParams.get("cupom") || searchParams.get("cupomCode");
-    if (cupomFromUrl && cupomFromUrl.trim()) {
-      setCupomCode(cupomFromUrl.trim());
-      // Limpar URL para não reaproveitar o cupom ao recarregar
-      const url = new URL(window.location.href);
-      url.searchParams.delete("cupom");
-      url.searchParams.delete("cupomCode");
-      window.history.replaceState({}, "", url.pathname + (url.search || ""));
-    }
-  }, [searchParams]);
+    if (!cupomFromUrl || !cupomFromUrl.trim()) return;
+
+    const code = cupomFromUrl.trim().toUpperCase();
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/coupons/${encodeURIComponent(code)}`, { cache: "no-store" });
+        if (!res.ok || cancelled) {
+          if (!cancelled) {
+            setCupomCode(code);
+          }
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.coupon?.exclusiveScheduling) {
+          router.replace(`/agendamento/cupom/${encodeURIComponent(code)}`);
+          return;
+        }
+        setCupomCode(code);
+      } catch {
+        if (!cancelled) setCupomCode(code);
+      } finally {
+        if (!cancelled && typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("cupom");
+          url.searchParams.delete("cupomCode");
+          window.history.replaceState({}, "", url.pathname + (url.search || ""));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, router]);
 
   // pageshow: restaura ao usar botão Voltar do navegador (incl. bfcache)
   useEffect(() => {

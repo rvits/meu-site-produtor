@@ -104,8 +104,14 @@ export function isPlanCoupon(coupon: CouponTypeInput): boolean {
 
 export function isServiceCoupon(coupon: CouponTypeInput): boolean {
   const t = resolveCanonicalCouponType(coupon);
-  if (t === "SERVICE") return true;
-  if (t === "TEST" && coupon.discountType === "service" && Boolean(coupon.serviceType)) {
+  if (t === "SERVICE" || t === "REBOOK") return true;
+  const st = String(coupon.serviceType || "");
+  if (st.startsWith("percent_")) return false;
+  if (
+    coupon.discountType === "service" &&
+    st &&
+    (t === "TEST" || t === "PLAN" || t === "BONUS" || t === "REFUND")
+  ) {
     return true;
   }
   return false;

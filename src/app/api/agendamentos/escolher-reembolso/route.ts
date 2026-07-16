@@ -4,8 +4,11 @@ import { requireAuth } from "@/app/lib/auth";
 import { refundAsaasPayment } from "@/app/lib/asaas-refund";
 import { fetchAsaasPayment, asaasPaymentIsRefundedStatus } from "@/app/lib/asaas-get-payment";
 import { listAsaasPaymentsReceived } from "@/app/lib/asaas-list-payments";
-import { generateCouponCode } from "@/app/lib/coupons";
-import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
+import {
+  createDomainCoupon,
+  invalidateUnusedCouponsForAppointment,
+} from "@/app/lib/domain/coupon-domain";
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
 
 /**
  * Para agendamentos cancelados ou recusados pelo admin: usuário escolhe reembolso direto (Asaas) ou cupom para remarcar.
@@ -304,6 +307,7 @@ export async function POST(req: Request) {
           valueToRefund,
           `Reembolso de agendamento #${id} (${agendamento.status === "recusado" ? "recusa" : "cancelamento"})`
         );
+        await invalidateUnusedCouponsForAppointment(prisma, id);
       } catch (err: any) {
         console.error("[Escolher Reembolso] Erro Asaas:", err);
         await prisma.appointment.updateMany({
@@ -325,16 +329,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // opcao === "cupom"
-    let code = generateCouponCode();
-    let attempts = 0;
-    while (attempts < 10) {
-      const exists = await prisma.coupon.findUnique({ where: { code } });
-      if (!exists) break;
-      code = generateCouponCode();
-      attempts++;
-    }
-
+    // opcao === "cupom" → REBOOK (mesmo serviço, página exclusiva)
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     async function amarrarCupomOuIdempotente(couponId: string): Promise<
@@ -373,61 +368,35 @@ export async function POST(req: Request) {
       };
     }
 
-    if (foiComCupomPlano) {
-      const serviceType = cupomPlanoDoAgendamento?.serviceType || agendamento.tipo || "sessao";
-      const coupon = await prisma.coupon.create({
-        data: {
-          code,
-          couponType: toPersistedCouponType("REFUND"),
-          discountType: "service",
-          discountValue: 0,
-          serviceType,
-          appointmentId: id,
-          expiresAt,
-        },
-      });
-      couponCode = coupon.code;
-      const ar = await amarrarCupomOuIdempotente(coupon.id);
-      if (!ar.ok) return ar.response;
-      return NextResponse.json({
-        message: `Cupom gerado para remarcar (serviço: ${serviceType}). Use-o ao agendar novamente o mesmo tipo de serviço.`,
-        opcao: "cupom",
-        couponCode,
-        serviceType,
-      });
-    }
+    const servicesDoApt = await prisma.service.findMany({
+      where: { appointmentId: id },
+      select: { tipo: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const serviceType = normalizeServiceTypeId(
+      cupomPlanoDoAgendamento?.serviceType ||
+        servicesDoApt[0]?.tipo ||
+        agendamento.tipo ||
+        "sessao"
+    );
 
-    if (!payment) {
-      return NextResponse.json(
-        { error: "Pagamento não encontrado para gerar cupom." },
-        { status: 400 }
-      );
-    }
-    const ids = payment.appointmentIds != null
-      ? (Array.isArray(payment.appointmentIds) ? payment.appointmentIds : JSON.parse(String(payment.appointmentIds)))
-      : [payment.appointmentId].filter(Boolean);
-    refundAmount = ids.length > 0 ? payment.amount / ids.length : payment.amount;
-
-    const coupon = await prisma.coupon.create({
-      data: {
-        code,
-        couponType: toPersistedCouponType("REFUND"),
-        discountType: "fixed",
-        discountValue: refundAmount,
-        appointmentId: id,
-        expiresAt,
-      },
+    const coupon = await createDomainCoupon(prisma, {
+      canonicalType: "REBOOK",
+      discountType: "service",
+      discountValue: 0,
+      serviceType,
+      originAppointmentId: id,
+      assignedUserId: user.id,
+      expiresAt,
     });
     couponCode = coupon.code;
-
-    const ar2 = await amarrarCupomOuIdempotente(coupon.id);
-    if (!ar2.ok) return ar2.response;
-
+    const ar = await amarrarCupomOuIdempotente(coupon.id);
+    if (!ar.ok) return ar.response;
     return NextResponse.json({
-      message: "Cupom de reembolso gerado. Use-o ao remarcar seu serviço.",
+      message: `Cupom de remarcação gerado (serviço: ${serviceType}). Use a página exclusiva para remarcar.`,
       opcao: "cupom",
       couponCode,
-      refundAmount,
+      serviceType,
     });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
