@@ -299,8 +299,8 @@ export default function ContaPage() {
           Salvar alterações
         </button>
 
-        {/* Botão Admin - apenas para thouse.rec.tremv@gmail.com */}
-        {form.email === "thouse.rec.tremv@gmail.com" && (
+        {/* Botão Admin — role ADMIN (AuthContext) */}
+        {user?.role === "ADMIN" && (
           <button
             onClick={() => router.push("/admin")}
             className="w-full rounded bg-yellow-600 py-3 font-semibold hover:bg-yellow-700 transition"

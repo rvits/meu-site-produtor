@@ -115,11 +115,7 @@ export default function MinhaContaPage() {
       setShowTestCouponTools(false);
       return;
     }
-    setShowTestCouponTools(
-      isLocalhostClient() ||
-        user.role === "ADMIN" ||
-        user.email === "thouse.rec.tremv@gmail.com"
-    );
+    setShowTestCouponTools(isLocalhostClient() || user.role === "ADMIN");
   }, [user]);
 
   const { refresh: refreshConta } = useDomainRefresh(

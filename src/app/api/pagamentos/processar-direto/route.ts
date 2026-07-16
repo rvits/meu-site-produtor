@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     // Proteção: admin logado OU secretKey válida no body
     const sessionUser = await getSessionUser();
-    const isAdmin = sessionUser && (sessionUser.role === "ADMIN" || sessionUser.email === "thouse.rec.tremv@gmail.com");
+    const isAdmin = sessionUser && sessionUser.role === "ADMIN";
 
     let body;
     try {

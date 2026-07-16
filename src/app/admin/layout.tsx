@@ -31,9 +31,9 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🔒 Proteção real de rota ADMIN - permite por role ADMIN ou email específico
+  // 🔒 Proteção real de rota ADMIN
   useEffect(() => {
-    if (!loading && (!user || (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com"))) {
+    if (!loading && (!user || user.role !== "ADMIN")) {
       router.replace("/");
     }
   }, [user, loading, router]);
@@ -46,7 +46,7 @@ export default function AdminLayout({
     );
   }
 
-  if (!user || (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com")) return null;
+  if (!user || user.role !== "ADMIN") return null;
 
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-100">

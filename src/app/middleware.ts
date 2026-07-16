@@ -18,7 +18,7 @@ async function sessionIsAdmin(sessionCookie: { value: string } | undefined): Pro
       session &&
         session.user &&
         session.expiresAt > new Date() &&
-        (session.user.role === "ADMIN" || session.user.email === "thouse.rec.tremv@gmail.com")
+        session.user.role === "ADMIN"
     );
   } catch {
     return false;
@@ -58,6 +58,7 @@ export async function middleware(request: NextRequest) {
     const isAdmin = await sessionIsAdmin(sessionCookie);
 
     // GO-01 — modo preparação Go Live (env): login ok; cadastro/compra/agendamento bloqueados
+    // ADMIN (role) continua com acesso total, inclusive boxes de pagamento de teste.
     if (isGoLiveMaintenanceMode()) {
       if (!isAdmin && isGoLiveBlockedPage(pathname)) {
         const url = new URL("/manutencao", request.url);

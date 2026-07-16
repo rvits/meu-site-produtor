@@ -123,7 +123,7 @@ export default function AdminManutencaoPage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-yellow-300 mb-1">Modo de Manutenção Ativo</h3>
                 <p className="text-sm text-yellow-200/80">
-                  Todos os usuários (exceto o administrador <span className="font-mono">thouse.rec.tremv@gmail.com</span>) 
+                  Todos os usuários (exceto administradores com <span className="font-mono">role ADMIN</span>) 
                   verão apenas a página de manutenção. Você pode continuar acessando o site normalmente para fazer 
                   atualizações.
                 </p>
@@ -145,7 +145,7 @@ export default function AdminManutencaoPage() {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-red-400">•</span>
-              <span>O administrador (<span className="font-mono">thouse.rec.tremv@gmail.com</span>) sempre tem acesso completo, mesmo com o modo ativado.</span>
+              <span>Administradores (<span className="font-mono">role ADMIN</span>) sempre têm acesso completo, mesmo com o modo ativado.</span>
             </li>
           </ul>
         </div>

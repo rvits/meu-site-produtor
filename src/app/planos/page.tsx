@@ -292,8 +292,7 @@ export default function PlanosPage() {
         </div>
       </section>
 
-      {/* BOX DE TESTE - APENAS PARA ADMIN */}
-      {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
+      {user && user.role === "ADMIN" && (
         <section className="mb-16 flex justify-center px-4">
           <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
             <div className="text-center space-y-4">
@@ -302,7 +301,7 @@ export default function PlanosPage() {
               </h3>
               <p className="text-sm text-yellow-200">
                 Use esta opção para testar o fluxo de pagamento de PLANO com um valor de R$ 5,00.
-                Um plano de teste será criado e aparecerá na seção "Planos" do admin após o pagamento.
+                Um plano de teste será criado e aparecerá na seção &quot;Planos&quot; do admin após o pagamento.
               </p>
               <button
                 onClick={async () => {
@@ -310,14 +309,17 @@ export default function PlanosPage() {
                     const res = await fetch("/api/test-payment", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ tipo: "plano" }),
+                      body: JSON.stringify({
+                        tipo: "plano",
+                        planId: "teste",
+                        modo: "mensal",
+                      }),
                     });
 
                     if (!res.ok) {
                       const error = await res.json();
                       let errorMessage = error.error || "Erro ao criar pagamento de teste";
                       
-                      // Mensagens mais amigáveis para erros comuns
                       if (error.details?.tipo === "permissao_insuficiente") {
                         errorMessage = `❌ Permissão Insuficiente\n\n${error.error}\n\n${error.details.solucao}\n\n${error.details.guia || ""}`;
                       } else if (error.details?.tipo === "token_invalido") {

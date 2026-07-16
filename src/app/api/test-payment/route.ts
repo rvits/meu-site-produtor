@@ -59,27 +59,39 @@ export async function POST(req: Request) {
       );
     }
 
-    if (tipo === "plano") {
-      return NextResponse.json(
-        {
-          error:
-            "Pagamento simbólico de plano é simulado localmente. Chame POST /api/admin/reprocessar-pagamento-plano-teste com simulacao: { planId, modo }.",
-        },
-        { status: 410 }
-      );
-    }
+    const planId = typeof body.planId === "string" ? body.planId : "teste";
+    const modo = body.modo === "anual" ? "anual" : "mensal";
 
-    let metadata: any = {
-      tipo: tipo || "teste",
-      userId: user.id,
-      isTest: true,
-      chargedAmount: SYMBOLIC_AGENDAMENTO_BRL,
-    };
+    let metadata: Record<string, unknown> =
+      tipo === "plano"
+        ? {
+            tipo: "plano",
+            userId: user.id,
+            planId,
+            planName: planId === "teste" ? "Plano de Teste" : `Plano ${planId}`,
+            modo,
+            amount: String(SYMBOLIC_AGENDAMENTO_BRL),
+            chargedAmount: String(SYMBOLIC_AGENDAMENTO_BRL),
+            symbolicPlano: true,
+            isTest: true,
+            isTestPayment: true,
+            billingDay: new Date().getDate(),
+            paymentMethod: "pix",
+          }
+        : {
+            tipo: tipo || "teste",
+            userId: user.id,
+            isTest: true,
+            chargedAmount: SYMBOLIC_AGENDAMENTO_BRL,
+          };
 
     const items = [
       {
-        id: "teste-pagamento",
-        title: "Pagamento de Teste - THouse Rec",
+        id: tipo === "plano" ? `teste-plano-${planId}` : "teste-pagamento",
+        title:
+          tipo === "plano"
+            ? `Pagamento de Teste - Plano ${planId} - THouse Rec`
+            : "Pagamento de Teste - THouse Rec",
         quantity: 1,
         unit_price: SYMBOLIC_AGENDAMENTO_BRL,
       },

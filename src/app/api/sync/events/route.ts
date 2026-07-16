@@ -58,8 +58,7 @@ function filterForClient(
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
-  const isAdmin =
-    !!user && (user.role === "ADMIN" || user.email === "thouse.rec.tremv@gmail.com");
+  const isAdmin = !!user && user.role === "ADMIN";
   const userId = user?.id || null;
 
   const url = new URL(req.url);

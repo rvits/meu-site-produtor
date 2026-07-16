@@ -1,15 +1,8 @@
-const PRIVILEGED_OWNER_EMAIL_NORMALIZED = "thouse.rec.tremv@gmail.com";
-
-function isPrivilegedOwnerEmail(email: string | null | undefined): boolean {
-  if (!email || typeof email !== "string") return false;
-  return email.trim().toLowerCase() === PRIVILEGED_OWNER_EMAIL_NORMALIZED;
-}
-
 function hasAdminAccessLocal(
-  user: { role: string; email: string } | null | undefined
+  user: { role: string; email?: string | null } | null | undefined
 ): boolean {
   if (!user) return false;
-  return user.role === "ADMIN" || isPrivilegedOwnerEmail(user.email);
+  return user.role === "ADMIN";
 }
 
 /**

@@ -1636,7 +1636,7 @@ function AgendamentoContent() {
       {/* =========================================================
           BOX DE TESTE - APENAS PARA ADMIN
       ========================================================== */}
-      {user && (user.email === "thouse.rec.tremv@gmail.com" || user.role === "ADMIN") && (
+      {user && user.role === "ADMIN" && (
         <section className="mb-16 flex justify-center px-4 mt-16">
           <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
             <div className="space-y-4">
@@ -1893,17 +1893,18 @@ function AgendamentoContent() {
                       : 60;
 
                     try {
-                      const res = await fetch("/api/test-payment", {
+                      const res = await fetch("/api/asaas/checkout-agendamento", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                          tipo: "agendamento",
+                        body: JSON.stringify({
                           data: dataSelecionada,
                           hora: horaSelecionada,
                           observacoes: comentarios,
                           duracaoMinutos: duracaoTeste,
+                          tipo: servicosTeste[0]?.id || beatsTeste[0]?.id || "sessao",
                           servicos: servicosTeste,
                           beats: beatsTeste,
+                          symbolicAgendamento: true,
                         }),
                       });
 

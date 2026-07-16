@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     // Apenas admin pode processar manualmente
     const user = await requireAuth();
-    if (user.role !== "ADMIN" && user.email !== "thouse.rec.tremv@gmail.com") {
+    if (user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Acesso negado. Apenas administradores podem processar pagamentos manualmente." },
         { status: 403 }
