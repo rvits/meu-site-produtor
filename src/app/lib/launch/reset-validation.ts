@@ -16,7 +16,7 @@ const PRESERVED_TABLES = [
   "FAQ",
   "SiteSettings",
   "BlockedTimeSlot",
-  "User (admin Victor)",
+  "User (ADMIN permanentes + allowlist Victor)",
 ] as const;
 
 const REMOVED_ON_RESET = [
