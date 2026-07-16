@@ -1,4 +1,4 @@
-import { isMultiCouponAgendamentoPackageId } from "@/app/lib/service-catalog";
+import { isMultiCouponAgendamentoPackageId, isSchedulableServiceType } from "@/app/lib/service-catalog";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
@@ -59,12 +59,19 @@ export function isSingleMultiCouponPackageSelection(
   return isMultiCouponAgendamentoPackageId(active[0].id, active[0].nome);
 }
 
-/** Um único serviço ou pacote atômico no checkout: data e horário são obrigatórios. */
+/**
+ * OP-01: data/hora obrigatória somente para Sessão/Captação isolada.
+ * Beat, Mix, Master, Sonoplastia e pacotes → cupons (agenda individual depois).
+ */
 export function exigeAgendamentoDataHora(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  return countAgendamentoItemLines(services, beats) === 1 && !isSingleMultiCouponPackageSelection(services, beats);
+  if (isSingleMultiCouponPackageSelection(services, beats)) return false;
+  const active = getActiveAgendamentoLines(services, beats);
+  if (active.length !== 1) return false;
+  if (Math.max(1, Number(active[0].quantidade) || 1) !== 1) return false;
+  return isSchedulableServiceType(active[0].id, active[0].nome);
 }
 
 /** Pagamento que libera cupons por serviço; o agendamento nasce só no resgate do cupom. */
@@ -77,7 +84,7 @@ export function isCouponsOnlyAgendamentoPayment(
   return lines > 0 && !exigeAgendamentoDataHora(services, beats);
 }
 
-/** Um único serviço com data/hora no checkout: cria agendamento direto no pagamento. */
+/** Um único serviço agendável com data/hora no checkout: cria agendamento direto no pagamento. */
 export function isSingleScheduledAgendamentoPayment(
   metadata: Record<string, unknown>,
   services: ItemLine[] = [],

@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import DuvidasBox from "../components/DuvidasBox";
 import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
 import { useDomainRefresh } from "../hooks/useDomainRefresh";
+import { exigeAgendamentoDataHora } from "../lib/agendamento-payment-rules";
 
 type Servico = {
   id: string;
@@ -404,6 +405,22 @@ function AgendamentoContent() {
 
   const totalGeral = totalServicos + totalBeats;
 
+  const linhasCheckout = useMemo(() => {
+    const servicos = SERVICOS_ESTUDIO
+      .filter((s) => (quantidadesServicos[s.id] || 0) > 0)
+      .map((s) => ({ id: s.id, nome: s.nome, quantidade: quantidadesServicos[s.id] }));
+    const beats = BEATS_PACOTES
+      .filter((b) => (quantidadesBeats[b.id] || 0) > 0)
+      .map((b) => ({ id: b.id, nome: b.nome, quantidade: quantidadesBeats[b.id] }));
+    return { servicos, beats };
+  }, [quantidadesServicos, quantidadesBeats]);
+
+  /** OP-01: agenda só para Sessão/Captação isolada. */
+  const precisaAgenda = useMemo(
+    () => exigeAgendamentoDataHora(linhasCheckout.servicos, linhasCheckout.beats),
+    [linhasCheckout]
+  );
+
   // Calcular desconto do cupom e total com desconto
   const descontoCupom = useMemo(() => {
     if (!cupomAplicado) return 0;
@@ -433,17 +450,16 @@ function AgendamentoContent() {
       alert("Nenhum serviço selecionado");
       return;
     }
-    
-    // Verificar se a data foi selecionada
-    if (!dataSelecionada) {
-      alert("O dia não foi selecionado");
-      return;
-    }
-    
-    // Verificar se a hora foi selecionada
-    if (!horaSelecionada) {
-      alert("A hora não foi selecionada");
-      return;
+
+    if (precisaAgenda) {
+      if (!dataSelecionada) {
+        alert("O dia não foi selecionado");
+        return;
+      }
+      if (!horaSelecionada) {
+        alert("A hora não foi selecionada");
+        return;
+      }
     }
     
     // Verificar se os termos foram aceitos
@@ -594,13 +610,15 @@ function AgendamentoContent() {
       alert("Nenhum serviço selecionado");
       return;
     }
-    if (!dataSelecionada) {
-      alert("O dia não foi selecionado");
-      return;
-    }
-    if (!horaSelecionada) {
-      alert("A hora não foi selecionada");
-      return;
+    if (precisaAgenda) {
+      if (!dataSelecionada) {
+        alert("O dia não foi selecionado");
+        return;
+      }
+      if (!horaSelecionada) {
+        alert("A hora não foi selecionada");
+        return;
+      }
     }
     if (!aceiteTermos) {
       alert("É preciso marcar a declaração dos Termos de Contrato antes de adicionar ao carrinho.");
@@ -898,7 +916,9 @@ function AgendamentoContent() {
 
       {/* =========================================================
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
+          OP-01: só Sessão/Captação isolada pedem agenda.
       ========================================================== */}
+      {precisaAgenda ? (
       <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
           <div
@@ -1122,6 +1142,14 @@ function AgendamentoContent() {
           />
         </div>
       </section>
+      ) : (
+        <section className="mb-8 flex justify-center px-4 mt-10">
+          <div className="w-full max-w-4xl rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 text-center text-sm text-zinc-300">
+            Serviços como Beat, Mixagem, Master e Sonoplastia seguem fluxo individual por cupom —
+            a data de agenda é escolhida depois, no resgate de cada cupom (Sessão/Captação).
+          </div>
+        </section>
+      )}
 
       {/* =========================================================
           TRABALHOS EXTERNOS
@@ -1849,14 +1877,15 @@ function AgendamentoContent() {
                   type="button"
                   onClick={async () => {
                     // Validações
-                    if (!dataSelecionada) {
-                      alert("Por favor, selecione uma data.");
-                      return;
-                    }
-                    
-                    if (!horaSelecionada) {
-                      alert("Por favor, selecione um horário.");
-                      return;
+                    if (precisaAgenda) {
+                      if (!dataSelecionada) {
+                        alert("Por favor, selecione uma data.");
+                        return;
+                      }
+                      if (!horaSelecionada) {
+                        alert("Por favor, selecione um horário.");
+                        return;
+                      }
                     }
                     
                     if (!comentarios.trim()) {
@@ -1881,11 +1910,12 @@ function AgendamentoContent() {
                       return;
                     }
 
-                    // Verificar se a data/hora não passou
-                    const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
-                    if (dataHoraISO < new Date()) {
-                      alert("Não é possível agendar para uma data/hora que já passou.");
-                      return;
+                    if (precisaAgenda && dataSelecionada && horaSelecionada) {
+                      const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
+                      if (dataHoraISO < new Date()) {
+                        alert("Não é possível agendar para uma data/hora que já passou.");
+                        return;
+                      }
                     }
 
                     const duracaoTeste = servicosTeste.length > 0
@@ -1897,8 +1927,9 @@ function AgendamentoContent() {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          data: dataSelecionada,
-                          hora: horaSelecionada,
+                          ...(precisaAgenda
+                            ? { data: dataSelecionada, hora: horaSelecionada }
+                            : {}),
                           observacoes: comentarios,
                           duracaoMinutos: duracaoTeste,
                           tipo: servicosTeste[0]?.id || beatsTeste[0]?.id || "sessao",

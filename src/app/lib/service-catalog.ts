@@ -1,4 +1,6 @@
-/** IDs canônicos alinhados ao front em `agendamento/page.tsx` (serviços e beats). */
+/** IDs que exigem data/hora de estúdio (agenda presencial). */
+export const SCHEDULABLE_SERVICE_IDS = new Set<string>(["sessao", "captacao"]);
+
 export const CANONICAL_SERVICE_IDS = [
   "sessao",
   "captacao",
@@ -97,6 +99,11 @@ export function normalizeServiceTypeId(raw: string): string {
     captação: "captacao",
   };
   return aliases[s] || s;
+}
+
+export function isSchedulableServiceType(rawId?: string | null, rawName?: string | null): boolean {
+  const id = normalizeServiceTypeId(String(rawId || rawName || ""));
+  return SCHEDULABLE_SERVICE_IDS.has(id);
 }
 
 const PACKAGE_LABEL_ALIASES: Record<string, string> = {

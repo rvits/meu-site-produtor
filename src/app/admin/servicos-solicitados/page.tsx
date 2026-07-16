@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ACTIVE_OPERATIONAL_SERVICE_STATUSES } from "@/app/lib/service-authority";
 import { notifyAppDataChanged } from "@/app/lib/app-data-events";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
+import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
 
 const ACTIVE_SERVICE_STATUSES = ACTIVE_OPERATIONAL_SERVICE_STATUSES;
 
@@ -43,7 +44,9 @@ export default function AdminServicosSelecionadosPage() {
     id: string;
     tipo: string;
     audioUrl: string;
-    formato: "wav" | "mp3";
+    formato: "wav" | "mp3" | "zip";
+    fileName?: string;
+    uploading?: boolean;
   } | null>(null);
 
   const carregarServicos = useCallback(async (withRepair = false) => {
@@ -83,15 +86,50 @@ export default function AdminServicosSelecionadosPage() {
       id: s.id,
       tipo: s.tipo,
       audioUrl: s.deliveryAudioUrl || "",
-      formato: (s.deliveryAudioFormat === "mp3" ? "mp3" : "wav"),
+      formato: (s.deliveryAudioFormat === "mp3" ? "mp3" : s.deliveryAudioFormat === "zip" ? "zip" : "wav"),
     });
+  }
+
+  async function onSelectDeliveryFile(file: File | null) {
+    if (!concluirModal || !file) return;
+    setConcluirModal((m) => (m ? { ...m, uploading: true } : null));
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("serviceId", concluirModal.id);
+      const res = await fetch("/api/admin/servicos/upload-entrega", {
+        method: "POST",
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || "Falha no upload.");
+        return;
+      }
+      setConcluirModal((m) =>
+        m
+          ? {
+              ...m,
+              audioUrl: data.deliveryAudioUrl,
+              formato: data.deliveryAudioFormat || m.formato,
+              fileName: data.fileName || file.name,
+              uploading: false,
+            }
+          : null
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Erro no upload.");
+    } finally {
+      setConcluirModal((m) => (m ? { ...m, uploading: false } : null));
+    }
   }
 
   async function confirmarConcluir() {
     if (!concluirModal) return;
     const url = concluirModal.audioUrl.trim();
     if (!url) {
-      alert("Informe a URL do arquivo de áudio (link público para download).");
+      alert("Selecione e faça upload de um arquivo (WAV/MP3/ZIP) antes de salvar.");
       return;
     }
     try {
@@ -109,8 +147,9 @@ export default function AdminServicosSelecionadosPage() {
       if (res.ok) {
         setConcluirModal(null);
         await carregarServicos();
+        notifyAppDataChanged("admin-servico-updated");
       } else {
-        alert(data.error || "Erro ao concluir. Verifique URL e formato.");
+        alert(data.error || "Erro ao concluir. Verifique o arquivo.");
       }
     } catch (err) {
       console.error("Erro ao atualizar serviço", err);
@@ -120,7 +159,30 @@ export default function AdminServicosSelecionadosPage() {
     }
   }
 
-  async function marcarComoPendente(id: string) {
+  async function iniciarServico(id: string) {
+    try {
+      setUpdatingId(id);
+      const res = await fetch(`/api/admin/servicos?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "em_andamento" }),
+      });
+      if (res.ok) {
+        await carregarServicos();
+        notifyAppDataChanged("admin-servico-updated");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Erro ao iniciar serviço.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao iniciar serviço.");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function aceitarServico(id: string) {
     try {
       setUpdatingId(id);
       const res = await fetch(`/api/admin/servicos?id=${id}`, {
@@ -131,10 +193,13 @@ export default function AdminServicosSelecionadosPage() {
       if (res.ok) {
         await carregarServicos();
         notifyAppDataChanged("admin-servico-updated");
-      } else alert("Erro ao atualizar. Tente novamente.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Erro ao aceitar serviço.");
+      }
     } catch (err) {
-      console.error("Erro ao atualizar serviço", err);
-      alert("Erro ao atualizar serviço.");
+      console.error(err);
+      alert("Erro ao aceitar serviço.");
     } finally {
       setUpdatingId(null);
     }
@@ -186,7 +251,7 @@ export default function AdminServicosSelecionadosPage() {
             Serviços Selecionados
           </h1>
           <p className="text-zinc-400">
-            Ao concluir, informe o link público do arquivo (WAV ou MP3). O cliente verá o download na Minha Conta.
+            Colunas: Pendentes · Aceitos · Em andamento. Conclusão com upload de arquivo (WAV/MP3/ZIP).
           </p>
         </div>
         <button
@@ -202,39 +267,30 @@ export default function AdminServicosSelecionadosPage() {
       {concluirModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-xl border border-zinc-600 bg-zinc-900 p-6 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-zinc-100">Concluir serviço</h2>
+            <h2 className="text-lg font-bold text-zinc-100">Entregar arquivo</h2>
             <p className="text-sm text-zinc-400">
               Serviço: <span className="text-zinc-200">{concluirModal.tipo}</span>
             </p>
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">
-                URL do arquivo (link direto ou página de download)
+                Selecionar arquivo (WAV, MP3 ou ZIP)
               </label>
               <input
-                type="url"
-                value={concluirModal.audioUrl}
-                onChange={(e) =>
-                  setConcluirModal((m) => (m ? { ...m, audioUrl: e.target.value } : null))
-                }
-                placeholder="https://..."
-                className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+                type="file"
+                accept=".wav,.mp3,.zip,audio/wav,audio/mpeg,application/zip"
+                onChange={(e) => void onSelectDeliveryFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-zinc-300"
               />
+              {concluirModal.uploading && (
+                <p className="text-xs text-amber-400 mt-1">Enviando arquivo…</p>
+              )}
+              {concluirModal.fileName && (
+                <p className="text-xs text-green-400 mt-1">Arquivo: {concluirModal.fileName}</p>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Formato</label>
-              <select
-                value={concluirModal.formato}
-                onChange={(e) =>
-                  setConcluirModal((m) =>
-                    m ? { ...m, formato: e.target.value as "wav" | "mp3" } : null
-                  )
-                }
-                className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
-              >
-                <option value="wav">WAV</option>
-                <option value="mp3">MP3</option>
-              </select>
-            </div>
+            {concluirModal.audioUrl && concluirModal.fileName && (
+              <p className="text-xs text-zinc-400">Pronto para salvar: {concluirModal.fileName}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -246,10 +302,10 @@ export default function AdminServicosSelecionadosPage() {
               <button
                 type="button"
                 onClick={confirmarConcluir}
-                disabled={updatingId === concluirModal.id}
+                disabled={updatingId === concluirModal.id || concluirModal.uploading || !concluirModal.audioUrl}
                 className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-50"
               >
-                {updatingId === concluirModal.id ? "Salvando..." : "Concluir"}
+                {updatingId === concluirModal.id ? "Salvando..." : "Salvar entrega"}
               </button>
             </div>
           </div>
@@ -285,13 +341,6 @@ export default function AdminServicosSelecionadosPage() {
             const apt = head?.appointment;
             const agendamentoId = head?.appointmentId;
             const user = head?.user;
-            const pendentes = items.filter(
-              (s) =>
-                s.status !== "concluido" &&
-                s.status !== "cancelado" &&
-                s.status !== "recusado"
-            );
-            const feitos = items.filter((s) => s.status === "concluido");
 
             return (
               <div
@@ -333,76 +382,72 @@ export default function AdminServicosSelecionadosPage() {
                   </div>
                 </div>
 
-                <div className="p-4 space-y-3">
-                  {items.map((s) => {
-                    const isFeito = s.status === "concluido";
-                    const isCanceladoOuRecusado =
-                      s.status === "cancelado" || s.status === "recusado";
-
+                <div className="p-4 grid gap-4 md:grid-cols-3">
+                  {(
+                    [
+                      { key: "pendente", label: "Pendentes", color: "text-amber-300" },
+                      { key: "aceito", label: "Aceitos", color: "text-green-300" },
+                      { key: "em_andamento", label: "Em andamento", color: "text-blue-300" },
+                    ] as const
+                  ).map((col) => {
+                    const colItems = items.filter((s) => s.status === col.key);
                     return (
-                      <div
-                        key={s.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2 border-b border-zinc-700/50 last:border-0"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full ${
-                                isFeito
-                                  ? "bg-green-500"
-                                  : isCanceladoOuRecusado
-                                    ? "bg-red-500"
-                                    : "bg-amber-500"
-                              }`}
-                            />
-                            <span className="font-medium text-zinc-200">
-                              {s.tipo}
-                            </span>
-                            {s.description && (
-                              <span className="text-zinc-400 text-sm truncate">
-                                — {s.description}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-zinc-500 mt-0.5">
-                            {isFeito
-                              ? s.deliveryAudioUrl
-                                ? `Feito · ${(s.deliveryAudioFormat || "").toUpperCase()} · link registrado`
-                                : "Feito"
-                              : isCanceladoOuRecusado
-                                ? s.status === "cancelado"
-                                  ? "Cancelado (agendamento cancelado)"
-                                  : "Recusado"
-                                : "A fazer"}
-                          </div>
-                          {isFeito && s.deliveryAudioUrl && (
-                            <p className="text-xs text-zinc-600 truncate mt-1">
-                              {s.deliveryAudioUrl}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex-shrink-0 flex flex-wrap gap-2">
-                          {!isFeito && !isCanceladoOuRecusado && (
-                            <button
-                              type="button"
-                              onClick={() => abrirModalConcluir(s)}
-                              disabled={updatingId === s.id}
-                              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition disabled:opacity-50"
-                            >
-                              Concluir com entrega
-                            </button>
-                          )}
-                          {isFeito && (
-                            <button
-                              type="button"
-                              onClick={() => marcarComoPendente(s.id)}
-                              disabled={updatingId === s.id}
-                              className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-500 transition disabled:opacity-50"
-                            >
-                              {updatingId === s.id
-                                ? "Salvando..."
-                                : "Reabrir (a fazer)"}
-                            </button>
+                      <div key={col.key} className="rounded-lg border border-zinc-700/80 bg-zinc-900/40 p-3">
+                        <h3 className={`text-xs font-semibold uppercase tracking-wide mb-3 ${col.color}`}>
+                          {col.label} ({colItems.length})
+                        </h3>
+                        <div className="space-y-3">
+                          {colItems.length === 0 ? (
+                            <p className="text-xs text-zinc-600">—</p>
+                          ) : (
+                            colItems.map((s) => (
+                              <div
+                                key={s.id}
+                                className="rounded border border-zinc-700/60 bg-zinc-800/50 p-3 space-y-2"
+                              >
+                                <div className="font-medium text-zinc-200">{s.tipo}</div>
+                                {s.description && (
+                                  <div className="text-xs text-zinc-400">{s.description}</div>
+                                )}
+                                {s.deliveryAudioUrl && (
+                                  <div className="text-xs text-zinc-400">
+                                    Entrega: {deliveryDisplayName(s.deliveryAudioUrl)}
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                  {s.status === "pendente" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => aceitarServico(s.id)}
+                                      disabled={updatingId === s.id}
+                                      className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+                                    >
+                                      Aceitar
+                                    </button>
+                                  )}
+                                  {s.status === "aceito" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => iniciarServico(s.id)}
+                                      disabled={updatingId === s.id}
+                                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                                    >
+                                      Iniciar
+                                    </button>
+                                  )}
+                                  {s.status === "em_andamento" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => abrirModalConcluir(s)}
+                                      disabled={updatingId === s.id}
+                                      className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50"
+                                    >
+                                      Entregar arquivo
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))
                           )}
                         </div>
                       </div>
@@ -412,7 +457,9 @@ export default function AdminServicosSelecionadosPage() {
 
                 <div className="px-4 py-2 bg-zinc-900/50 text-xs text-zinc-500 flex justify-between">
                   <span>
-                    A fazer: {pendentes.length} · Feitos: {feitos.length}
+                    Pendentes: {items.filter((s) => s.status === "pendente").length} · Aceitos:{" "}
+                    {items.filter((s) => s.status === "aceito").length} · Em andamento:{" "}
+                    {items.filter((s) => s.status === "em_andamento").length}
                   </span>
                 </div>
               </div>

@@ -5,21 +5,23 @@
 
 import type { WorkflowEntity } from "@/app/lib/domain/state-machine/types";
 
-/** Grafo canônico (estados normalizados em minúsculas). */
+/** Grafo canônico OP-01 (estados normalizados em minúsculas). */
 export const ALLOWED_TRANSITIONS: Record<WorkflowEntity, Record<string, readonly string[]>> = {
   appointment: {
-    pendente: ["aceito", "confirmado", "recusado", "cancelado"],
-    aceito: ["em_andamento", "cancelado", "concluido", "remarcado"],
-    confirmado: ["aceito", "em_andamento", "cancelado", "concluido", "remarcado"],
+    // RECUSADO só de PENDENTE; CANCELADO só após ACEITO/CONFIRMADO/EM_ANDAMENTO
+    pendente: ["aceito", "confirmado", "recusado"],
+    aceito: ["em_andamento", "cancelado", "remarcado"],
+    confirmado: ["aceito", "em_andamento", "cancelado", "remarcado"],
     em_andamento: ["concluido", "cancelado"],
-    cancelado: ["aceito", "remarcado"], // reabrir / remarcar
+    cancelado: ["aceito", "remarcado"],
     recusado: [],
     concluido: [],
     remarcado: ["pendente", "aceito"],
   },
   service: {
-    pendente: ["aceito", "em_andamento", "cancelado", "recusado"],
-    aceito: ["em_andamento", "concluido", "entrega", "cancelado"],
+    // Linear: PENDENTE → ACEITO → EM_ANDAMENTO → ENTREGA/CONCLUÍDO
+    pendente: ["aceito", "recusado", "cancelado"],
+    aceito: ["em_andamento", "cancelado"],
     em_andamento: ["entrega", "concluido", "cancelado"],
     entrega: ["concluido", "cancelado"],
     concluido: [],
@@ -158,8 +160,20 @@ export function assertTransitionAllowed(
   if (from === "concluido" && to === "pendente") {
     throw new Error("Não permitir CONCLUIDO → PENDENTE");
   }
+  if (from === "concluido" && (to === "aceito" || to === "em_andamento" || to === "entrega")) {
+    throw new Error(`Não permitir CONCLUIDO → ${to.toUpperCase()}`);
+  }
+  if (from === "aceito" && to === "concluido") {
+    throw new Error("Não permitir ACEITO → CONCLUÍDO (passe por EM_ANDAMENTO)");
+  }
+  if (from === "aceito" && to === "recusado") {
+    throw new Error("Não permitir ACEITO → RECUSADO (use CANCELADO)");
+  }
   if (from === "recusado" && to === "em_andamento") {
     throw new Error("Não permitir RECUSADO → EM_ANDAMENTO");
+  }
+  if (from === "pendente" && to === "cancelado" && entity === "appointment") {
+    throw new Error("Não permitir CANCELADO a partir de PENDENTE (use RECUSADO)");
   }
   if (
     (from === "reembolsado" || from === "refunded") &&

@@ -108,8 +108,8 @@ async function persistStatus(
     if (persisted === "concluido") {
       const url = String(meta.deliveryAudioUrl || "").trim();
       const fmt = meta.deliveryAudioFormat;
-      if (fmt !== "wav" && fmt !== "mp3") {
-        throw Object.assign(new Error("Formato de entrega obrigatório (wav|mp3)"), {
+      if (fmt !== "wav" && fmt !== "mp3" && fmt !== "zip") {
+        throw Object.assign(new Error("Formato de entrega obrigatório (wav|mp3|zip)"), {
           httpStatus: 400,
           code: "VALIDATION",
         });
@@ -132,9 +132,11 @@ async function persistStatus(
     const fromFilter =
       toNormalized === "em_andamento"
         ? { in: ["pendente", "aceito"] }
-        : toNormalized === "concluido" || toNormalized === "entrega"
-          ? { not: "concluido" }
-          : fromPersisted;
+        : toNormalized === "entrega"
+          ? { in: ["em_andamento"] }
+          : toNormalized === "concluido"
+            ? { in: ["em_andamento", "entrega"] }
+            : fromPersisted;
 
     const cnt = await prisma.service.updateMany({
       where: { id: String(input.id), status: fromFilter as any },

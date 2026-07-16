@@ -8,7 +8,7 @@ import { z } from "zod";
 const updateSchema = z.object({
   status: z.string().optional(),
   deliveryAudioUrl: z.string().optional(),
-  deliveryAudioFormat: z.enum(["wav", "mp3"]).optional(),
+  deliveryAudioFormat: z.enum(["wav", "mp3", "zip"]).optional(),
 });
 
 const NO_STORE = {
@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       include: {
         user: {
           select: {
+            id: true,
             nomeArtistico: true,
             email: true,
           },
@@ -45,12 +46,103 @@ export async function GET(req: Request) {
             data: true,
             status: true,
             tipo: true,
+            observacoes: true,
           },
         },
       },
     });
 
-    return NextResponse.json({ servicos, repaired }, { headers: NO_STORE });
+    const aptIds = [
+      ...new Set(
+        servicos
+          .map((s) => s.appointmentId)
+          .filter((id): id is number => id != null)
+      ),
+    ];
+    const payments =
+      aptIds.length > 0
+        ? await prisma.payment.findMany({
+            where: {
+              OR: [
+                { appointmentId: { in: aptIds } },
+                // carrinho: appointmentIds JSON — filtrado em memória abaixo
+              ],
+            },
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              paymentMethod: true,
+              appointmentId: true,
+              appointmentIds: true,
+            },
+          })
+        : [];
+
+    const paymentByApt = new Map<number, (typeof payments)[number]>();
+    for (const p of payments) {
+      if (p.appointmentId != null && !paymentByApt.has(p.appointmentId)) {
+        paymentByApt.set(p.appointmentId, p);
+      }
+      let ids: unknown = p.appointmentIds;
+      if (typeof ids === "string") {
+        try {
+          ids = JSON.parse(ids);
+        } catch {
+          ids = null;
+        }
+      }
+      if (Array.isArray(ids)) {
+        for (const raw of ids) {
+          const id = Number(raw);
+          if (Number.isFinite(id) && !paymentByApt.has(id)) {
+            paymentByApt.set(id, p);
+          }
+        }
+      }
+    }
+
+    const paymentIds = [...new Set([...paymentByApt.values()].map((p) => p.id))];
+    const coupons =
+      paymentIds.length > 0
+        ? await prisma.coupon.findMany({
+            where: { paymentId: { in: paymentIds } },
+            select: {
+              id: true,
+              code: true,
+              couponType: true,
+              serviceType: true,
+              used: true,
+              paymentId: true,
+            },
+          })
+        : [];
+    const couponsByPayment = new Map<string, typeof coupons>();
+    for (const c of coupons) {
+      if (!c.paymentId) continue;
+      const list = couponsByPayment.get(c.paymentId) || [];
+      list.push(c);
+      couponsByPayment.set(c.paymentId, list);
+    }
+
+    const enriched = servicos.map((s) => {
+      const payment =
+        s.appointmentId != null ? paymentByApt.get(s.appointmentId) || null : null;
+      const rawCoupons = payment ? couponsByPayment.get(payment.id) || [] : [];
+      return {
+        ...s,
+        payment,
+        coupons: rawCoupons.map((c) => ({
+          id: c.id,
+          code: c.code,
+          type: c.serviceType || c.couponType,
+          status: c.used ? "utilizado" : "criado",
+        })),
+        observacoes: s.appointment?.observacoes || s.description || null,
+      };
+    });
+
+    return NextResponse.json({ servicos: enriched, repaired }, { headers: NO_STORE });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });

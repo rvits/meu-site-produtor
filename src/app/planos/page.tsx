@@ -83,6 +83,8 @@ export default function PlanosPage() {
     prata: false,
     ouro: false,
   });
+  const [testPlanId, setTestPlanId] = useState<"bronze" | "prata" | "ouro">("bronze");
+  const [testPlanModo, setTestPlanModo] = useState<"mensal" | "anual">("mensal");
 
   const { user } = useAuth();
   const router = useRouter();
@@ -300,9 +302,38 @@ export default function PlanosPage() {
                 🧪 Pagamento de Teste - Plano (Apenas Admin)
               </h3>
               <p className="text-sm text-yellow-200">
-                Use esta opção para testar o fluxo de pagamento de PLANO com um valor de R$ 5,00.
-                Um plano de teste será criado e aparecerá na seção &quot;Planos&quot; do admin após o pagamento.
+                Pagamento simbólico de plano (R$ 5,00) usa o mesmo pipeline do real.
+                Escolha Bronze, Prata ou Ouro — os cupons do plano são gerados normalmente.
               </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <label className="text-sm text-yellow-100">
+                  Plano{" "}
+                  <select
+                    value={testPlanId}
+                    onChange={(e) =>
+                      setTestPlanId(e.target.value as "bronze" | "prata" | "ouro")
+                    }
+                    className="ml-1 rounded border border-yellow-600 bg-zinc-900 px-2 py-1 text-yellow-100"
+                  >
+                    <option value="bronze">Bronze</option>
+                    <option value="prata">Prata</option>
+                    <option value="ouro">Ouro</option>
+                  </select>
+                </label>
+                <label className="text-sm text-yellow-100">
+                  Modo{" "}
+                  <select
+                    value={testPlanModo}
+                    onChange={(e) =>
+                      setTestPlanModo(e.target.value as "mensal" | "anual")
+                    }
+                    className="ml-1 rounded border border-yellow-600 bg-zinc-900 px-2 py-1 text-yellow-100"
+                  >
+                    <option value="mensal">Mensal</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                </label>
+              </div>
               <button
                 onClick={async () => {
                   try {
@@ -311,8 +342,8 @@ export default function PlanosPage() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         tipo: "plano",
-                        planId: "teste",
-                        modo: "mensal",
+                        planId: testPlanId,
+                        modo: testPlanModo,
                       }),
                     });
 
@@ -347,7 +378,7 @@ export default function PlanosPage() {
                 className="mt-4 w-full max-w-md mx-auto rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
                 style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
               >
-                Testar Pagamento - R$ 5,00
+                Testar pagamento — {testPlanId} ({testPlanModo})
               </button>
             </div>
           </div>

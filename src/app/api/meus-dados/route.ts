@@ -521,6 +521,8 @@ export async function GET() {
         description: string | null;
         deliveryAudioUrl: string;
         deliveryAudioFormat: string | null;
+        deliveredAt: string | null;
+        status: string;
       }[]
     >();
     const serviceStatusesPorAgendamento = new Map<number, string[]>();
@@ -539,6 +541,7 @@ export async function GET() {
             description: true,
             deliveryAudioUrl: true,
             deliveryAudioFormat: true,
+            updatedAt: true,
           },
         });
         for (const s of allServices) {
@@ -554,6 +557,8 @@ export async function GET() {
               description: s.description,
               deliveryAudioUrl: s.deliveryAudioUrl,
               deliveryAudioFormat: s.deliveryAudioFormat,
+              deliveredAt: s.updatedAt ? s.updatedAt.toISOString() : null,
+              status: s.status,
             };
             const list = entregasPorAgendamento.get(s.appointmentId) || [];
             list.push(row);

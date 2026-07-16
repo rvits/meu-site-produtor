@@ -7,6 +7,7 @@ import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-servi
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
 import { releaseBookingCouponsForAppointment } from "@/app/lib/coupon-release";
 import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
+import { isTransitionAllowed } from "@/app/lib/domain/state-machine/guards";
 import type { DomainEvent, TransitionInput } from "@/app/lib/domain/state-machine/types";
 
 export type EffectPlan = {
@@ -126,15 +127,25 @@ export async function planTransitionEffects(event: DomainEvent): Promise<EffectP
           },
         });
         if (abertos === 0) {
-          await prisma.appointment.updateMany({
-            where: {
-              id: appointmentId,
-              status: { notIn: ["concluido", "cancelado", "recusado"] },
-            },
-            data: { status: "concluido" },
+          const apt = await prisma.appointment.findUnique({
+            where: { id: appointmentId },
+            select: { status: true },
           });
-          // Nota: espelho admin Appointment.concluido é efeito da SM de Service;
-          // histórico do Appointment pode ser enriquecido em HS-03C.
+          if (
+            apt &&
+            !["concluido", "cancelado", "recusado"].includes(apt.status) &&
+            isTransitionAllowed("appointment", apt.status, "concluido")
+          ) {
+            const { transition } = await import("@/app/lib/domain/state-machine/transition");
+            await transition({
+              entity: "appointment",
+              id: appointmentId,
+              to: "concluido",
+              actor: { type: "system" },
+              reason: "cascade:allServicesTerminal",
+              skipEffects: true,
+            });
+          }
         }
         await reconcileAppointmentWithServices(appointmentId);
       },

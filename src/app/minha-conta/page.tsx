@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { isLocalhostClient } from "../lib/app-data-events";
 import { useDomainRefresh } from "../hooks/useDomainRefresh";
 import { resolveCanonicalCouponType } from "../lib/domain/coupon-types";
+import { deliveryDisplayName } from "../lib/delivery-url-validation";
 
 interface EntregaServico {
   id: string;
@@ -13,6 +14,8 @@ interface EntregaServico {
   description: string | null;
   deliveryAudioUrl: string;
   deliveryAudioFormat: string | null;
+  deliveredAt?: string | null;
+  status?: string;
 }
 
 interface Agendamento {
@@ -963,32 +966,52 @@ export default function MinhaContaPage() {
                         {(agendamento.status === "concluido" ||
                           (agendamento.entregas && agendamento.entregas.length > 0)) && (
                           <div className="mt-3 pt-3 border-t border-zinc-700">
-                            <strong className="text-zinc-300">Entrega de áudio</strong>
+                            <strong className="text-zinc-300">Arquivo entregue</strong>
                             {agendamento.entregas && agendamento.entregas.length > 0 ? (
-                              <ul className="mt-2 space-y-2">
-                                {agendamento.entregas.map((e) => (
-                                  <li key={e.id} className="text-sm text-zinc-400">
-                                    <span className="text-zinc-200 font-medium">{e.tipo}</span>
-                                    {e.description && (
-                                      <span className="text-zinc-500"> — {e.description}</span>
-                                    )}
-                                    {e.deliveryAudioFormat && (
-                                      <span className="ml-2 uppercase text-xs text-zinc-500">
-                                        ({e.deliveryAudioFormat})
-                                      </span>
-                                    )}
-                                    <div className="mt-1">
-                                      <a
-                                        href={e.deliveryAudioUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center rounded-lg bg-red-600/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
-                                      >
-                                        Abrir / baixar arquivo
-                                      </a>
-                                    </div>
-                                  </li>
-                                ))}
+                              <ul className="mt-2 space-y-3">
+                                {agendamento.entregas.map((e) => {
+                                  const fileName = deliveryDisplayName(e.deliveryAudioUrl);
+                                  const fmt = (e.deliveryAudioFormat || "").toLowerCase();
+                                  const isAudio = fmt === "wav" || fmt === "mp3" || /\.(wav|mp3)(\?|$)/i.test(e.deliveryAudioUrl);
+                                  return (
+                                    <li key={e.id} className="text-sm text-zinc-400 space-y-1.5">
+                                      <div>
+                                        <span className="text-zinc-200 font-medium">{fileName}</span>
+                                        <span className="ml-2 text-xs text-zinc-500">{e.tipo}</span>
+                                        {e.status && (
+                                          <span className="ml-2 text-xs uppercase text-purple-300">
+                                            {e.status}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {e.deliveredAt && (
+                                        <div className="text-xs text-zinc-500">
+                                          Entregue em{" "}
+                                          {new Date(e.deliveredAt).toLocaleString("pt-BR")}
+                                        </div>
+                                      )}
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <a
+                                          href={e.deliveryAudioUrl}
+                                          download={fileName}
+                                          className="inline-flex items-center rounded-lg bg-red-600/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                                        >
+                                          Download
+                                        </a>
+                                      </div>
+                                      {isAudio && (
+                                        <audio
+                                          controls
+                                          preload="none"
+                                          className="w-full max-w-md mt-1"
+                                          src={e.deliveryAudioUrl}
+                                        >
+                                          Seu navegador não reproduz áudio.
+                                        </audio>
+                                      )}
+                                    </li>
+                                  );
+                                })}
                               </ul>
                             ) : (
                               <p className="text-sm text-zinc-500 mt-1">

@@ -43,7 +43,7 @@ export function listCouponServiceTypesForAgendamentoItems(
     );
   }
   if (serviceTypesToCreate.length === 0) {
-    serviceTypesToCreate.push("sessao");
+    throw new Error("Nenhum serviço no pagamento para gerar cupons");
   }
 
   return serviceTypesToCreate.map((type) => normalizeServiceTypeId(type));

@@ -27,8 +27,9 @@ export const SERVICE_STATUSES = [
 
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
 
-/** Serviços Selecionados: apenas trabalho ativo (HS-03A). */
+/** Serviços Selecionados: fila operacional (OP-01). */
 export const ACTIVE_OPERATIONAL_SERVICE_STATUSES: ReadonlySet<string> = new Set([
+  "pendente",
   "aceito",
   "em_andamento",
 ]);

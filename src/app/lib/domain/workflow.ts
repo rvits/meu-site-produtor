@@ -244,7 +244,7 @@ export async function startService(
 export async function completeService(params: {
   serviceId: string;
   deliveryAudioUrl: string;
-  deliveryAudioFormat: "wav" | "mp3";
+  deliveryAudioFormat: "wav" | "mp3" | "zip";
   probe?: boolean;
   actor?: TransitionActor;
 }): Promise<
@@ -252,11 +252,44 @@ export async function completeService(params: {
     servico: NonNullable<Awaited<ReturnType<typeof loadService>>>;
   }>
 > {
+  const actor = params.actor || { type: "admin" as const };
+  const current = await prisma.service.findUnique({
+    where: { id: params.serviceId },
+    select: { status: true },
+  });
+  if (!current) return fail("Serviço não encontrado", 404);
+
+  // OP-01: conclusão só a partir de EM_ANDAMENTO — promove automaticamente se necessário
+  if (current.status === "pendente") {
+    const accept = await transition({
+      entity: "service",
+      id: params.serviceId,
+      to: "aceito",
+      actor,
+      reason: "completeService:promoteAccept",
+    });
+    if (!accept.ok) return fail(accept.error, accept.httpStatus, accept.code);
+  }
+  const mid = await prisma.service.findUnique({
+    where: { id: params.serviceId },
+    select: { status: true },
+  });
+  if (mid?.status === "aceito") {
+    const start = await transition({
+      entity: "service",
+      id: params.serviceId,
+      to: "em_andamento",
+      actor,
+      reason: "completeService:promoteStart",
+    });
+    if (!start.ok) return fail(start.error, start.httpStatus, start.code);
+  }
+
   const result = await transition({
     entity: "service",
     id: params.serviceId,
     to: "concluido",
-    actor: params.actor || { type: "admin" },
+    actor,
     reason: "completeService",
     metadata: {
       deliveryAudioUrl: params.deliveryAudioUrl,
@@ -276,7 +309,7 @@ export async function updateServiceFields(params: {
   serviceId: string;
   status?: string;
   deliveryAudioUrl?: string | null;
-  deliveryAudioFormat?: "wav" | "mp3" | null;
+  deliveryAudioFormat?: "wav" | "mp3" | "zip" | null;
 }): Promise<
   WorkflowResult<{
     servico: NonNullable<Awaited<ReturnType<typeof loadService>>>;
@@ -289,7 +322,7 @@ export async function updateServiceFields(params: {
     return completeService({
       serviceId,
       deliveryAudioUrl: deliveryAudioUrl || "",
-      deliveryAudioFormat: (deliveryAudioFormat as "wav" | "mp3") || "wav",
+      deliveryAudioFormat: (deliveryAudioFormat as "wav" | "mp3" | "zip") || "wav",
       probe:
         process.env.DELIVERY_AUDIO_URL_PROBE === "1" ||
         process.env.DELIVERY_AUDIO_URL_PROBE === "true",

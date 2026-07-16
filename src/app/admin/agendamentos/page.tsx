@@ -548,23 +548,11 @@ function AdminAgendamentosContent() {
                       >
                         Começar
                       </button>
-                      <select
-                        value={a.status}
-                        disabled={updatingId === a.id}
-                        onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
-                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300 disabled:opacity-50"
-                      >
-                        <option value="pendente">Pendente</option>
-                        <option value="aceito">Aceito</option>
-                        <option value="confirmado">Confirmado</option>
-                        <option value="cancelado">Cancelado</option>
-                        <option value="recusado">Recusado</option>
-                      </select>
                       <button
                         onClick={() => abrirModalCancelar(a.id)}
                         className="rounded bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 transition"
                       >
-                        ❌ Cancelar Agendamento
+                        Cancelar (com justificativa)
                       </button>
                     </>
                   )}
@@ -576,21 +564,11 @@ function AdminAgendamentosContent() {
                       >
                         Serviços selecionados
                       </Link>
-                      <select
-                        value={a.status}
-                        onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
-                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300"
-                      >
-                        <option value="em_andamento">Em andamento</option>
-                        <option value="aceito">Aceito</option>
-                        <option value="confirmado">Confirmado</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
                       <button
                         onClick={() => abrirModalCancelar(a.id)}
                         className="rounded bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 transition"
                       >
-                        ❌ Cancelar Agendamento
+                        Cancelar (com justificativa)
                       </button>
                     </>
                   )}
@@ -599,49 +577,27 @@ function AdminAgendamentosContent() {
                   )}
                   {a.status === "cancelado" && (
                     <>
-                      <select
-                        value={a.status}
-                        onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
-                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300"
-                      >
-                        <option value="cancelado">Cancelado</option>
-                        <option value="aceito">Aceito</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="recusado">Recusado</option>
-                      </select>
                       <button
                         onClick={() => reverterCancelamento(a.id)}
                         className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition"
                       >
-                        ✅ Reverter Cancelamento
+                        Reverter cancelamento
                       </button>
                       <button
                         onClick={() => excluirAgendamento(a.id)}
                         className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
                       >
-                        🗑️ Excluir
+                        Excluir
                       </button>
                     </>
                   )}
                   {a.status === "recusado" && (
-                    <>
-                      <select
-                        value={a.status}
-                        onChange={(e) => atualizarAgendamento(a.id, { status: e.target.value })}
-                        className="rounded bg-zinc-900 border border-zinc-600 px-3 py-2 text-sm text-zinc-300"
-                      >
-                        <option value="recusado">Recusado</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="aceito">Aceito</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
-                      <button
-                        onClick={() => excluirAgendamento(a.id)}
-                        className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
-                      >
-                        🗑️ Excluir
-                      </button>
-                    </>
+                    <button
+                      onClick={() => excluirAgendamento(a.id)}
+                      className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                    >
+                      Excluir
+                    </button>
                   )}
                 </div>
               </div>
