@@ -2,7 +2,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { sendPlanRenewalEmail } from "@/app/lib/sendEmail";
-import { parsePaymentAppointmentIds } from "@/app/lib/symbolic-payment";
 import { processAgendamentoPaymentEffects } from "@/app/lib/asaas-agendamento-payment-effects";
 import { processCarrinhoPaymentEffects } from "@/app/lib/asaas-carrinho-payment-effects";
 import {
@@ -18,6 +17,7 @@ import {
   resolvePaymentTipo,
 } from "@/app/lib/agendamento-payment-rules";
 import { publishSyncEvent } from "@/app/lib/synchronization/engine";
+import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
 
 /**
  * Webhook do Asaas para notificações de pagamento
@@ -363,7 +363,11 @@ export async function POST(req: Request) {
       String(status || "").toUpperCase() === "REFUNDED"
     ) {
       try {
-        await syncInboundAsaasRefund(paymentId);
+        const sync = await syncInboundRefundConfirmation(paymentId);
+        console.log("[Asaas Webhook] ✅ PAYMENT_REFUNDED sincronizado:", {
+          asaasPaymentId: paymentId,
+          ...sync,
+        });
       } catch (refundSyncError: any) {
         console.error("[Asaas Webhook] ❌ Erro ao sincronizar PAYMENT_REFUNDED:", refundSyncError);
         console.error("[Asaas Webhook] Stack:", refundSyncError.stack);
@@ -384,114 +388,6 @@ export async function POST(req: Request) {
     console.error("[Asaas Webhook] Erro ao processar webhook:", error);
     return NextResponse.json({ received: true, error: error.message }, { status: 200 });
   }
-}
-
-const USER_PLAN_REFUND_MATCH_WINDOW_MS = 48 * 60 * 60 * 1000;
-
-/**
- * Sincroniza refundAsaasStatus local após estorno confirmado no Asaas.
- * Atualiza apenas registros que já iniciaram reembolso (refundProcessedAt preenchido).
- */
-async function syncInboundAsaasRefund(asaasPaymentId: string) {
-  const localPayment = await prisma.payment.findUnique({
-    where: { asaasId: asaasPaymentId },
-    select: {
-      id: true,
-      userId: true,
-      type: true,
-      planId: true,
-      createdAt: true,
-      appointmentId: true,
-      appointmentIds: true,
-    },
-  });
-
-  if (!localPayment) {
-    console.log(
-      "[Asaas Webhook] PAYMENT_REFUNDED: Payment local não encontrado para asaasId:",
-      asaasPaymentId
-    );
-    return;
-  }
-
-  const appointmentIds = parsePaymentAppointmentIds(localPayment);
-
-  const appointmentsResult =
-    appointmentIds.length > 0
-      ? await prisma.appointment.updateMany({
-          where: {
-            id: { in: appointmentIds },
-            cancelRefundOption: "reembolso",
-            refundProcessedAt: { not: null },
-          },
-          data: { refundAsaasStatus: "REFUNDED" },
-        })
-      : { count: 0 };
-
-  const couponOr: Array<{ paymentId: string } | { appointmentId: { in: number[] } }> = [
-    { paymentId: localPayment.id },
-  ];
-  if (appointmentIds.length > 0) {
-    couponOr.push({ appointmentId: { in: appointmentIds } });
-  }
-
-  const couponsResult = await prisma.coupon.updateMany({
-    where: {
-      OR: couponOr,
-      refundProcessedAt: { not: null },
-      refundAsaasStatus: "pending",
-    },
-    data: { refundAsaasStatus: "confirmed" },
-  });
-
-  let userPlansResult = { count: 0 };
-  if (localPayment.type === "plano") {
-    const pendingPlans = await prisma.userPlan.findMany({
-      where: {
-        userId: localPayment.userId,
-        refundProcessedAt: { not: null },
-        refundAsaasStatus: "pending",
-        ...(localPayment.planId ? { planId: localPayment.planId } : {}),
-      },
-      select: { id: true, createdAt: true },
-    });
-
-    const planIdsToConfirm =
-      pendingPlans.length <= 1
-        ? pendingPlans.map((p) => p.id)
-        : pendingPlans
-            .filter(
-              (plan) =>
-                Math.abs(plan.createdAt.getTime() - localPayment.createdAt.getTime()) <=
-                USER_PLAN_REFUND_MATCH_WINDOW_MS
-            )
-            .sort(
-              (a, b) =>
-                Math.abs(a.createdAt.getTime() - localPayment.createdAt.getTime()) -
-                Math.abs(b.createdAt.getTime() - localPayment.createdAt.getTime())
-            )
-            .slice(0, 1)
-            .map((p) => p.id);
-
-    if (planIdsToConfirm.length > 0) {
-      userPlansResult = await prisma.userPlan.updateMany({
-        where: {
-          id: { in: planIdsToConfirm },
-          refundProcessedAt: { not: null },
-          refundAsaasStatus: "pending",
-        },
-        data: { refundAsaasStatus: "confirmed" },
-      });
-    }
-  }
-
-  console.log("[Asaas Webhook] ✅ PAYMENT_REFUNDED sincronizado:", {
-    asaasPaymentId,
-    paymentId: localPayment.id,
-    appointmentsUpdated: appointmentsResult.count,
-    couponsUpdated: couponsResult.count,
-    userPlansUpdated: userPlansResult.count,
-  });
 }
 
 /**

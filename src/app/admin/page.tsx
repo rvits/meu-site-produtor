@@ -97,6 +97,15 @@ const MENU_ITEMS = [
   },
   // Linha 3
   {
+    id: "homologacao",
+    title: "Homologação",
+    description: "SimulationProvider — validar pipeline sem Asaas",
+    icon: "🧪",
+    href: "/admin/homologacao",
+    color: "from-amber-500/20 to-amber-600/20 border-amber-500/30",
+    hoverColor: "hover:from-amber-500/30 hover:to-amber-600/30",
+  },
+  {
     id: "estatisticas",
     title: "Estatísticas",
     description: "Estatísticas detalhadas do site",

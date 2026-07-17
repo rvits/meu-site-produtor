@@ -1697,13 +1697,16 @@ function AgendamentoContent() {
           <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-yellow-400 text-center">
-                🧪 Pagamento de Teste - Agendamento (Apenas Admin)
+                Simulação Gratuita — Homologation (Apenas Admin)
               </h3>
               <p className="text-sm text-yellow-200 text-center">
-                Use esta opção para testar o fluxo de pagamento. <strong>Valor fixo: R$ 5,00.</strong> Todas as opções estão disponíveis: 
-                sessão, captação, mix, master, mix+master, sonoplastia (SERVIÇOS DE ESTÚDIO) e todos os pacotes de beats (BEATS E PACOTES). 
-                Selecione o que quiser, preencha data, horário e comentário. Após o pagamento: cada item selecionado gera um cupom associado 
-                (em Minha Conta) e tudo aparece em &quot;Serviços Solicitados&quot; no admin.
+                Usa o <strong>SimulationProvider</strong> (sem Asaas, sem cobrança). O mesmo pipeline oficial
+                cria Payment, webhook interno, Appointment/Services/Coupons TEST. Selecione serviços/beats,
+                data/horário quando necessário e confirme. Resultado completo em{" "}
+                <a href="/admin/homologacao" className="underline text-yellow-100">
+                  Admin → Homologação
+                </a>
+                .
               </p>
               
               {/* Serviços e beats selecionados (resumo) — usa o mesmo estado do formulário principal */}
@@ -1951,57 +1954,52 @@ function AgendamentoContent() {
                       : 60;
 
                     try {
-                      const res = await fetch("/api/asaas/checkout-agendamento", {
+                      const res = await fetch("/api/admin/homologation/run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
+                          tipo: "agendamento",
                           ...(precisaAgenda
                             ? { data: dataSelecionada, hora: horaSelecionada }
                             : {}),
                           observacoes: comentarios,
                           duracaoMinutos: duracaoTeste,
-                          tipo: servicosTeste[0]?.id || beatsTeste[0]?.id || "sessao",
                           servicos: servicosTeste,
                           beats: beatsTeste,
-                          symbolicAgendamento: true,
+                          runRefund: false,
                         }),
                       });
 
+                      const data = await res.json().catch(() => ({}));
                       if (!res.ok) {
-                        const error = await res.json();
-                        let errorMessage = error.error || "Erro ao criar pagamento de teste";
-                        
-                      // Mensagens mais amigáveis para erros comuns
-                      if (error.details?.tipo === "permissao_insuficiente") {
-                        errorMessage = `❌ Permissão Insuficiente\n\n${error.error}\n\n${error.details.solucao}\n\n${error.details.guia || ""}`;
-                      } else if (error.details?.tipo === "token_invalido") {
-                        errorMessage = `❌ Token Inválido\n\n${error.error}\n\n${error.details.solucao}`;
-                      } else if (error.details?.tipo === "ambiente_invalido") {
-                        errorMessage = `❌ Ambiente Inválido\n\n${error.error}\n\n${error.details.solucao}`;
-                      } else if (error.details?.tipo === "dominio_nao_configurado") {
-                        errorMessage = `❌ Domínio Não Configurado\n\n${error.error}\n\n${error.details.solucao}\n\n📖 ${error.details.guia || ""}`;
-                      }
-                        
-                        alert(errorMessage);
-                        console.error("[Test Payment Frontend] Erro completo:", error);
+                        alert(data.error || "Erro na simulação gratuita.");
+                        console.error("[Simulação Gratuita]", data);
                         return;
                       }
 
-                      const data = await res.json();
-                      if (data.initPoint) {
-                        window.location.href = data.initPoint;
-                      } else {
-                        alert("Não foi possível obter o link de pagamento de teste.");
-                      }
+                      const run = data.run;
+                      const cups = (run?.couponCodes || []).join(", ") || "—";
+                      const apts = (run?.appointmentIds || []).join(", ") || "—";
+                      alert(
+                        [
+                          run?.ok ? "Simulação PASS (sem Asaas)." : "Simulação concluída com avisos.",
+                          `Run: ${run?.runId || "—"}`,
+                          `Payment: ${run?.providerPaymentId || "—"}`,
+                          `Appointments: ${apts}`,
+                          `Cupons: ${cups}`,
+                          "Detalhes em Admin → Homologação.",
+                        ].join("\n")
+                      );
+                      window.location.href = "/admin/homologacao";
                     } catch (e) {
                       console.error(e);
-                      alert("Erro inesperado ao iniciar pagamento de teste.");
+                      alert("Erro inesperado na simulação gratuita.");
                     }
                   }}
                   className="w-full rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
-                  Testar Pagamento - R$ 5,00
+                  Simulação Gratuita (sem cobrança)
                 </button>
                 <p className="text-center text-yellow-200/80 text-xs mt-3">
                   Pagou e não apareceu cupom/agendamento/serviços?{" "}

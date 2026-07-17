@@ -15,6 +15,7 @@ const MENU = [
   { label: "Serviços Selecionados", href: "/admin/servicos-solicitados" },
   { label: "Serviços Gerais", href: "/admin/servicos-aceitos" },
   { label: "Pagamentos", href: "/admin/pagamentos" },
+  { label: "Homologação", href: "/admin/homologacao" },
   { label: "Estatísticas", href: "/admin/estatisticas" },
   { label: "Engenharia", href: "/admin/engenharia" },
   { label: "Chats Pendentes", href: "/admin/chats-pendentes" },

@@ -43,6 +43,7 @@ next-env.d.ts
 /src/generated/prisma
 
 # GO-02 — artefatos regeneráveis (não versionar)
+reports/homologation/
 reports/domain-guardian/*-audit-latest.json
 reports/domain-guardian/*-last-run.json
 reports/domain-guardian/latest.json
