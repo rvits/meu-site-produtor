@@ -24,6 +24,7 @@ Documentação permanente derivada da auditoria de integridade do domínio (sche
 | **F8** | `Payment` approved com integração real (`asaasId` não simbólico) não deve ser excluído fisicamente; `canAdminDeletePayment` restringe delete a `pending`/`rejected`, simbólico órfão ou casos explícitos. | CRÍTICO |
 | **F9** | Identidade canônica de gateway: `Payment.provider` + `Payment.providerPaymentId`. Simulation NÃO usa `asaasId`. Lookups via `paymentByProviderIdWhere`. | CRÍTICO |
 | **H1** | Toda alteração em pagamentos/workflow/agendamento/planos/cupons/reembolso deve ter cenário no Homologation Engine (`docs/architecture/homologation-engine.md`). | CRÍTICO |
+| **S1** | Upload/leitura de entrega usa apenas `StorageProvider` (`src/app/lib/storage`); default `LocalStorageProvider`. Sem `fs`/`public/uploads` nas rotas de produto. | ALTO |
 
 ## PaymentMetadata (pré-pagamento)
 

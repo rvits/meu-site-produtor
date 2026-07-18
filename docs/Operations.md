@@ -1,8 +1,25 @@
 # THouse Rec — Operations
 
-**Versão:** 1.0.0 · **Atualizado:** 2026-07-15
+**Versão:** 1.0.0 · **Atualizado:** 2026-07-18
 
 Índice operacional para release, auditoria e go-live. Nenhum comando aqui executa merge, push ou deploy automaticamente.
+
+---
+
+## GO-01 — Release Readiness (atual)
+
+| Documento | Uso |
+|-----------|-----|
+| [Release Checklist](operations/go01-release-checklist.md) | Checklist oficial pré Go Live |
+| [Operational Runbooks](operations/go01-operational-runbooks.md) | Deploy, rollback, backup, storage, gateway |
+| [Asaas Audit + GO-02 financeiro](operations/go01-asaas-release-audit.md) | Infra Asaas + checklist smoke financeiro |
+| [Migrations GO-01.1](architecture/go01-migrations.md) | Ordem, rollback, validação |
+| [Architecture Freeze](architecture/architecture-freeze.md) | Congelamento oficial |
+| [Homologation Engine](architecture/homologation-engine.md) | H1 + catálogo |
+
+```bash
+npm run homologation:scenarios
+```
 
 ---
 

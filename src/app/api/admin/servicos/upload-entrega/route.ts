@@ -1,12 +1,12 @@
 /**
  * POST /api/admin/servicos/upload-entrega
- * Upload de arquivo de entrega (WAV/MP3/ZIP) → public/uploads/deliveries/
+ * Upload de arquivo de entrega (WAV/MP3/ZIP) via StorageProvider.
  */
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { requireAdmin } from "@/app/lib/auth";
 import { randomUUID } from "crypto";
+import { getStorageProvider } from "@/app/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,22 +56,20 @@ export async function POST(req: Request) {
       .slice(0, 80);
     const storedName = `${serviceId.slice(0, 8)}_${Date.now()}_${randomUUID().slice(0, 8)}_${safeBase}${ext}`;
 
-    const dir = path.join(process.cwd(), "public", "uploads", "deliveries");
-    await mkdir(dir, { recursive: true });
-    const abs = path.join(dir, storedName);
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(abs, buffer);
-
-    const publicPath = `/uploads/deliveries/${storedName}`;
+    const stored = await getStorageProvider().writeDelivery({
+      storedName,
+      bytes: buffer,
+    });
     const format = formatFromExt(ext);
 
     return NextResponse.json({
       ok: true,
-      deliveryAudioUrl: publicPath,
+      deliveryAudioUrl: stored.publicPath,
       deliveryAudioFormat: format,
       fileName: originalName,
-      storedName,
-      bytes: file.size,
+      storedName: stored.storedName,
+      bytes: stored.bytes,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro no upload";

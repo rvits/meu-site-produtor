@@ -1,14 +1,29 @@
 /**
- * Catálogo de cenários Homologation Engine (OP-02B).
+ * Catálogo de cenários Homologation Engine (OP-02B / GO-01).
  * Cada cenário mapeia para input de runHomologationSimulation.
+ * H1: todo SKU oficial deve ter cenário aqui.
  */
 import type { HomologationRunInput } from "@/app/lib/homologation/types";
 import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
+import { listCouponServiceTypesForAgendamentoItems } from "@/app/lib/agendamento-payment-coupons";
+import { isSchedulableServiceType } from "@/app/lib/service-catalog";
 
 export type HomologationScenarioId =
   | "sessao"
+  | "captacao"
   | "beat"
+  | "beat2"
+  | "beat3"
+  | "beat4"
+  | "mix"
+  | "master"
+  | "mix_master"
+  | "sonoplastia"
+  | "producao_completa"
+  | "beat_mix_master"
   | "sessao_beat"
+  | "sessao_mix"
+  | "beat_mix"
   | "plano_bronze"
   | "plano_prata"
   | "plano_ouro"
@@ -37,52 +52,153 @@ function tomorrowIsoDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
+type Line = { id: string; nome: string; quantidade: number };
+
+function expectedCouponsFor(servicos: Line[], beats: Line[]): number {
+  if (
+    servicos.length + beats.length === 1 &&
+    isSchedulableServiceType((servicos[0] || beats[0]).id)
+  ) {
+    return 0;
+  }
+  return listCouponServiceTypesForAgendamentoItems(servicos, beats).length;
+}
+
+function agendamentoScenario(
+  id: HomologationScenarioId,
+  label: string,
+  description: string,
+  servicos: Line[],
+  beats: Line[] = [],
+  opts?: { withSlot?: boolean }
+): HomologationScenarioDef {
+  const aloneSchedulable =
+    servicos.length + beats.length === 1 &&
+    isSchedulableServiceType((servicos[0] || beats[0]).id);
+  const expected = aloneSchedulable ? 0 : expectedCouponsFor(servicos, beats);
+  const needsSlot = aloneSchedulable || opts?.withSlot === true;
+  return {
+    id,
+    label,
+    description,
+    expectedServiceCoupons: expected,
+    buildInput: (base) => ({
+      ...base,
+      tipo: "agendamento",
+      servicos,
+      beats,
+      ...(needsSlot
+        ? { data: tomorrowIsoDate(), hora: "14:00", duracaoMinutos: 60 }
+        : {}),
+      observacoes: `Homologação cenário ${id}`,
+      expectedServiceCoupons: expected,
+      runRefund: false,
+    }),
+  };
+}
+
 export const HOMOLOGATION_SCENARIOS: HomologationScenarioDef[] = [
-  {
-    id: "sessao",
-    label: "Sessão",
-    description: "Uma sessão agendável → Appointment + Service (pipeline oficial).",
-    expectedServiceCoupons: 0,
-    buildInput: (base) => ({
-      ...base,
-      tipo: "agendamento",
-      servicos: [{ id: "sessao", nome: "Sessão", quantidade: 1 }],
-      beats: [],
-      data: tomorrowIsoDate(),
-      hora: "14:00",
-      duracaoMinutos: 60,
-      observacoes: "Homologação cenário sessão",
-      runRefund: false,
-    }),
-  },
-  {
-    id: "beat",
-    label: "Beat",
-    description: "1 Beat → cupom TEST de serviço (página exclusiva).",
-    expectedServiceCoupons: 1,
-    buildInput: (base) => ({
-      ...base,
-      tipo: "agendamento",
-      servicos: [],
-      beats: [{ id: "beat1", nome: "1 Beat", quantidade: 1 }],
-      observacoes: "Homologação cenário beat",
-      runRefund: false,
-    }),
-  },
-  {
-    id: "sessao_beat",
-    label: "Sessão + Beat",
-    description: "Multi → dois cupons TEST independentes (sessao + beat1).",
-    expectedServiceCoupons: 2,
-    buildInput: (base) => ({
-      ...base,
-      tipo: "agendamento",
-      servicos: [{ id: "sessao", nome: "Sessão", quantidade: 1 }],
-      beats: [{ id: "beat1", nome: "1 Beat", quantidade: 1 }],
-      observacoes: "Homologação cenário sessão+beat",
-      runRefund: false,
-    }),
-  },
+  agendamentoScenario(
+    "sessao",
+    "Sessão",
+    "Uma sessão agendável → Appointment + Service (pipeline oficial).",
+    [{ id: "sessao", nome: "Sessão", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "captacao",
+    "Captação",
+    "Captação agendável (exige data/hora) → Appointment + Service.",
+    [{ id: "captacao", nome: "Captação", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "beat",
+    "Beat",
+    "1 Beat → cupom TEST de serviço (página exclusiva).",
+    [],
+    [{ id: "beat1", nome: "1 Beat", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "beat2",
+    "2 Beats",
+    "Pacote 2 Beats → 2 cupons atômicos beat1.",
+    [],
+    [{ id: "beat2", nome: "2 Beats", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "beat3",
+    "3 Beats",
+    "Pacote 3 Beats → 3 cupons atômicos beat1.",
+    [],
+    [{ id: "beat3", nome: "3 Beats", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "beat4",
+    "4 Beats",
+    "Pacote 4 Beats → 4 cupons atômicos beat1.",
+    [],
+    [{ id: "beat4", nome: "4 Beats", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "mix",
+    "Mixagem",
+    "Mixagem → 1 cupom TEST.",
+    [{ id: "mix", nome: "Mixagem", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "master",
+    "Masterização",
+    "Masterização → 1 cupom TEST.",
+    [{ id: "master", nome: "Masterização", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "mix_master",
+    "Mix + Master",
+    "Pacote Mix + Master → 2 cupons (mix, master).",
+    [{ id: "mix_master", nome: "Mix + Master", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "sonoplastia",
+    "Sonoplastia",
+    "Sonoplastia → 1 cupom TEST.",
+    [{ id: "sonoplastia", nome: "Sonoplastia", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "producao_completa",
+    "Produção Completa",
+    "Produção Completa → 5 cupons atômicos (2 sessao + beat1 + mix + master).",
+    [],
+    [{ id: "producao_completa", nome: "Produção Completa", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "beat_mix_master",
+    "Beat + Mix + Master",
+    "Pacote Beat + Mix + Master → 3 cupons.",
+    [],
+    [{ id: "beat_mix_master", nome: "Beat + Mix + Master", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "sessao_beat",
+    "Sessão + Beat",
+    "Multi → dois cupons TEST independentes (sessao + beat1).",
+    [{ id: "sessao", nome: "Sessão", quantidade: 1 }],
+    [{ id: "beat1", nome: "1 Beat", quantidade: 1 }]
+  ),
+  agendamentoScenario(
+    "sessao_mix",
+    "Sessão + Mix",
+    "Multi → cupons sessao + mix.",
+    [
+      { id: "sessao", nome: "Sessão", quantidade: 1 },
+      { id: "mix", nome: "Mixagem", quantidade: 1 },
+    ]
+  ),
+  agendamentoScenario(
+    "beat_mix",
+    "Beat + Mix",
+    "Multi → cupons beat1 + mix.",
+    [{ id: "mix", nome: "Mixagem", quantidade: 1 }],
+    [{ id: "beat1", nome: "1 Beat", quantidade: 1 }]
+  ),
   {
     id: "plano_bronze",
     label: "Plano Bronze",
@@ -220,3 +336,22 @@ export function getHomologationScenario(
   if (!id) return undefined;
   return HOMOLOGATION_SCENARIOS.find((s) => s.id === id);
 }
+
+/** SKUs canônicos que devem ter cenário (GO-01.4). */
+export const OFFICIAL_SKU_SCENARIO_IDS: HomologationScenarioId[] = [
+  "sessao",
+  "captacao",
+  "beat",
+  "beat2",
+  "beat3",
+  "beat4",
+  "mix",
+  "master",
+  "mix_master",
+  "sonoplastia",
+  "producao_completa",
+  "beat_mix_master",
+  "sessao_beat",
+  "sessao_mix",
+  "beat_mix",
+];

@@ -1,16 +1,15 @@
 /**
- * OP-02B — Homologation scenarios smoke (catálogo + tipos).
+ * OP-02B / GO-01 — Homologation scenarios smoke (catálogo + SKUs oficiais).
  * Não executa DB; valida que todos os cenários exigidos existem.
  */
 import {
   HOMOLOGATION_SCENARIOS,
+  OFFICIAL_SKU_SCENARIO_IDS,
   type HomologationScenarioId,
 } from "../src/app/lib/homologation/scenarios";
 
 const REQUIRED: HomologationScenarioId[] = [
-  "sessao",
-  "beat",
-  "sessao_beat",
+  ...OFFICIAL_SKU_SCENARIO_IDS,
   "plano_bronze",
   "plano_prata",
   "plano_ouro",
