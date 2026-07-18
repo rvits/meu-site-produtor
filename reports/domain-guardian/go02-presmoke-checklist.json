@@ -1,6 +1,6 @@
 {
   "reportId": "GO-02A-environment-readiness",
-  "executedAt": "2026-07-18T09:08:24.596Z",
+  "executedAt": "2026-07-18T09:10:45.692Z",
   "verdict": "STOP",
   "target": {
     "database": {
@@ -17,7 +17,7 @@
     {
       "item": "Git limpo",
       "status": "PENDENTE",
-      "motivo": "Há alterações locais: M docs/Operations.md\n M package.json\n M reports/domain-guardian/go02-presmoke-checklist.json\n M reports/domain-guardian/launch01-reset-result.json\n M scripts/go02-presmoke-checklist.ts\n?? docs/operations/go02-ready-checklist.md\n?? docs/operations/go02a-environment-readiness.md\n?? reports/domain-guardian/go02a-environment-readiness.md",
+      "motivo": "Há alterações locais: M reports/domain-guardian/launch01-reset-result.json",
       "comoResolver": "Revisar e commitá-las ou removê-las conscientemente antes do GO-02."
     },
     {
@@ -79,7 +79,7 @@
     {
       "item": "Git limpo",
       "status": "PENDENTE",
-      "motivo": "Há alterações locais: M docs/Operations.md\n M package.json\n M reports/domain-guardian/go02-presmoke-checklist.json\n M reports/domain-guardian/launch01-reset-result.json\n M scripts/go02-presmoke-checklist.ts\n?? docs/operations/go02-ready-checklist.md\n?? docs/operations/go02a-environment-readiness.md\n?? reports/domain-guardian/go02a-environment-readiness.md",
+      "motivo": "Há alterações locais: M reports/domain-guardian/launch01-reset-result.json",
       "comoResolver": "Revisar e commitá-las ou removê-las conscientemente antes do GO-02."
     },
     {
