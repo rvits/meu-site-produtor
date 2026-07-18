@@ -1,4 +1,5 @@
 import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
+import type { HomologationScenarioId } from "@/app/lib/homologation/scenarios";
 
 export type HomologationCheckKey =
   | "paymentCreated"
@@ -31,19 +32,20 @@ export type HomologationRunInput = {
   userId: string;
   userEmail: string;
   userName: string;
+  scenarioId?: HomologationScenarioId | string;
+  scenarioKind?: "cupom_desconto" | "cupom_remarcacao";
   tipo?: "agendamento" | "plano";
-  /** Agendamento */
   servicos?: { id: string; nome?: string; quantidade: number; preco?: number }[];
   beats?: { id: string; nome?: string; quantidade: number; preco?: number }[];
   data?: string;
   hora?: string;
   duracaoMinutos?: number;
   observacoes?: string;
-  /** Plano */
   planId?: string;
   modo?: "mensal" | "anual";
-  /** Após criar, executar reembolso simulado */
   runRefund?: boolean;
+  refundOutcome?: RefundLifecycleStatus;
+  expectedServiceCoupons?: number | null;
 };
 
 export type HomologationRun = {
@@ -51,6 +53,7 @@ export type HomologationRun = {
   startedAt: string;
   finishedAt?: string;
   provider: "SIMULATION";
+  scenarioId?: string;
   input: HomologationRunInput;
   providerPaymentId?: string;
   paymentDbId?: string;

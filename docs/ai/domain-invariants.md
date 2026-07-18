@@ -22,6 +22,8 @@ Documentação permanente derivada da auditoria de integridade do domínio (sche
 | **F6** | Reembolso outbound (`refundAsaasPayment`) deve usar `Payment.asaasId` do pagamento correto do agendamento, cupom ou plano. | CRÍTICO |
 | **F7** | Webhook `PAYMENT_REFUNDED` deve sincronizar `refundAsaasStatus` apenas em entidades com `refundProcessedAt` já preenchido (Appointment, Coupon, UserPlan). | ALTO |
 | **F8** | `Payment` approved com integração real (`asaasId` não simbólico) não deve ser excluído fisicamente; `canAdminDeletePayment` restringe delete a `pending`/`rejected`, simbólico órfão ou casos explícitos. | CRÍTICO |
+| **F9** | Identidade canônica de gateway: `Payment.provider` + `Payment.providerPaymentId`. Simulation NÃO usa `asaasId`. Lookups via `paymentByProviderIdWhere`. | CRÍTICO |
+| **H1** | Toda alteração em pagamentos/workflow/agendamento/planos/cupons/reembolso deve ter cenário no Homologation Engine (`docs/architecture/homologation-engine.md`). | CRÍTICO |
 
 ## PaymentMetadata (pré-pagamento)
 
@@ -116,7 +118,7 @@ Descartáveis: `PaymentMetadata` expirado, `Payment` pending/rejected sem `asaas
 | Purge admin | HTTP 422 em agendamentos, planos, excluir-cancelados, excluir-lote |
 | Apt ↔ Service | `reconcileAppointmentWithServices` |
 | Cupom stale | `normalizeStaleCouponAppointmentLink` |
-| Reembolso inbound | `syncInboundAsaasRefund` em `webhooks/asaas` |
+| Reembolso inbound | `syncInboundRefundConfirmation` (`payment-refund-sync`) |
 | Ocultação usuário | `appointment-hidden`, `coupon-visibility`, `user-plan-hidden` |
 
 ---

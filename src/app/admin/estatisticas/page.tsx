@@ -47,7 +47,6 @@ interface Estatisticas {
     pendentes: number;
     aceitos: number;
     emAndamento?: number;
-    aFazer?: number;
     concluidos?: number;
     cancelados?: number;
     recusados?: number;
@@ -189,7 +188,6 @@ export default function AdminEstatisticasPage() {
   const servicosComFallback = {
     ...stats.servicos,
     emAndamento: stats.servicos.emAndamento ?? 0,
-    aFazer: stats.servicos.aFazer ?? stats.servicos.aceitos,
     concluidos: stats.servicos.concluidos ?? 0,
     cancelados: stats.servicos.cancelados ?? 0,
     recusados: stats.servicos.recusados ?? 0,
@@ -654,16 +652,16 @@ export default function AdminEstatisticasPage() {
             <div className="text-sm text-zinc-400 mt-1">Em andamento</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-blue-400">{servicosComFallback.aFazer}</div>
-            <div className="text-sm text-zinc-400 mt-1">A fazer</div>
-          </div>
-          <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-emerald-400">{servicosComFallback.concluidos}</div>
-            <div className="text-sm text-zinc-400 mt-1">Concluídos</div>
+            <div className="text-3xl font-bold text-rose-400">{servicosComFallback.recusados}</div>
+            <div className="text-sm text-zinc-400 mt-1">Recusados</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
             <div className="text-3xl font-bold text-orange-400">{servicosComFallback.cancelados}</div>
             <div className="text-sm text-zinc-400 mt-1">Cancelados</div>
+          </div>
+          <div className="bg-zinc-900/50 rounded-lg p-4">
+            <div className="text-3xl font-bold text-emerald-400">{servicosComFallback.concluidos}</div>
+            <div className="text-sm text-zinc-400 mt-1">Concluídos</div>
           </div>
         </div>
         {graficoServicos && (

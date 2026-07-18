@@ -1,12 +1,14 @@
 /**
  * SimulationProvider — gateway virtual.
  * Produz os mesmos efeitos de domínio que o Asaas via processPaymentWebhook / SM.
+ * NÃO grava ids simulados em Payment.asaasId (usa provider + providerPaymentId).
  */
 import { prisma } from "@/app/lib/prisma";
 import { processPaymentWebhook } from "@/app/lib/process-payment-webhook";
 import { refundPaymentStatus } from "@/app/lib/domain/workflow";
 import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
 import { REFUND_ASAAS_STATUS_SIMULATED } from "@/app/lib/symbolic-payment";
+import { paymentByProviderIdWhere } from "@/app/lib/payment-provider/identity";
 import type {
   CheckoutParams,
   CheckoutResponse,
@@ -14,6 +16,7 @@ import type {
   CreatePaymentResult,
   PaymentProvider,
   ProviderPaymentSnapshot,
+  RefundLifecycleStatus,
   RefundPaymentResult,
   SimulateWebhookParams,
   SimulateWebhookResult,
@@ -21,6 +24,67 @@ import type {
 
 function newSimPaymentId(): string {
   return `sim_pay_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function markRefundRequested(
+  local: { id: string; userId: string; type: string; planId: string | null; appointmentId: number | null; amount: number },
+  value: number
+) {
+  const now = new Date();
+  if (local.appointmentId) {
+    await prisma.appointment.updateMany({
+      where: { id: local.appointmentId },
+      data: {
+        cancelRefundOption: "reembolso",
+        refundProcessedAt: now,
+        refundAsaasStatus: "pending",
+      },
+    });
+  }
+  await prisma.coupon.updateMany({
+    where: { paymentId: local.id, refundProcessedAt: null },
+    data: {
+      refundRequestedAt: now,
+      refundProcessedAt: now,
+      refundAmount: value,
+      refundAsaasStatus: "pending",
+    },
+  });
+  if (local.type === "plano") {
+    await prisma.userPlan.updateMany({
+      where: {
+        userId: local.userId,
+        ...(local.planId ? { planId: local.planId } : {}),
+        refundProcessedAt: null,
+      },
+      data: {
+        refundRequestedAt: now,
+        refundProcessedAt: now,
+        refundAmount: value,
+        refundAsaasStatus: "pending",
+      },
+    });
+  }
+}
+
+async function markRefundTerminalStatus(
+  local: { id: string; userId: string; appointmentId: number | null },
+  status: "FAILED" | "TIMEOUT" | "pending"
+) {
+  if (local.appointmentId) {
+    await prisma.appointment.updateMany({
+      where: { id: local.appointmentId },
+      data: { refundAsaasStatus: status },
+    });
+  }
+  await prisma.coupon.updateMany({
+    where: { paymentId: local.id },
+    data: { refundAsaasStatus: status === "pending" ? "pending" : status.toLowerCase() },
+  });
+  await prisma.userPlan.updateMany({
+    where: { userId: local.userId, refundAsaasStatus: "pending" },
+    data: { refundAsaasStatus: status === "pending" ? "pending" : status.toLowerCase() },
+  });
 }
 
 export class SimulationProvider implements PaymentProvider {
@@ -44,10 +108,26 @@ export class SimulationProvider implements PaymentProvider {
       typeof params.metadata?.operationId === "string" ? params.metadata.operationId : null;
 
     if (operationId) {
+      // PaymentMetadata.asaasId permanece como vínculo operacional genérico (legado)
+      // até v1.1 renomear a coluna. O valor é o id do gateway (sim_pay_*).
       await prisma.paymentMetadata.update({
         where: { id: operationId },
         data: { asaasId: providerPaymentId },
       });
+      try {
+        const row = await prisma.paymentMetadata.findUnique({ where: { id: operationId } });
+        if (row) {
+          const meta = JSON.parse(row.metadata || "{}") as Record<string, unknown>;
+          meta.provider = "SIMULATION";
+          meta.providerPaymentId = providerPaymentId;
+          await prisma.paymentMetadata.update({
+            where: { id: operationId },
+            data: { metadata: JSON.stringify(meta) },
+          });
+        }
+      } catch {
+        /* non-fatal */
+      }
     }
 
     return {
@@ -95,12 +175,13 @@ export class SimulationProvider implements PaymentProvider {
       value,
       description,
       externalReference,
+      metadata: { provider: "SIMULATION" },
     });
   }
 
   async cancelPayment(providerPaymentId: string): Promise<ProviderPaymentSnapshot> {
     const local = await prisma.payment.findFirst({
-      where: { asaasId: providerPaymentId },
+      where: paymentByProviderIdWhere(providerPaymentId),
     });
     if (local && !["refunded", "reembolsado"].includes(String(local.status).toLowerCase())) {
       await prisma.payment.update({
@@ -120,10 +201,11 @@ export class SimulationProvider implements PaymentProvider {
 
   async refundPayment(
     providerPaymentId: string,
-    opts?: { value?: number; description?: string }
+    opts?: { value?: number; description?: string; outcome?: RefundLifecycleStatus }
   ): Promise<RefundPaymentResult> {
+    const outcome: RefundLifecycleStatus = opts?.outcome || "APPROVED";
     const local = await prisma.payment.findFirst({
-      where: { asaasId: providerPaymentId },
+      where: paymentByProviderIdWhere(providerPaymentId),
     });
     if (!local) {
       return {
@@ -134,44 +216,99 @@ export class SimulationProvider implements PaymentProvider {
       };
     }
 
+    const value = opts?.value ?? local.amount;
+
     try {
-      // Marca início do reembolso (espelha fluxo real antes do webhook Asaas)
-      const now = new Date();
-      if (local.appointmentId) {
-        await prisma.appointment.updateMany({
-          where: { id: local.appointmentId },
-          data: {
-            cancelRefundOption: "reembolso",
-            refundProcessedAt: now,
-            refundAsaasStatus: "pending",
-          },
-        });
-      }
-      await prisma.coupon.updateMany({
-        where: { paymentId: local.id, refundProcessedAt: null },
-        data: {
-          refundRequestedAt: now,
-          refundProcessedAt: now,
-          refundAmount: opts?.value ?? local.amount,
-          refundAsaasStatus: "pending",
-        },
-      });
-      if (local.type === "plano") {
-        await prisma.userPlan.updateMany({
-          where: {
-            userId: local.userId,
-            ...(local.planId ? { planId: local.planId } : {}),
-            refundProcessedAt: null,
-          },
-          data: {
-            refundRequestedAt: now,
-            refundProcessedAt: now,
-            refundAmount: opts?.value ?? local.amount,
-            refundAsaasStatus: "pending",
-          },
-        });
+      await markRefundRequested(local, value);
+
+      if (outcome === "PENDING") {
+        try {
+          const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+          await publishSyncEvent({
+            name: "PaymentRefunded",
+            entity: "payment",
+            entityId: local.id,
+            to: "refund_pending",
+            options: {
+              source: "lifecycle",
+              userId: local.userId,
+              metadata: { provider: "SIMULATION", outcome: "PENDING" },
+            },
+          });
+        } catch {
+          /* non-fatal */
+        }
+        return {
+          status: "PENDING",
+          providerPaymentId,
+          provider: "simulation",
+          reason: "Reembolso simulado pendente — aguardando confirmação do gateway.",
+          value,
+          raw: { outcome: "PENDING" },
+        };
       }
 
+      if (outcome === "TIMEOUT") {
+        await markRefundTerminalStatus(local, "TIMEOUT");
+        try {
+          const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+          await publishSyncEvent({
+            name: "PaymentRefunded",
+            entity: "payment",
+            entityId: local.id,
+            to: "refund_timeout",
+            options: {
+              source: "lifecycle",
+              userId: local.userId,
+              metadata: { provider: "SIMULATION", outcome: "TIMEOUT" },
+            },
+          });
+        } catch {
+          /* non-fatal */
+        }
+        return {
+          status: "TIMEOUT",
+          providerPaymentId,
+          provider: "simulation",
+          reason: "Timeout simulado: gateway não confirmou o estorno a tempo.",
+          value,
+          raw: { outcome: "TIMEOUT" },
+        };
+      }
+
+      if (outcome === "FAILED") {
+        await markRefundTerminalStatus(local, "FAILED");
+        try {
+          const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+          await publishSyncEvent({
+            name: "PaymentRefunded",
+            entity: "payment",
+            entityId: local.id,
+            to: "refund_failed",
+            options: {
+              source: "lifecycle",
+              userId: local.userId,
+              metadata: {
+                provider: "SIMULATION",
+                outcome: "FAILED",
+                description: opts?.description || "Falha simulada de reembolso",
+              },
+            },
+          });
+        } catch {
+          /* non-fatal */
+        }
+        return {
+          status: "FAILED",
+          providerPaymentId,
+          provider: "simulation",
+          reason: opts?.description || "Reembolso simulado recusado (cenário FAILED).",
+          value,
+          raw: { outcome: "FAILED" },
+        };
+      }
+
+      // APPROVED (default) — mesmo pipeline do Asaas confirmado
       const sm = await refundPaymentStatus(local.id, {
         type: "system",
         id: "simulation-provider",
@@ -182,13 +319,12 @@ export class SimulationProvider implements PaymentProvider {
           providerPaymentId,
           provider: "simulation",
           reason: sm.error || "Falha na State Machine ao reembolsar pagamento.",
-          value: opts?.value ?? local.amount,
+          value,
         };
       }
 
       const sync = await syncInboundRefundConfirmation(providerPaymentId);
 
-      // Cupons simbólicos usam status simulated quando não há Asaas
       await prisma.coupon.updateMany({
         where: { paymentId: local.id, refundAsaasStatus: "confirmed" },
         data: { refundAsaasStatus: REFUND_ASAAS_STATUS_SIMULATED },
@@ -221,7 +357,7 @@ export class SimulationProvider implements PaymentProvider {
         providerPaymentId,
         provider: "simulation",
         reason: "Reembolso simulado aprovado (pipeline oficial SM + sync).",
-        value: opts?.value ?? local.amount,
+        value,
         raw: { sync, paymentStatus: "refunded" },
       };
     } catch (e: unknown) {
@@ -231,7 +367,7 @@ export class SimulationProvider implements PaymentProvider {
         providerPaymentId,
         provider: "simulation",
         reason,
-        value: opts?.value ?? local.amount,
+        value,
       };
     }
   }
@@ -240,6 +376,7 @@ export class SimulationProvider implements PaymentProvider {
     if (params.event === "PAYMENT_REFUNDED") {
       const refund = await this.refundPayment(params.providerPaymentId, {
         value: params.value,
+        outcome: "APPROVED",
       });
       return {
         received: true,
@@ -250,7 +387,11 @@ export class SimulationProvider implements PaymentProvider {
     }
 
     if (params.event !== "PAYMENT_RECEIVED" && params.event !== "PAYMENT_CONFIRMED") {
-      return { received: true, success: false, error: `Evento ${params.event} não gera efeitos de confirmação.` };
+      return {
+        received: true,
+        success: false,
+        error: `Evento ${params.event} não gera efeitos de confirmação.`,
+      };
     }
 
     const meta = await prisma.paymentMetadata.findFirst({
@@ -279,7 +420,7 @@ export class SimulationProvider implements PaymentProvider {
         customer: "cus_simulation",
         externalReference,
         description,
-        metadata: params.metadata || {},
+        metadata: { ...(params.metadata || {}), provider: "SIMULATION" },
       },
     });
 
@@ -293,7 +434,7 @@ export class SimulationProvider implements PaymentProvider {
 
   async getPayment(providerPaymentId: string): Promise<ProviderPaymentSnapshot | null> {
     const local = await prisma.payment.findFirst({
-      where: { asaasId: providerPaymentId },
+      where: paymentByProviderIdWhere(providerPaymentId),
     });
     if (local) {
       const st = String(local.status).toLowerCase();
@@ -310,8 +451,7 @@ export class SimulationProvider implements PaymentProvider {
                 : "PENDING",
         value: local.amount,
         description: null,
-        refundStatus:
-          st === "refunded" || st === "reembolsado" ? "APPROVED" : null,
+        refundStatus: st === "refunded" || st === "reembolsado" ? "APPROVED" : null,
         raw: local,
       };
     }

@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       deliveryAudioUrl: publicPath,
-      deliveryAudioFormat: format === "zip" ? "wav" : format,
+      deliveryAudioFormat: format,
       fileName: originalName,
       storedName,
       bytes: file.size,

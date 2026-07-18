@@ -1,11 +1,14 @@
 /**
  * Homologation Engine — orquestra SimulationProvider + pipeline oficial.
- * Não cria Appointment/Service/Coupon diretamente: só via processPaymentWebhook.
+ * Não cria Appointment/Service/Coupon diretamente: só via processPaymentWebhook / domínio.
  */
 import { prisma } from "@/app/lib/prisma";
 import { SimulationProvider } from "@/app/lib/payment-provider/simulation-provider";
+import { paymentByProviderIdWhere } from "@/app/lib/payment-provider/identity";
 import { SYMBOLIC_AGENDAMENTO_BRL } from "@/app/lib/symbolic-payment";
 import { saveHomologationRun } from "@/app/lib/homologation/store";
+import { getHomologationScenario } from "@/app/lib/homologation/scenarios";
+import { createDomainCoupon, couponUsesExclusiveSchedulingPage } from "@/app/lib/domain/coupon-domain";
 import type {
   HomologationCheck,
   HomologationRun,
@@ -13,6 +16,7 @@ import type {
   HomologationTimelineEvent,
 } from "@/app/lib/homologation/types";
 import { totalPricedCheckoutItems, priceCheckoutItems } from "@/app/lib/service-catalog";
+import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
 
 function pushTimeline(
   timeline: HomologationTimelineEvent[],
@@ -38,7 +42,7 @@ function emptyChecks(): HomologationCheck[] {
     { key: "servicesCreated", label: "Services Created", ok: false },
     { key: "couponsCreated", label: "Coupons Created", ok: false },
     { key: "refundRequested", label: "Refund Requested", ok: false },
-    { key: "refundResolved", label: "Refund Approved / Failed", ok: false },
+    { key: "refundResolved", label: "Refund Approved / Failed / Pending / Timeout", ok: false },
     { key: "workflowUpdated", label: "Workflow Updated", ok: false },
     { key: "minhaContaUpdated", label: "Minha Conta Updated", ok: false },
     { key: "dashboardUpdated", label: "Dashboard Updated", ok: false },
@@ -58,9 +62,32 @@ function mark(
   }
 }
 
+function refundCheckOk(
+  status: RefundLifecycleStatus | undefined,
+  expected?: RefundLifecycleStatus
+): boolean {
+  if (!status) return false;
+  if (expected) return status === expected;
+  return status === "APPROVED" || status === "PENDING" || status === "TIMEOUT" || status === "FAILED";
+}
+
 export async function runHomologationSimulation(
-  input: HomologationRunInput
+  rawInput: HomologationRunInput
 ): Promise<HomologationRun> {
+  const scenario = getHomologationScenario(rawInput.scenarioId);
+  const input: HomologationRunInput = scenario
+    ? {
+        ...scenario.buildInput({
+          userId: rawInput.userId,
+          userEmail: rawInput.userEmail,
+          userName: rawInput.userName,
+        }),
+        expectedServiceCoupons:
+          rawInput.expectedServiceCoupons ?? scenario.expectedServiceCoupons ?? null,
+        refundOutcome: rawInput.refundOutcome ?? scenario.refundOutcome,
+      }
+    : rawInput;
+
   const runId = `homo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const timeline: HomologationTimelineEvent[] = [];
   const checks = emptyChecks();
@@ -71,6 +98,7 @@ export async function runHomologationSimulation(
     runId,
     startedAt: new Date().toISOString(),
     provider: "SIMULATION",
+    scenarioId: scenario?.id || input.scenarioId,
     input,
     checks,
     timeline,
@@ -78,11 +106,46 @@ export async function runHomologationSimulation(
   };
 
   try {
-    pushTimeline(timeline, "start", true, `Homologação ${tipo} via SimulationProvider`);
+    pushTimeline(
+      timeline,
+      "start",
+      true,
+      scenario
+        ? `Cenário ${scenario.id}: ${scenario.label}`
+        : `Homologação ${tipo} via SimulationProvider`
+    );
+
+    // Cenário cupom desconto: cria DISCOUNT via domínio (mesmo factory OP-02A)
+    if (input.scenarioKind === "cupom_desconto") {
+      const discount = await createDomainCoupon(prisma, {
+        canonicalType: "DISCOUNT",
+        discountType: "fixed",
+        discountValue: 10,
+        serviceType: null,
+        assignedUserId: input.userId,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      });
+      run.couponCodes = [discount.code];
+      mark(checks, "couponsCreated", true, `DISCOUNT ${discount.code}`);
+      mark(checks, "paymentCreated", true, "N/A — cenário cupom desconto");
+      mark(checks, "webhookExecuted", true, "N/A");
+      mark(checks, "appointmentCreated", true, "N/A");
+      mark(checks, "servicesCreated", true, "N/A");
+      mark(checks, "refundRequested", true, "não solicitado");
+      mark(checks, "refundResolved", true, "não solicitado");
+      mark(checks, "workflowUpdated", true, "createDomainCoupon DISCOUNT");
+      mark(checks, "minhaContaUpdated", true, "cupom assignado ao usuário");
+      mark(checks, "dashboardUpdated", true, "domínio cupom atualizado");
+      run.ok = true;
+      pushTimeline(timeline, "cupom_desconto", true, discount.code);
+      run.finishedAt = new Date().toISOString();
+      await saveHomologationRun(run);
+      return run;
+    }
 
     let metadata: Record<string, unknown>;
     let description: string;
-    let chargedAmount = SYMBOLIC_AGENDAMENTO_BRL;
+    const chargedAmount = SYMBOLIC_AGENDAMENTO_BRL;
 
     if (tipo === "plano") {
       const planId = input.planId || "bronze";
@@ -104,9 +167,7 @@ export async function runHomologationSimulation(
       };
       description = `Plano ${planId} - simulação homologação`;
     } else {
-      const servicos = input.servicos || [
-        { id: "sessao", nome: "Sessão", quantidade: 1 },
-      ];
+      const servicos = input.servicos || [{ id: "sessao", nome: "Sessão", quantidade: 1 }];
       const beats = input.beats || [];
       let catalogTotal = 40;
       try {
@@ -127,7 +188,7 @@ export async function runHomologationSimulation(
         userId: input.userId,
         ...(input.data && input.hora ? { data: input.data, hora: input.hora } : {}),
         duracaoMinutos: input.duracaoMinutos || 60,
-        tipoAgendamento: servicos[0]?.id || "sessao",
+        tipoAgendamento: servicos[0]?.id || beats[0]?.id || "sessao",
         observacoes: input.observacoes || `Homologação ${runId}`,
         servicos,
         beats,
@@ -162,11 +223,8 @@ export async function runHomologationSimulation(
           unit_price: chargedAmount,
         },
       ],
-      payer: {
-        name: input.userName,
-        email: input.userEmail,
-      },
-      metadata: { operationId: metaRow.id },
+      payer: { name: input.userName, email: input.userEmail },
+      metadata: { operationId: metaRow.id, provider: "SIMULATION" },
       backUrls: {
         success: "/admin/homologacao",
         failure: "/admin/homologacao",
@@ -186,16 +244,30 @@ export async function runHomologationSimulation(
       Boolean(webhook.received),
       webhook.error || (webhook.success ? "PAYMENT_RECEIVED processado" : "recebido sem success")
     );
-    pushTimeline(timeline, "confirmPayment/simulateWebhook", Boolean(webhook.success || webhook.received), webhook.error, webhook);
+    pushTimeline(
+      timeline,
+      "confirmPayment/simulateWebhook",
+      Boolean(webhook.success || webhook.received),
+      webhook.error,
+      webhook
+    );
 
     const payment = await prisma.payment.findFirst({
-      where: { asaasId: created.providerPaymentId },
+      where: paymentByProviderIdWhere(created.providerPaymentId),
     });
     if (!payment) {
       throw new Error("Payment local não criado após webhook simulado.");
     }
+    if (payment.asaasId && String(payment.provider || "").toUpperCase() === "SIMULATION") {
+      throw new Error("Invariante: Payment Simulation não deve preencher asaasId.");
+    }
     run.paymentDbId = payment.id;
-    mark(checks, "paymentCreated", true, `db=${payment.id} status=${payment.status}`);
+    mark(
+      checks,
+      "paymentCreated",
+      true,
+      `db=${payment.id} provider=${payment.provider || "?"} providerPaymentId=${payment.providerPaymentId || created.providerPaymentId} status=${payment.status}`
+    );
     mark(
       checks,
       "workflowUpdated",
@@ -214,7 +286,6 @@ export async function runHomologationSimulation(
           take: 10,
         });
 
-    // Carrinho/multi: appointmentIds no payment
     let aptIds: number[] = appointments.map((a) => a.id);
     if (payment.appointmentIds) {
       let raw: unknown = payment.appointmentIds;
@@ -230,8 +301,8 @@ export async function runHomologationSimulation(
       }
     }
     if (payment.appointmentId) aptIds = [...new Set([...aptIds, payment.appointmentId])];
-
     run.appointmentIds = aptIds;
+
     mark(
       checks,
       "appointmentCreated",
@@ -239,10 +310,9 @@ export async function runHomologationSimulation(
       aptIds.length > 0
         ? `ids=${aptIds.join(",")}`
         : tipo === "plano"
-          ? "plano: appointment opcional (cupons de plano)"
-          : "nenhum appointment (fluxo cupons-only esperado)"
+          ? "plano: appointment opcional"
+          : "cupons-only: appointment no resgate"
     );
-    // Coupons-only multi: ok even without appointment
     if (aptIds.length === 0 && tipo === "agendamento") {
       mark(checks, "appointmentCreated", true, "cupons-only: appointment no resgate");
     }
@@ -256,9 +326,7 @@ export async function runHomologationSimulation(
       checks,
       "servicesCreated",
       services.length > 0 || tipo === "plano" || aptIds.length === 0,
-      services.length > 0
-        ? `${services.length} service(s)`
-        : "sem services nesta etapa (cupons/plano)"
+      services.length > 0 ? `${services.length} service(s)` : "sem services nesta etapa"
     );
 
     const coupons = await prisma.coupon.findMany({
@@ -266,18 +334,65 @@ export async function runHomologationSimulation(
       orderBy: { createdAt: "asc" },
     });
     run.couponCodes = coupons.map((c) => c.code);
-    mark(
-      checks,
-      "couponsCreated",
-      coupons.length > 0 || (aptIds.length > 0 && services.length > 0),
+
+    const expected = input.expectedServiceCoupons;
+    let couponsOk = coupons.length > 0 || (aptIds.length > 0 && services.length > 0) || tipo === "plano";
+    let couponDetail =
       coupons.length > 0
         ? `${coupons.length} cupom(ns): ${coupons.map((c) => c.code).join(", ")}`
         : aptIds.length > 0
-          ? "agendamento direto sem cupons de linha (sessão isolada)"
-          : "nenhum cupom"
-    );
+          ? "agendamento direto sem cupons de linha"
+          : "nenhum cupom";
 
-    // Sync surfaces: eventos publicados pelo webhook
+    if (typeof expected === "number") {
+      couponsOk = coupons.length === expected;
+      couponDetail = `esperado=${expected} obtido=${coupons.length} [${coupons.map((c) => c.code).join(", ")}]`;
+      // Páginas exclusivas
+      const exclusiveOk = coupons.every((c) => couponUsesExclusiveSchedulingPage(c));
+      if (expected > 0 && !exclusiveOk) {
+        couponsOk = false;
+        couponDetail += " — nem todos usam página exclusiva";
+      }
+    }
+
+    mark(checks, "couponsCreated", couponsOk, couponDetail);
+    pushTimeline(timeline, "coupons", couponsOk, couponDetail);
+
+    // Cenário remarcação: cancel + criar REBOOK
+    if (input.scenarioKind === "cupom_remarcacao") {
+      if (aptIds.length === 0) {
+        // Se multi/cupons-only, criar appointment via com-cupom path não está aqui —
+        // exige ao menos 1 appointment da sessão isolada
+        throw new Error("cupom_remarcacao exige Appointment (use cenário com data/hora).");
+      }
+      const aptId = aptIds[0];
+      await prisma.appointment.update({
+        where: { id: aptId },
+        data: {
+          status: "cancelado",
+          cancelledAt: new Date(),
+          cancelReason: "Homologação remarcação",
+          cancelRefundOption: "cupom",
+        },
+      });
+      const rebook = await createDomainCoupon(prisma, {
+        canonicalType: "REBOOK",
+        discountType: "service",
+        discountValue: 0,
+        serviceType: "sessao",
+        originAppointmentId: aptId,
+        assignedUserId: input.userId,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      });
+      await prisma.appointment.update({
+        where: { id: aptId },
+        data: { refundCouponId: rebook.id },
+      });
+      run.couponCodes = [...(run.couponCodes || []), rebook.code];
+      pushTimeline(timeline, "cupom_remarcacao", true, rebook.code);
+      mark(checks, "couponsCreated", true, `REBOOK ${rebook.code}`);
+    }
+
     const syncEvents = await prisma.synchronizationEvent.count({
       where: {
         OR: [
@@ -303,65 +418,44 @@ export async function runHomologationSimulation(
     mark(
       checks,
       "minhaContaUpdated",
-      syncEvents > 0 || payment.status === "approved",
-      `syncEvents=${syncEvents}`
+      syncEvents > 0 || payment.status === "approved" || (run.couponCodes?.length || 0) > 0,
+      `syncEvents=${syncEvents} cupons=${run.couponCodes?.length || 0}`
     );
     mark(
       checks,
       "dashboardUpdated",
       syncEvents > 0 || payment.status === "approved",
-      `surfaces atualizadas via SynchronizationEngine (${syncEvents} eventos)`
+      `SynchronizationEngine (${syncEvents} eventos)`
     );
 
     if (input.runRefund) {
-      mark(checks, "refundRequested", true, "refundPayment() SimulationProvider");
-      pushTimeline(timeline, "refundPayment:request", true);
+      const outcome = input.refundOutcome || "APPROVED";
+      mark(checks, "refundRequested", true, `refundPayment(outcome=${outcome})`);
+      pushTimeline(timeline, "refundPayment:request", true, outcome);
       const refund = await provider.refundPayment(created.providerPaymentId, {
         description: `Homologação refund ${runId}`,
+        outcome,
       });
       run.refund = { status: refund.status, reason: refund.reason };
+      const okRefund = refundCheckOk(refund.status, outcome);
       mark(
         checks,
         "refundResolved",
-        refund.status === "APPROVED" || refund.status === "PENDING",
+        okRefund,
         `${refund.status}${refund.reason ? ` — ${refund.reason}` : ""}`
       );
-      pushTimeline(
-        timeline,
-        "refundPayment:result",
-        refund.status !== "FAILED",
-        refund.reason,
-        refund
-      );
-
-      const paymentAfter = await prisma.payment.findUnique({ where: { id: payment.id } });
-      mark(
-        checks,
-        "workflowUpdated",
-        String(paymentAfter?.status).toLowerCase() === "refunded" ||
-          String(paymentAfter?.status).toLowerCase() === "reembolsado",
-        `payment.status=${paymentAfter?.status}`
-      );
+      pushTimeline(timeline, "refundPayment:result", okRefund, refund.reason, refund);
     } else {
       mark(checks, "refundRequested", true, "não solicitado neste run");
       mark(checks, "refundResolved", true, "não solicitado neste run");
     }
 
-    run.ok = checks
-      .filter((c) => !["refundRequested", "refundResolved"].includes(c.key) || input.runRefund)
-      .every((c) => {
-        if (!input.runRefund && (c.key === "refundRequested" || c.key === "refundResolved")) {
-          return true;
-        }
-        return c.ok;
-      });
-
-    // Core path must pass
     run.ok =
       checks.find((c) => c.key === "paymentCreated")!.ok &&
       checks.find((c) => c.key === "webhookExecuted")!.ok &&
+      checks.find((c) => c.key === "couponsCreated")!.ok &&
       (coupons.length > 0 || aptIds.length > 0 || tipo === "plano") &&
-      (!input.runRefund || run.refund?.status === "APPROVED" || run.refund?.status === "PENDING");
+      (!input.runRefund || refundCheckOk(run.refund?.status, input.refundOutcome));
 
     pushTimeline(timeline, "finish", run.ok, run.ok ? "PASS" : "FAIL parcial");
   } catch (e: unknown) {

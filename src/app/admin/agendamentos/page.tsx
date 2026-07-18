@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { notifyAppDataChanged } from "@/app/lib/app-data-events";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
+import { canDeleteClosedAppointment } from "@/app/lib/appointment-delete-gate";
 
 interface PagamentoConfirmado {
   id: string;
@@ -39,6 +40,7 @@ interface Agendamento {
   cancelledAt?: string | null;
   cancelRefundOption?: string | null;
   refundProcessedAt?: string | null;
+  refundAsaasStatus?: string | null;
   refundCouponId?: string | null;
   user: {
     nomeArtistico: string;
@@ -583,15 +585,25 @@ function AdminAgendamentosContent() {
                       >
                         Reverter cancelamento
                       </button>
-                      <button
-                        onClick={() => excluirAgendamento(a.id)}
-                        className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
-                      >
-                        Excluir
-                      </button>
+                      {canDeleteClosedAppointment(a).allowed && (
+                        <button
+                          onClick={() => excluirAgendamento(a.id)}
+                          className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                        >
+                          Excluir
+                        </button>
+                      )}
                     </>
                   )}
-                  {a.status === "recusado" && (
+                  {a.status === "recusado" && canDeleteClosedAppointment(a).allowed && (
+                    <button
+                      onClick={() => excluirAgendamento(a.id)}
+                      className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                    >
+                      Excluir
+                    </button>
+                  )}
+                  {a.status === "concluido" && canDeleteClosedAppointment(a).allowed && (
                     <button
                       onClick={() => excluirAgendamento(a.id)}
                       className="rounded bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"

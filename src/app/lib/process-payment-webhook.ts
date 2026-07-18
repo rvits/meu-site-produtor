@@ -14,6 +14,10 @@ import {
   isPlanoPaymentDescription,
   resolvePaymentTipo,
 } from "@/app/lib/agendamento-payment-rules";
+import {
+  paymentByProviderIdWhere,
+  paymentProviderPersistFields,
+} from "@/app/lib/payment-provider/identity";
 
 function isConfirmedPaymentEvent(event: string, status: string): boolean {
   return event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED");
@@ -70,9 +74,7 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
     const isAgendamentoDesc = isAgendamentoPaymentDescription(payment.description);
 
     const existingPayment = await prisma.payment.findFirst({
-      where: {
-        OR: [{ asaasId: paymentId }, { mercadopagoId: paymentId }],
-      },
+      where: paymentByProviderIdWhere(paymentId),
     });
 
     let userId: string;
@@ -125,6 +127,13 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
         await confirmPayment(existingPayment.id, { type: "webhook", id: paymentId });
       }
     } else {
+      const providerFields = paymentProviderPersistFields({
+        providerPaymentId: paymentId,
+        metadata:
+          payment.metadata && typeof payment.metadata === "object"
+            ? (payment.metadata as Record<string, unknown>)
+            : null,
+      });
       const created = await prisma.payment.create({
         data: {
           userId,
@@ -136,7 +145,7 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
               ? "agendamento"
               : "outro",
           currency: "BRL",
-          asaasId: paymentId,
+          ...providerFields,
           planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
         },
       });
@@ -168,7 +177,11 @@ export async function processPaymentWebhook(body: { event: string; payment: any 
           options: {
             source: "lifecycle",
             userId,
-            metadata: { asaasId: paymentId, via: "processPaymentWebhook-create" },
+            metadata: {
+              providerPaymentId: paymentId,
+              provider: providerFields.provider,
+              via: "processPaymentWebhook-create",
+            },
           },
         });
       } catch (syncErr) {

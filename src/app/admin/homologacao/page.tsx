@@ -11,6 +11,7 @@ type Run = {
   finishedAt?: string;
   ok: boolean;
   error?: string;
+  scenarioId?: string;
   providerPaymentId?: string;
   paymentDbId?: string;
   appointmentIds?: number[];
@@ -21,26 +22,37 @@ type Run = {
   input: { tipo?: string; planId?: string; runRefund?: boolean };
 };
 
+type Scenario = {
+  id: string;
+  label: string;
+  description: string;
+  refundOutcome: string | null;
+  expectedServiceCoupons: number | null;
+};
+
 export default function HomologacaoAdminPage() {
   const [latest, setLatest] = useState<Run | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarioId, setScenarioId] = useState("sessao_beat");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [tipo, setTipo] = useState<"agendamento" | "plano">("agendamento");
-  const [planId, setPlanId] = useState("bronze");
-  const [runRefund, setRunRefund] = useState(false);
-  const [multi, setMulti] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/homologation/runs", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) {
-        setLatest(data.latest || null);
-        setRuns(data.runs || []);
+      const [runsRes, scenRes] = await Promise.all([
+        fetch("/api/admin/homologation/runs", { cache: "no-store" }),
+        fetch("/api/admin/homologation/run", { cache: "no-store" }),
+      ]);
+      const runsData = await runsRes.json();
+      const scenData = await scenRes.json();
+      if (runsRes.ok) {
+        setLatest(runsData.latest || null);
+        setRuns(runsData.runs || []);
       }
+      if (scenRes.ok) setScenarios(scenData.scenarios || []);
     } finally {
       setLoading(false);
     }
@@ -54,32 +66,10 @@ export default function HomologacaoAdminPage() {
     setBusy(true);
     setMessage(null);
     try {
-      const body: Record<string, unknown> = {
-        tipo,
-        runRefund,
-      };
-      if (tipo === "plano") {
-        body.planId = planId;
-        body.modo = "mensal";
-      } else if (multi) {
-        body.servicos = [
-          { id: "sessao", nome: "Sessão", quantidade: 1 },
-          { id: "mix", nome: "Mixagem", quantidade: 1 },
-        ];
-        body.beats = [{ id: "beat1", nome: "1 Beat", quantidade: 1 }];
-      } else {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const data = tomorrow.toISOString().slice(0, 10);
-        body.servicos = [{ id: "sessao", nome: "Sessão", quantidade: 1 }];
-        body.data = data;
-        body.hora = "14:00";
-      }
-
       const res = await fetch("/api/admin/homologation/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ scenarioId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -96,7 +86,7 @@ export default function HomologacaoAdminPage() {
     }
   }
 
-  async function refundLatest() {
+  async function refundLatest(outcome: "APPROVED" | "PENDING" | "FAILED" | "TIMEOUT") {
     if (!latest?.providerPaymentId && !latest?.runId) {
       setMessage("Nenhum run para reembolsar.");
       return;
@@ -109,6 +99,7 @@ export default function HomologacaoAdminPage() {
         body: JSON.stringify({
           runId: latest.runId,
           providerPaymentId: latest.providerPaymentId,
+          outcome,
         }),
       });
       const data = await res.json();
@@ -124,61 +115,34 @@ export default function HomologacaoAdminPage() {
     }
   }
 
+  const selected = scenarios.find((s) => s.id === scenarioId);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-100">Homologation Engine</h1>
         <p className="text-sm text-zinc-400 mt-1">
           Provider virtual (<code className="text-zinc-300">SimulationProvider</code>) no mesmo
-          pipeline de domínio do Asaas — sem cobrança real. Use antes do Go Live.
+          pipeline de domínio do Asaas — sem cobrança real. Cenários oficiais OP-02B.
         </p>
       </div>
 
       <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-amber-300">Simulação gratuita</h2>
+        <h2 className="text-sm font-semibold text-amber-300">Cenários</h2>
         <div className="flex flex-wrap gap-3 items-end">
-          <label className="text-xs text-zinc-300">
-            Tipo
+          <label className="text-xs text-zinc-300 block min-w-[220px]">
+            Cenário
             <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as "agendamento" | "plano")}
-              className="ml-2 rounded border border-zinc-600 bg-zinc-900 px-2 py-1"
+              value={scenarioId}
+              onChange={(e) => setScenarioId(e.target.value)}
+              className="mt-1 w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1.5"
             >
-              <option value="agendamento">Agendamento</option>
-              <option value="plano">Plano</option>
+              {scenarios.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
             </select>
-          </label>
-          {tipo === "plano" && (
-            <label className="text-xs text-zinc-300">
-              Plano
-              <select
-                value={planId}
-                onChange={(e) => setPlanId(e.target.value)}
-                className="ml-2 rounded border border-zinc-600 bg-zinc-900 px-2 py-1"
-              >
-                <option value="bronze">Bronze</option>
-                <option value="prata">Prata</option>
-                <option value="ouro">Ouro</option>
-              </select>
-            </label>
-          )}
-          {tipo === "agendamento" && (
-            <label className="text-xs text-zinc-300 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={multi}
-                onChange={(e) => setMulti(e.target.checked)}
-              />
-              Multi (Sessão + Mix + Beat → cupons)
-            </label>
-          )}
-          <label className="text-xs text-zinc-300 flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={runRefund}
-              onChange={(e) => setRunRefund(e.target.checked)}
-            />
-            Incluir reembolso simulado
           </label>
           <button
             type="button"
@@ -186,15 +150,7 @@ export default function HomologacaoAdminPage() {
             onClick={() => void runSimulation()}
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
           >
-            {busy ? "Executando…" : "Rodar simulação gratuita"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !latest}
-            onClick={() => void refundLatest()}
-            className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-          >
-            Reembolsar último run
+            {busy ? "Executando…" : "Rodar cenário"}
           </button>
           <button
             type="button"
@@ -204,6 +160,21 @@ export default function HomologacaoAdminPage() {
           >
             Atualizar
           </button>
+        </div>
+        {selected && <p className="text-xs text-amber-100/80">{selected.description}</p>}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <span className="text-xs text-zinc-500 self-center">Refund manual:</span>
+          {(["APPROVED", "PENDING", "FAILED", "TIMEOUT"] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              disabled={busy || !latest}
+              onClick={() => void refundLatest(o)}
+              className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {o}
+            </button>
+          ))}
         </div>
         {message && <p className="text-sm text-amber-100">{message}</p>}
       </div>
@@ -215,6 +186,9 @@ export default function HomologacaoAdminPage() {
           <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-4">
             <h2 className="text-sm font-semibold text-zinc-100 mb-3">
               Checklist — {latest.runId}{" "}
+              {latest.scenarioId && (
+                <span className="text-zinc-500 font-normal">({latest.scenarioId})</span>
+              )}{" "}
               <span className={latest.ok ? "text-green-400" : "text-red-400"}>
                 {latest.ok ? "PASS" : "FAIL"}
               </span>
@@ -281,7 +255,7 @@ export default function HomologacaoAdminPage() {
           <ul className="text-xs text-zinc-400 space-y-1">
             {runs.slice(0, 10).map((r) => (
               <li key={r.runId}>
-                {r.runId} · {r.ok ? "PASS" : "FAIL"} · {r.input?.tipo || "?"} ·{" "}
+                {r.runId} · {r.ok ? "PASS" : "FAIL"} · {r.scenarioId || r.input?.tipo || "?"} ·{" "}
                 {new Date(r.startedAt).toLocaleString("pt-BR")}
               </li>
             ))}

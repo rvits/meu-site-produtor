@@ -23,7 +23,6 @@ function defaultStats() {
       pendentes: 0,
       aceitos: 0,
       emAndamento: 0,
-      aFazer: 0,
       concluidos: 0,
       cancelados: 0,
       recusados: 0,
@@ -136,8 +135,6 @@ export async function GET() {
     stats.servicos.emAndamento = await prisma.service.count({
       where: { status: "em_andamento" },
     });
-    stats.servicos.aFazer =
-      stats.servicos.pendentes + stats.servicos.aceitos + stats.servicos.emAndamento;
     stats.servicos.concluidos = await prisma.service.count({
       where: { status: "concluido" },
     });

@@ -10,6 +10,7 @@ import {
   startServiceWork,
 } from "@/app/lib/domain/workflow";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
+import { canDeleteClosedAppointment } from "@/app/lib/appointment-delete-gate";
 
 
 const updateSchema = z.object({
@@ -52,7 +53,15 @@ export async function GET() {
 
     // Buscar todos os pagamentos de agendamento aprovados (para associar inclusive carrinho com appointmentIds)
     const pagamentosAgendamento = await prisma.payment.findMany({
-      where: { type: "agendamento", status: "approved", asaasId: { not: null } },
+      where: {
+        type: "agendamento",
+        status: "approved",
+        OR: [
+          { asaasId: { not: null } },
+          { providerPaymentId: { not: null } },
+          { mercadopagoId: { not: null } },
+        ],
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -343,12 +352,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
-    // Só permite excluir agendamentos recusados ou cancelados
-    if (agendamento.status !== "recusado" && agendamento.status !== "cancelado") {
-      return NextResponse.json(
-        { error: "Apenas agendamentos recusados ou cancelados podem ser excluídos" },
-        { status: 400 }
-      );
+    // Só permite excluir quando workflow encerrado (OP-02B)
+    const gate = canDeleteClosedAppointment(agendamento);
+    if (!gate.allowed) {
+      return NextResponse.json({ error: gate.reason }, { status: 400 });
     }
 
     await prisma.appointment.delete({

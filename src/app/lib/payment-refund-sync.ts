@@ -3,6 +3,7 @@
  * para reuso pelo SimulationProvider (mesmo efeito de domínio).
  */
 import { prisma } from "@/app/lib/prisma";
+import { paymentByProviderIdWhere } from "@/app/lib/payment-provider/identity";
 
 const USER_PLAN_REFUND_MATCH_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -39,9 +40,7 @@ export async function syncInboundRefundConfirmation(providerPaymentId: string): 
   userPlans: number;
 }> {
   const localPayment = await prisma.payment.findFirst({
-    where: {
-      OR: [{ asaasId: providerPaymentId }, { mercadopagoId: providerPaymentId }],
-    },
+    where: paymentByProviderIdWhere(providerPaymentId),
     select: {
       id: true,
       userId: true,

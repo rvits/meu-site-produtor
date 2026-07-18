@@ -37,6 +37,7 @@
     "graph:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/knowledge-graph-audit.ts",
     "discovery:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/discovery-audit.ts",
     "regression:audit": "npx --yes tsx --tsconfig tsconfig.json scripts/regression-audit.ts",
+    "homologation:scenarios": "npx --yes tsx --tsconfig tsconfig.json scripts/homologation-scenarios-smoke.ts",
     "golive:cleanup": "npx --yes tsx --tsconfig tsconfig.json scripts/golive-cleanup.ts",
     "launch01:reset": "npx --yes tsx --tsconfig tsconfig.json scripts/launch01-reset.ts",
     "launch01:certify": "npx --yes tsx --tsconfig tsconfig.json scripts/launch01-certify.ts",

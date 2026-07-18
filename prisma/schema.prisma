@@ -164,28 +164,34 @@ model LoginLog {
 }
 
 model Payment {
-  id             String   @id @default(uuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mercadopagoId  String?  @unique
-  asaasId        String?  @unique // ID do pagamento no Asaas
-  amount         Float
-  currency       String   @default("BRL")
-  status         String   @default("pending")
-  type           String
-  paymentMethod  String? // Método de pagamento selecionado pelo usuário
-  planId         String?
-  serviceId      String?
-  appointmentId  Int? // ID do agendamento associado (para prevenir fraudes); em compras com carrinho, primeiro agendamento
-  appointmentIds Json? // IDs de todos os agendamentos (carrinho); array de inteiros
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  coupons        Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mercadopagoId     String?  @unique
+  asaasId           String?  @unique // ID do pagamento no Asaas (legado; Asaas dual-write até v1.1)
+  /// Gateway canônico: ASAAS | SIMULATION | MERCADOPAGO | …
+  provider          String?
+  /// ID do pagamento no gateway (canônico; Simulation NÃO usa asaasId)
+  providerPaymentId String?  @unique
+  amount            Float
+  currency          String   @default("BRL")
+  status            String   @default("pending")
+  type              String
+  paymentMethod     String? // Método de pagamento selecionado pelo usuário
+  planId            String?
+  serviceId         String?
+  appointmentId     Int? // ID do agendamento associado (para prevenir fraudes); em compras com carrinho, primeiro agendamento
+  appointmentIds    Json? // IDs de todos os agendamentos (carrinho); array de inteiros
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  coupons           Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
 
   @@index([userId])
   @@index([status])
   @@index([mercadopagoId])
   @@index([asaasId])
+  @@index([provider])
+  @@index([providerPaymentId])
   @@index([appointmentId])
 }
 
@@ -266,8 +272,8 @@ model Service {
   description         String?
   status              String       @default("pendente") // pendente | aceito | em_andamento | recusado | cancelado | concluido
   acceptedAt          DateTime?
-  deliveryAudioUrl    String? // Link do arquivo entregue (WAV/MP3) após conclusão
-  deliveryAudioFormat String? // "wav" | "mp3"
+  deliveryAudioUrl    String? // Path/URL canônica do arquivo entregue (upload; não colar URL externa)
+  deliveryAudioFormat String? // "wav" | "mp3" | "zip"
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   coupons             Coupon[]

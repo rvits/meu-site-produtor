@@ -31,8 +31,15 @@ export async function POST(req: Request) {
     }
 
     const provider = new SimulationProvider();
+    const outcome = body.outcome as
+      | "APPROVED"
+      | "PENDING"
+      | "FAILED"
+      | "TIMEOUT"
+      | undefined;
     const refund = await provider.refundPayment(providerPaymentId, {
       description: `Homologação refund manual ${runId || providerPaymentId}`,
+      outcome: outcome || "APPROVED",
     });
 
     if (run) {

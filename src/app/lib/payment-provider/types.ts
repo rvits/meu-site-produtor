@@ -66,7 +66,8 @@ export type RefundLifecycleStatus =
   | "REQUESTED"
   | "PENDING"
   | "APPROVED"
-  | "FAILED";
+  | "FAILED"
+  | "TIMEOUT";
 
 export type RefundPaymentResult = {
   status: RefundLifecycleStatus;
@@ -113,7 +114,12 @@ export interface PaymentProvider {
   cancelPayment(providerPaymentId: string): Promise<ProviderPaymentSnapshot>;
   refundPayment(
     providerPaymentId: string,
-    opts?: { value?: number; description?: string }
+    opts?: {
+      value?: number;
+      description?: string;
+      /** Homologação: força outcome (Simulation). Asaas ignora. */
+      outcome?: RefundLifecycleStatus;
+    }
   ): Promise<RefundPaymentResult>;
   simulateWebhook(params: SimulateWebhookParams): Promise<SimulateWebhookResult>;
   getPayment(providerPaymentId: string): Promise<ProviderPaymentSnapshot | null>;

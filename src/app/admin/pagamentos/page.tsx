@@ -325,7 +325,7 @@ export default function AdminPagamentosPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        {p.status === "approved" && (
+                        {p.status === "pending" || p.status === "rejected" || p.status === "refunded" || p.status === "reembolsado" ? (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -337,7 +337,7 @@ export default function AdminPagamentosPage() {
                           >
                             {excluindoId === p.id ? "Excluindo..." : "Excluir"}
                           </button>
-                        )}
+                        ) : null}
                         <button
                           type="button"
                           className="text-zinc-400 hover:text-zinc-200 transition-colors"

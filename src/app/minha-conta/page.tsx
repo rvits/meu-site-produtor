@@ -992,7 +992,9 @@ export default function MinhaContaPage() {
                                 {agendamento.entregas.map((e) => {
                                   const fileName = deliveryDisplayName(e.deliveryAudioUrl);
                                   const fmt = (e.deliveryAudioFormat || "").toLowerCase();
-                                  const isAudio = fmt === "wav" || fmt === "mp3" || /\.(wav|mp3)(\?|$)/i.test(e.deliveryAudioUrl);
+                                  const isAudio =
+                                    (fmt === "wav" || fmt === "mp3") &&
+                                    !/\.zip(\?|$)/i.test(e.deliveryAudioUrl);
                                   return (
                                     <li key={e.id} className="text-sm text-zinc-400 space-y-1.5">
                                       <div>

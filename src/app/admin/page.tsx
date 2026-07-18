@@ -71,7 +71,7 @@ const MENU_ITEMS = [
   {
     id: "servicos-solicitados",
     title: "Serviços Selecionados",
-    description: "Por agendamento: a fazer e feitos (registrar como feito)",
+    description: "Por agendamento: pendentes, aceitos, em andamento, concluídos",
     icon: "📋",
     href: "/admin/servicos-solicitados",
     color: "from-pink-500/20 to-pink-600/20 border-pink-500/30",
