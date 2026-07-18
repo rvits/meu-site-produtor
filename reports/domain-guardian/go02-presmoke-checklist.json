@@ -1,0 +1,116 @@
+{
+  "reportId": "GO-02-presmoke-checklist",
+  "executedAt": "2026-07-18T08:47:51.190Z",
+  "verdict": "STOP",
+  "hardFails": [
+    "webhook_token_present",
+    "backup_restorable_validated",
+    "migration_deployed_target",
+    "webhook_reachable_configured",
+    "release_checklist_complete",
+    "asaas_env_explicit"
+  ],
+  "softFails": [
+    "git_clean_relevant",
+    "public_url_hint",
+    "asaas_skip_tls_off"
+  ],
+  "gates": [
+    {
+      "id": "git_clean_relevant",
+      "ok": false,
+      "detail": "M reports/domain-guardian/launch01-reset-result.json\n?? scripts/go02-presmoke-checklist.ts",
+      "hard": false
+    },
+    {
+      "id": "architecture_freeze_doc",
+      "ok": true,
+      "detail": "docs/architecture/architecture-freeze.md",
+      "hard": true
+    },
+    {
+      "id": "rc_commit_go01",
+      "ok": true,
+      "detail": "HEAD=3eb06d5 (expected GO-01 on main)",
+      "hard": false
+    },
+    {
+      "id": "migration_file_ready",
+      "ok": true,
+      "detail": "20260718120000_go01_payment_provider_coupon_service",
+      "hard": true
+    },
+    {
+      "id": "database_url_present",
+      "ok": true,
+      "detail": "{\"protocol\":\"postgresql\",\"host\":\"localhost:5432\",\"db\":\"/thouse_rec\",\"hasUser\":true}",
+      "hard": true
+    },
+    {
+      "id": "asaas_api_key_present",
+      "ok": true,
+      "detail": "prefix=$aact_hmlg_… len=166 prodToken=false sandboxish=true",
+      "hard": true
+    },
+    {
+      "id": "webhook_token_present",
+      "ok": false,
+      "detail": "MISSING",
+      "hard": true
+    },
+    {
+      "id": "public_url_hint",
+      "ok": false,
+      "detail": "MISSING (NEXTAUTH_URL / NEXT_PUBLIC_APP_URL)",
+      "hard": false
+    },
+    {
+      "id": "asaas_skip_tls_off",
+      "ok": false,
+      "detail": "true",
+      "hard": false
+    },
+    {
+      "id": "storage_local",
+      "ok": true,
+      "detail": "local",
+      "hard": false
+    },
+    {
+      "id": "release_checklist_exists",
+      "ok": true,
+      "detail": "docs/operations/go01-release-checklist.md",
+      "hard": true
+    },
+    {
+      "id": "backup_restorable_validated",
+      "ok": false,
+      "detail": "NOT confirmed — set GO02_CONFIRM_BACKUP=1 after restore validation",
+      "hard": true
+    },
+    {
+      "id": "migration_deployed_target",
+      "ok": false,
+      "detail": "NOT confirmed — set GO02_CONFIRM_MIGRATE=1 after prisma migrate deploy on target DB",
+      "hard": true
+    },
+    {
+      "id": "webhook_reachable_configured",
+      "ok": false,
+      "detail": "NOT confirmed — set GO02_CONFIRM_WEBHOOK=1 after panel URL+token verified",
+      "hard": true
+    },
+    {
+      "id": "release_checklist_complete",
+      "ok": false,
+      "detail": "NOT confirmed — Release Checklist sections A–F must be complete",
+      "hard": true
+    },
+    {
+      "id": "asaas_env_explicit",
+      "ok": false,
+      "detail": "NOT set — set GO02_ASAAS_ENV=sandbox|production (explicit)",
+      "hard": true
+    }
+  ]
+}
