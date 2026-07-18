@@ -11,6 +11,8 @@
 | Documento | Uso |
 |-----------|-----|
 | [Release Checklist](operations/go01-release-checklist.md) | Checklist oficial pré Go Live |
+| [GO-02 Ready Checklist](operations/go02-ready-checklist.md) | Gate único para iniciar o smoke financeiro |
+| [GO-02A Environment Readiness](operations/go02a-environment-readiness.md) | Preparação de env, migration, backup e webhook |
 | [Operational Runbooks](operations/go01-operational-runbooks.md) | Deploy, rollback, backup, storage, gateway |
 | [Asaas Audit + GO-02 financeiro](operations/go01-asaas-release-audit.md) | Infra Asaas + checklist smoke financeiro |
 | [Migrations GO-01.1](architecture/go01-migrations.md) | Ordem, rollback, validação |

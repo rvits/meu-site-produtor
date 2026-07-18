@@ -1,116 +1,176 @@
 {
-  "reportId": "GO-02-presmoke-checklist",
-  "executedAt": "2026-07-18T08:47:51.190Z",
+  "reportId": "GO-02A-environment-readiness",
+  "executedAt": "2026-07-18T09:08:24.596Z",
   "verdict": "STOP",
-  "hardFails": [
-    "webhook_token_present",
-    "backup_restorable_validated",
-    "migration_deployed_target",
-    "webhook_reachable_configured",
-    "release_checklist_complete",
-    "asaas_env_explicit"
-  ],
-  "softFails": [
-    "git_clean_relevant",
-    "public_url_hint",
-    "asaas_skip_tls_off"
+  "target": {
+    "database": {
+      "protocol": "postgresql",
+      "host": "localhost:5432",
+      "db": "/thouse_rec",
+      "hasUser": true
+    },
+    "asaasEnvironment": null,
+    "migrationStatusExitCode": 1,
+    "pendingMigration": true
+  },
+  "blockers": [
+    {
+      "item": "Git limpo",
+      "status": "PENDENTE",
+      "motivo": "Há alterações locais: M docs/Operations.md\n M package.json\n M reports/domain-guardian/go02-presmoke-checklist.json\n M reports/domain-guardian/launch01-reset-result.json\n M scripts/go02-presmoke-checklist.ts\n?? docs/operations/go02-ready-checklist.md\n?? docs/operations/go02a-environment-readiness.md\n?? reports/domain-guardian/go02a-environment-readiness.md",
+      "comoResolver": "Revisar e commitá-las ou removê-las conscientemente antes do GO-02."
+    },
+    {
+      "item": "Migration aplicada no ambiente alvo",
+      "status": "PENDENTE",
+      "motivo": "prisma migrate status informa migration GO-01.1 pendente no DATABASE_URL atual.",
+      "comoResolver": "Após backup/restore validado, executar npx prisma migrate deploy no alvo, validar npx prisma migrate status e definir GO02_CONFIRM_MIGRATE=1."
+    },
+    {
+      "item": "GO02_ASAAS_ENV",
+      "status": "AUSENTE",
+      "motivo": "Ambiente Asaas não declarado.",
+      "comoResolver": "Definir explicitamente GO02_ASAAS_ENV=sandbox ou production."
+    },
+    {
+      "item": "ASAAS_API_KEY",
+      "status": "PENDENTE",
+      "motivo": "Chave sandbox; ambiente esperado não definido.",
+      "comoResolver": "Configurar a chave do mesmo ambiente declarado em GO02_ASAAS_ENV; nunca copiar chave production para sandbox."
+    },
+    {
+      "item": "ASAAS_WEBHOOK_ACCESS_TOKEN",
+      "status": "AUSENTE",
+      "motivo": "Token ausente.",
+      "comoResolver": "Criar token forte, configurar no ambiente alvo e usar exatamente o mesmo token no painel Asaas."
+    },
+    {
+      "item": "NEXT_PUBLIC_SITE_URL",
+      "status": "PENDENTE",
+      "motivo": "http://localhost:3000",
+      "comoResolver": "Configurar a URL HTTPS pública do ambiente; localhost não recebe webhook público."
+    },
+    {
+      "item": "Webhook configurado e acessível",
+      "status": "PENDENTE",
+      "motivo": "URL, token e resposta HTTP ainda não foram confirmados no painel Asaas.",
+      "comoResolver": "Configurar <NEXT_PUBLIC_SITE_URL>/api/webhooks/asaas no painel, igualar o token, validar resposta HTTP sem evento financeiro e definir GO02_CONFIRM_WEBHOOK=1."
+    },
+    {
+      "item": "TLS Asaas seguro",
+      "status": "PENDENTE",
+      "motivo": "ASAAS_SKIP_TLS_VERIFY=true",
+      "comoResolver": "Remover ASAAS_SKIP_TLS_VERIFY ou definir false no ambiente do smoke."
+    },
+    {
+      "item": "Backup confirmado e restore validado",
+      "status": "PENDENTE",
+      "motivo": "Nenhuma evidência local de backup/restore e GO02_CONFIRM_BACKUP != 1.",
+      "comoResolver": "Criar backup do DB alvo, restaurar em instância isolada, validar integridade e definir GO02_CONFIRM_BACKUP=1."
+    },
+    {
+      "item": "GO-02 Ready Checklist assinado",
+      "status": "PENDENTE",
+      "motivo": "Checklist ainda não confirmado.",
+      "comoResolver": "Preencher docs/operations/go02-ready-checklist.md com responsável/evidências e definir GO02_CONFIRM_CHECKLIST=1."
+    }
   ],
   "gates": [
     {
-      "id": "git_clean_relevant",
-      "ok": false,
-      "detail": "M reports/domain-guardian/launch01-reset-result.json\n?? scripts/go02-presmoke-checklist.ts",
-      "hard": false
+      "item": "Git limpo",
+      "status": "PENDENTE",
+      "motivo": "Há alterações locais: M docs/Operations.md\n M package.json\n M reports/domain-guardian/go02-presmoke-checklist.json\n M reports/domain-guardian/launch01-reset-result.json\n M scripts/go02-presmoke-checklist.ts\n?? docs/operations/go02-ready-checklist.md\n?? docs/operations/go02a-environment-readiness.md\n?? reports/domain-guardian/go02a-environment-readiness.md",
+      "comoResolver": "Revisar e commitá-las ou removê-las conscientemente antes do GO-02."
     },
     {
-      "id": "architecture_freeze_doc",
-      "ok": true,
-      "detail": "docs/architecture/architecture-freeze.md",
-      "hard": true
+      "item": "Architecture Freeze ativo",
+      "status": "OK",
+      "motivo": "Declaração oficial do freeze.",
+      "comoResolver": "Restaurar docs/architecture/architecture-freeze.md."
     },
     {
-      "id": "rc_commit_go01",
-      "ok": true,
-      "detail": "HEAD=3eb06d5 (expected GO-01 on main)",
-      "hard": false
+      "item": "Migration pronta",
+      "status": "OK",
+      "motivo": "Migration versionada para provider, providerPaymentId e Coupon.serviceId.",
+      "comoResolver": "Restaurar a migration GO-01.1 versionada; não usar db push."
     },
     {
-      "id": "migration_file_ready",
-      "ok": true,
-      "detail": "20260718120000_go01_payment_provider_coupon_service",
-      "hard": true
+      "item": "Migration aplicada no ambiente alvo",
+      "status": "PENDENTE",
+      "motivo": "prisma migrate status informa migration GO-01.1 pendente no DATABASE_URL atual.",
+      "comoResolver": "Após backup/restore validado, executar npx prisma migrate deploy no alvo, validar npx prisma migrate status e definir GO02_CONFIRM_MIGRATE=1."
     },
     {
-      "id": "database_url_present",
-      "ok": true,
-      "detail": "{\"protocol\":\"postgresql\",\"host\":\"localhost:5432\",\"db\":\"/thouse_rec\",\"hasUser\":true}",
-      "hard": true
+      "item": "DATABASE_URL",
+      "status": "OK",
+      "motivo": "{\"protocol\":\"postgresql\",\"host\":\"localhost:5432\",\"db\":\"/thouse_rec\",\"hasUser\":true}",
+      "comoResolver": "Configurar DATABASE_URL do ambiente correto sem registrar credenciais no Git."
     },
     {
-      "id": "asaas_api_key_present",
-      "ok": true,
-      "detail": "prefix=$aact_hmlg_… len=166 prodToken=false sandboxish=true",
-      "hard": true
+      "item": "GO02_ASAAS_ENV",
+      "status": "AUSENTE",
+      "motivo": "Ambiente Asaas não declarado.",
+      "comoResolver": "Definir explicitamente GO02_ASAAS_ENV=sandbox ou production."
     },
     {
-      "id": "webhook_token_present",
-      "ok": false,
-      "detail": "MISSING",
-      "hard": true
+      "item": "ASAAS_API_KEY",
+      "status": "PENDENTE",
+      "motivo": "Chave sandbox; ambiente esperado não definido.",
+      "comoResolver": "Configurar a chave do mesmo ambiente declarado em GO02_ASAAS_ENV; nunca copiar chave production para sandbox."
     },
     {
-      "id": "public_url_hint",
-      "ok": false,
-      "detail": "MISSING (NEXTAUTH_URL / NEXT_PUBLIC_APP_URL)",
-      "hard": false
+      "item": "ASAAS_WEBHOOK_ACCESS_TOKEN",
+      "status": "AUSENTE",
+      "motivo": "Token ausente.",
+      "comoResolver": "Criar token forte, configurar no ambiente alvo e usar exatamente o mesmo token no painel Asaas."
     },
     {
-      "id": "asaas_skip_tls_off",
-      "ok": false,
-      "detail": "true",
-      "hard": false
+      "item": "NEXT_PUBLIC_SITE_URL",
+      "status": "PENDENTE",
+      "motivo": "http://localhost:3000",
+      "comoResolver": "Configurar a URL HTTPS pública do ambiente; localhost não recebe webhook público."
     },
     {
-      "id": "storage_local",
-      "ok": true,
-      "detail": "local",
-      "hard": false
+      "item": "Webhook configurado e acessível",
+      "status": "PENDENTE",
+      "motivo": "URL, token e resposta HTTP ainda não foram confirmados no painel Asaas.",
+      "comoResolver": "Configurar <NEXT_PUBLIC_SITE_URL>/api/webhooks/asaas no painel, igualar o token, validar resposta HTTP sem evento financeiro e definir GO02_CONFIRM_WEBHOOK=1."
     },
     {
-      "id": "release_checklist_exists",
-      "ok": true,
-      "detail": "docs/operations/go01-release-checklist.md",
-      "hard": true
+      "item": "TLS Asaas seguro",
+      "status": "PENDENTE",
+      "motivo": "ASAAS_SKIP_TLS_VERIFY=true",
+      "comoResolver": "Remover ASAAS_SKIP_TLS_VERIFY ou definir false no ambiente do smoke."
     },
     {
-      "id": "backup_restorable_validated",
-      "ok": false,
-      "detail": "NOT confirmed — set GO02_CONFIRM_BACKUP=1 after restore validation",
-      "hard": true
+      "item": "Storage operacional",
+      "status": "OK",
+      "motivo": "STORAGE_PROVIDER=local.",
+      "comoResolver": "GO-02 usa local; definir STORAGE_PROVIDER=local e validar upload não financeiro."
     },
     {
-      "id": "migration_deployed_target",
-      "ok": false,
-      "detail": "NOT confirmed — set GO02_CONFIRM_MIGRATE=1 after prisma migrate deploy on target DB",
-      "hard": true
+      "item": "Backup confirmado e restore validado",
+      "status": "PENDENTE",
+      "motivo": "Nenhuma evidência local de backup/restore e GO02_CONFIRM_BACKUP != 1.",
+      "comoResolver": "Criar backup do DB alvo, restaurar em instância isolada, validar integridade e definir GO02_CONFIRM_BACKUP=1."
     },
     {
-      "id": "webhook_reachable_configured",
-      "ok": false,
-      "detail": "NOT confirmed — set GO02_CONFIRM_WEBHOOK=1 after panel URL+token verified",
-      "hard": true
+      "item": "GO-02 Ready Checklist assinado",
+      "status": "PENDENTE",
+      "motivo": "Checklist ainda não confirmado.",
+      "comoResolver": "Preencher docs/operations/go02-ready-checklist.md com responsável/evidências e definir GO02_CONFIRM_CHECKLIST=1."
     },
     {
-      "id": "release_checklist_complete",
-      "ok": false,
-      "detail": "NOT confirmed — Release Checklist sections A–F must be complete",
-      "hard": true
+      "item": "Checkout/refund/webhook infra",
+      "status": "OK",
+      "motivo": "Rotas e adaptadores financeiros presentes; nenhuma chamada executada.",
+      "comoResolver": "Restaurar arquivos certificados da RC; não modificar domínio no GO-02A."
     },
     {
-      "id": "asaas_env_explicit",
-      "ok": false,
-      "detail": "NOT set — set GO02_ASAAS_ENV=sandbox|production (explicit)",
-      "hard": true
+      "item": "Assinaturas e logs",
+      "status": "OK",
+      "motivo": "Infraestrutura certificada presente; execução fora do escopo GO-02A.",
+      "comoResolver": "Restaurar arquivos certificados se ausentes."
     }
   ]
 }
