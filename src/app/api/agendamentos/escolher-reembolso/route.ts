@@ -9,6 +9,8 @@ import {
   invalidateUnusedCouponsForAppointment,
 } from "@/app/lib/domain/coupon-domain";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { resolveCartPartialRefundAmount } from "@/app/lib/cart-partial-refund";
+import { logFinancialFailure, logFinancialInfo } from "@/app/lib/financial-ops-log";
 
 /**
  * Para agendamentos cancelados ou recusados pelo admin: usuário escolhe reembolso direto (Asaas) ou cupom para remarcar.
@@ -236,8 +238,41 @@ export async function POST(req: Request) {
       const ids = payment.appointmentIds != null
         ? (Array.isArray(payment.appointmentIds) ? payment.appointmentIds : JSON.parse(String(payment.appointmentIds)))
         : [payment.appointmentId].filter(Boolean);
-      refundAmount = payment.amount > 0 && ids.length > 0 ? payment.amount / ids.length : payment.amount;
-      const valueToRefund = refundAmount > 0 ? refundAmount : undefined;
+      const isMultiItem = Array.isArray(ids) && ids.length > 1;
+
+      const partial = await resolveCartPartialRefundAmount({
+        payment: {
+          id: payment.id,
+          amount: payment.amount,
+          asaasId: payment.asaasId,
+          appointmentId: payment.appointmentId,
+          appointmentIds: payment.appointmentIds,
+        },
+        appointmentId: id,
+      });
+      refundAmount = partial.amount;
+
+      if (refundAmount <= 0) {
+        logFinancialFailure({
+          paymentId: payment.id,
+          provider: "asaas",
+          providerPaymentId: payment.asaasId,
+          motivo: "Valor de reembolso parcial inválido ou saldo esgotado",
+          status: "failed",
+          code: "CART_PARTIAL_REFUND_ZERO",
+          extra: { appointmentId: id, remaining: partial.remaining, source: partial.source },
+        });
+        return NextResponse.json(
+          {
+            error:
+              "Não há valor restante a reembolsar neste pagamento. Atualize a página ou entre em contato com o suporte.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Sempre enviar valor explícito (nunca undefined em multi-item — evita estorno total acidental)
+      const valueToRefund = refundAmount;
 
       const remoteBefore = await fetchAsaasPayment(payment.asaasId);
       if (remoteBefore && asaasPaymentIsRefundedStatus(remoteBefore.status)) {
@@ -247,7 +282,11 @@ export async function POST(req: Request) {
             cancelRefundOption: null,
             status: { in: ["cancelado", "recusado"] },
           },
-          data: { cancelRefundOption: "reembolso", refundProcessedAt: now },
+          data: {
+            cancelRefundOption: "reembolso",
+            refundProcessedAt: now,
+            refundAsaasStatus: "REFUNDED",
+          },
         });
         return NextResponse.json({
           message:
@@ -266,7 +305,11 @@ export async function POST(req: Request) {
           cancelRefundOption: null,
           status: { in: ["cancelado", "recusado"] },
         },
-        data: { cancelRefundOption: "reembolso", refundProcessedAt: now },
+        data: {
+          cancelRefundOption: "reembolso",
+          refundProcessedAt: now,
+          refundAsaasStatus: "pending",
+        },
       });
 
       if (reserve.count === 0) {
@@ -292,6 +335,10 @@ export async function POST(req: Request) {
 
       const remoteAfterReserve = await fetchAsaasPayment(payment.asaasId);
       if (remoteAfterReserve && asaasPaymentIsRefundedStatus(remoteAfterReserve.status)) {
+        await prisma.appointment.updateMany({
+          where: { id, cancelRefundOption: "reembolso" },
+          data: { refundAsaasStatus: "REFUNDED" },
+        });
         return NextResponse.json({
           message:
             "Pagamento já consta como reembolsado no Asaas após reserva local; nenhuma nova solicitação de estorno foi enviada.",
@@ -305,14 +352,41 @@ export async function POST(req: Request) {
         await refundAsaasPayment(
           payment.asaasId,
           valueToRefund,
-          `Reembolso de agendamento #${id} (${agendamento.status === "recusado" ? "recusa" : "cancelamento"})`
+          `Reembolso de agendamento #${id} (${agendamento.status === "recusado" ? "recusa" : "cancelamento"})${isMultiItem ? " — parcial carrinho" : ""}`
         );
         await invalidateUnusedCouponsForAppointment(prisma, id);
+        logFinancialInfo({
+          paymentId: payment.id,
+          provider: "asaas",
+          providerPaymentId: payment.asaasId,
+          motivo: "Reembolso de agendamento solicitado",
+          status: "pending",
+          code: "APPOINTMENT_REFUND_REQUESTED",
+          extra: {
+            appointmentId: id,
+            refundAmount: valueToRefund,
+            multiItem: isMultiItem,
+            amountSource: partial.source,
+          },
+        });
       } catch (err: any) {
         console.error("[Escolher Reembolso] Erro Asaas:", err);
         await prisma.appointment.updateMany({
           where: { id, cancelRefundOption: "reembolso" },
-          data: { cancelRefundOption: null, refundProcessedAt: null },
+          data: {
+            cancelRefundOption: null,
+            refundProcessedAt: null,
+            refundAsaasStatus: "failed",
+          },
+        });
+        logFinancialFailure({
+          paymentId: payment.id,
+          provider: "asaas",
+          providerPaymentId: payment.asaasId,
+          motivo: err.message || "Erro ao processar reembolso no Asaas",
+          status: "failed",
+          code: "APPOINTMENT_REFUND_ASAAS_ERROR",
+          extra: { appointmentId: id },
         });
         return NextResponse.json(
           { error: err.message || "Erro ao processar reembolso no Asaas. Tente a opção cupom." },
@@ -326,6 +400,7 @@ export async function POST(req: Request) {
           : "Reembolso do valor total da cobrança solicitado no Asaas. O valor será creditado em até 5 dias úteis.",
         opcao: "reembolso",
         refundAmount: refundAmount > 0 ? refundAmount : undefined,
+        refundAsaasStatus: "pending",
       });
     }
 

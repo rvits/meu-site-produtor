@@ -144,11 +144,17 @@ export async function POST(req: Request) {
       payment: paymentToProcess,
     };
 
+    const webhookHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const whToken = process.env.ASAAS_WEBHOOK_ACCESS_TOKEN;
+    if (whToken) {
+      webhookHeaders["asaas-access-token"] = whToken;
+    }
+
     const webhookResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/webhooks/asaas`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: webhookHeaders,
       body: JSON.stringify(webhookBody),
     });
 

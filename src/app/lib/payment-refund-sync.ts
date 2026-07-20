@@ -1,11 +1,17 @@
 /**
  * Extrai sincronização de PAYMENT_REFUNDED do webhook Asaas
  * para reuso pelo SimulationProvider (mesmo efeito de domínio).
+ *
+ * GO-04A.2 RC-10: persiste pending → confirmed (e aceita legado sem pending).
  */
 import { prisma } from "@/app/lib/prisma";
 import { paymentByProviderIdWhere } from "@/app/lib/payment-provider/identity";
+import { logFinancialInfo } from "@/app/lib/financial-ops-log";
 
 const USER_PLAN_REFUND_MATCH_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+/** Status locais ainda aguardando confirmação inbound do gateway. */
+const PENDING_REFUND_ASAAS = ["pending", "PENDING"] as const;
 
 function parsePaymentAppointmentIds(payment: {
   appointmentId: number | null;
@@ -79,9 +85,16 @@ export async function syncInboundRefundConfirmation(providerPaymentId: string): 
 
   const couponsResult = await prisma.coupon.updateMany({
     where: {
-      OR: couponOr,
-      refundProcessedAt: { not: null },
-      refundAsaasStatus: "pending",
+      AND: [
+        { OR: couponOr },
+        { refundProcessedAt: { not: null } },
+        {
+          OR: [
+            { refundAsaasStatus: { in: [...PENDING_REFUND_ASAAS] } },
+            { refundAsaasStatus: null },
+          ],
+        },
+      ],
     },
     data: { refundAsaasStatus: "confirmed" },
   });
@@ -92,7 +105,10 @@ export async function syncInboundRefundConfirmation(providerPaymentId: string): 
       where: {
         userId: localPayment.userId,
         refundProcessedAt: { not: null },
-        refundAsaasStatus: "pending",
+        OR: [
+          { refundAsaasStatus: { in: [...PENDING_REFUND_ASAAS] } },
+          { refundAsaasStatus: null },
+        ],
         ...(localPayment.planId ? { planId: localPayment.planId } : {}),
       },
       select: { id: true, createdAt: true },
@@ -120,12 +136,29 @@ export async function syncInboundRefundConfirmation(providerPaymentId: string): 
         where: {
           id: { in: planIdsToConfirm },
           refundProcessedAt: { not: null },
-          refundAsaasStatus: "pending",
+          OR: [
+            { refundAsaasStatus: { in: [...PENDING_REFUND_ASAAS] } },
+            { refundAsaasStatus: null },
+          ],
         },
         data: { refundAsaasStatus: "confirmed" },
       });
     }
   }
+
+  logFinancialInfo({
+    paymentId: localPayment.id,
+    provider: "asaas",
+    providerPaymentId,
+    motivo: "PAYMENT_REFUNDED sincronizado nas entidades locais",
+    status: "confirmed",
+    code: "REFUND_INBOUND_SYNC",
+    extra: {
+      appointments: appointmentsResult.count,
+      coupons: couponsResult.count,
+      userPlans: userPlansResult.count,
+    },
+  });
 
   return {
     appointments: appointmentsResult.count,

@@ -20,7 +20,7 @@ export async function refundAsaasPayment(paymentId: string, value?: number, desc
       description: description || "Reembolso de cancelamento de plano",
     };
 
-    console.log(`[Asaas Refund] Fazendo reembolso do pagamento ${paymentId}:`, refundPayload);
+    console.log(`[Asaas Refund] Solicitando reembolso paymentId=${paymentId} value=${value ?? "full"}`);
 
     const response = await fetch(`${apiUrl}/payments/${paymentId}/refund`, {
       method: "POST",
@@ -36,7 +36,8 @@ export async function refundAsaasPayment(paymentId: string, value?: number, desc
     if (!response.ok) {
       console.error(`[Asaas Refund] Erro ao fazer reembolso:`, {
         status: response.status,
-        response: responseText,
+        // não logar body completo (pode conter dados sensíveis)
+        responseLength: responseText.length,
       });
       throw new Error(`Erro ao fazer reembolso no Asaas: ${response.status} - ${responseText}`);
     }
@@ -49,7 +50,11 @@ export async function refundAsaasPayment(paymentId: string, value?: number, desc
       throw new Error("Erro ao processar resposta do reembolso");
     }
 
-    console.log("[Asaas Refund] Reembolso realizado com sucesso:", refundData);
+    console.log("[Asaas Refund] Reembolso solicitado com sucesso:", {
+      id: refundData?.id,
+      status: refundData?.status,
+      value: refundData?.value,
+    });
 
     return refundData;
   } catch (error: any) {

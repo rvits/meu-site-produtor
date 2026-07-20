@@ -18,6 +18,7 @@ import {
 } from "@/app/lib/agendamento-payment-rules";
 import { publishSyncEvent } from "@/app/lib/synchronization/engine";
 import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
+import { logFinancialFailure } from "@/app/lib/financial-ops-log";
 
 /**
  * Webhook do Asaas para notificações de pagamento
@@ -25,6 +26,10 @@ import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
  * IMPORTANTE: Esta rota SEMPRE retorna HTTP 200 ao Asaas (exceto em erros de rede).
  * O Asaas interrompe a fila e aplica penalidade quando recebe 4xx/5xx. Por isso
  * erros internos são logados e a resposta é sempre 200, para a fila não ser interrompida.
+ *
+ * GO-04A.2 RC-08: se ASAAS_WEBHOOK_ACCESS_TOKEN estiver ausente/inválido, o evento
+ * NÃO é processado. A resposta HTTP 200 evita penalidade Asaas, mas o corpo deixa
+ * explícito processed=false (nunca sucesso operacional silencioso).
  *
  * Eventos suportados:
  * - PAYMENT_CREATED: Pagamento criado
@@ -39,17 +44,48 @@ export async function POST(req: Request) {
     const receivedToken = req.headers.get("asaas-access-token");
 
     if (process.env.NODE_ENV === "production" && !webhookToken) {
-      console.error("[Asaas Webhook] ASAAS_WEBHOOK_ACCESS_TOKEN não configurado em produção - configure para segurança");
+      logFinancialFailure({
+        provider: "asaas",
+        motivo:
+          "ASAAS_WEBHOOK_ACCESS_TOKEN ausente em produção — evento ignorado; pagamento NÃO entrou no domínio",
+        status: "config_error",
+        code: "ASAAS_WEBHOOK_ACCESS_TOKEN_MISSING",
+        extra: { processed: false, httpStatusReturned: 200 },
+      });
       return NextResponse.json(
-        { received: true, error: "Webhook não configurado" },
+        {
+          received: true,
+          processed: false,
+          ignored: true,
+          reason: "ASAAS_WEBHOOK_ACCESS_TOKEN_MISSING",
+          error:
+            "Webhook não configurado: defina ASAAS_WEBHOOK_ACCESS_TOKEN no ambiente e no painel Asaas (mesmo valor).",
+        },
         { status: 200 }
       );
     }
 
     if (webhookToken && receivedToken !== webhookToken) {
-      console.warn("[Asaas Webhook] Token inválido ou ausente - ignorando (retornando 200 para não penalizar)");
+      logFinancialFailure({
+        provider: "asaas",
+        motivo:
+          "Token de webhook inválido ou ausente no header asaas-access-token — evento ignorado",
+        status: "auth_rejected",
+        code: "ASAAS_WEBHOOK_TOKEN_MISMATCH",
+        extra: {
+          processed: false,
+          tokenHeaderPresent: Boolean(receivedToken),
+          httpStatusReturned: 200,
+        },
+      });
       return NextResponse.json(
-        { received: true, error: "Token inválido" },
+        {
+          received: true,
+          processed: false,
+          ignored: true,
+          reason: "ASAAS_WEBHOOK_TOKEN_MISMATCH",
+          error: "Token inválido — evento não processado",
+        },
         { status: 200 }
       );
     }
