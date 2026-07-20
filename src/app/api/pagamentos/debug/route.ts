@@ -1,23 +1,32 @@
 // src/app/api/pagamentos/debug/route.ts
-// Rota de debug para verificar problemas sem autenticação
+// GO-04A.1 RC-03: sem exposição pública de chave/ambiente Asaas.
+// Disponível apenas em development, para administradores autenticados.
 import { NextResponse } from "next/server";
 import { getAsaasApiKey } from "@/app/lib/env";
+import { requireAdmin } from "@/app/lib/auth";
 
-export async function GET(req: Request) {
+export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+  }
+
   try {
     const apiKey = getAsaasApiKey();
-    
+
     return NextResponse.json({
-      apiKeyConfigured: !!apiKey,
-      apiKeyType: apiKey ? (apiKey.startsWith("$aact_prod_") ? "produção" : "sandbox") : "não configurado",
-      apiKeyPreview: apiKey ? `${apiKey.substring(0, 20)}...` : null,
+      apiKeyConfigured: Boolean(apiKey),
       nodeEnv: process.env.NODE_ENV,
-      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
     });
-  } catch (error: any) {
-    return NextResponse.json({
-      error: error.message,
-      stack: error.stack,
-    }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Erro ao verificar configuração" },
+      { status: 500 }
+    );
   }
 }
