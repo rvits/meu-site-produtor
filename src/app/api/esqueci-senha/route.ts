@@ -7,6 +7,9 @@ const esqueciSenhaSchema = z.object({
   email: z.string().email("Email inválido"),
 });
 
+const GENERIC_OK_MESSAGE =
+  "Se existir uma conta vinculada a este endereço, enviaremos as instruções.";
+
 function generateResetCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -18,6 +21,16 @@ function allowPasswordResetDebug(): boolean {
   );
 }
 
+function genericOkResponse(extra?: Record<string, unknown>) {
+  return NextResponse.json({
+    message: GENERIC_OK_MESSAGE,
+    ...(extra || {}),
+  });
+}
+
+/**
+ * GO-04A.3 RC-06: respostas semanticamente equivalentes — não revelar se o e-mail existe.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -37,13 +50,11 @@ export async function POST(req: Request) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: "email_nao_cadastrado",
-          message:
-            "Este email não possui cadastro em nosso sistema. Verifique se o email está correto ou crie uma conta.",
-        },
-        { status: 404 }
+      console.info("[esqueci-senha] Solicitação para e-mail sem cadastro (detalhe interno)");
+      return genericOkResponse(
+        allowPasswordResetDebug()
+          ? { debug: { emailEnviado: false, reason: "no_account" } }
+          : undefined
       );
     }
 
@@ -81,23 +92,26 @@ export async function POST(req: Request) {
     }
 
     if (!emailEnviado) {
+      // Não revelar existência da conta: mensagem genérica de processamento
+      console.error("[esqueci-senha] Envio falhou; resposta genérica ao cliente", {
+        hasError: Boolean(emailErrorMessage),
+      });
       return NextResponse.json(
         {
-          error: "Erro ao enviar email de recuperação. Tente novamente em instantes.",
+          error: "Não foi possível processar a solicitação. Tente novamente em instantes.",
           ...(allowPasswordResetDebug()
             ? { debug: { emailEnviado: false, erro: { message: emailErrorMessage } } }
             : {}),
         },
-        { status: 502 }
+        { status: 503 }
       );
     }
 
-    return NextResponse.json({
-      message: "Se o email existir, você receberá instruções para redefinir sua senha.",
-      ...(allowPasswordResetDebug()
+    return genericOkResponse(
+      allowPasswordResetDebug()
         ? { debug: { emailEnviado: true, timestamp: new Date().toISOString() } }
-        : {}),
-    });
+        : undefined
+    );
   } catch (err) {
     console.error("Erro ao processar recuperação de senha:", err);
     return NextResponse.json(

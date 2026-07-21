@@ -1,10 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
+import { getSessionUser } from "@/app/lib/auth";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function publicPending(operationId: string) {
+  return NextResponse.json({
+    status: "pending",
+    processed: false,
+    effectsReady: false,
+    operationId,
+  });
+}
 
 /**
- * Verifica status de pagamento por paymentId (Asaas) ou operationId (PaymentMetadata).
- * GO-04A.2 RC-09: suporte a operationId para a página de sucesso fazer poll sem DomainSync.
+ * Verifica status de pagamento.
+ * GO-04A.2 RC-09: operationId para página de sucesso.
+ * GO-04A.3 RC-07:
+ *  - operationId: capability token temporário (PaymentMetadata + expiresAt); resposta mínima.
+ *  - paymentId: exige autenticação; usuário só o próprio; admin todos.
  */
 export async function GET(req: Request) {
   try {
@@ -19,26 +35,47 @@ export async function GET(req: Request) {
       );
     }
 
+    const sessionUser = await getSessionUser();
+    const isAdmin = sessionUser?.role === "ADMIN";
+
     if (operationId) {
+      if (!UUID_RE.test(operationId)) {
+        return publicPending(operationId);
+      }
+
       const meta = await prisma.paymentMetadata.findUnique({
         where: { id: operationId },
-        select: { id: true, asaasId: true, userId: true, metadata: true },
+        select: {
+          id: true,
+          asaasId: true,
+          userId: true,
+          metadata: true,
+          expiresAt: true,
+        },
       });
 
       if (!meta) {
-        return NextResponse.json({
-          status: "pending",
-          processed: false,
-          effectsReady: false,
-          operationId,
-          message: "Operação ainda não encontrada",
-        });
+        return publicPending(operationId);
       }
+
+      // Token temporário expirado — não vazar detalhes
+      if (meta.expiresAt < new Date()) {
+        return publicPending(operationId);
+      }
+
+      // Sem sessão: apenas capability operationId (não expirado) → payload mínimo
+      // Com sessão: owner ou admin podem ver um pouco mais; outros → mínimo
+      const isOwner = Boolean(sessionUser && sessionUser.id === meta.userId);
+      const canSeeDetails = isAdmin || isOwner;
 
       let tipo = "agendamento";
       try {
         const parsed = JSON.parse(meta.metadata || "{}") as { tipo?: string };
-        if (parsed.tipo === "plano" || parsed.tipo === "carrinho" || parsed.tipo === "agendamento") {
+        if (
+          parsed.tipo === "plano" ||
+          parsed.tipo === "carrinho" ||
+          parsed.tipo === "agendamento"
+        ) {
           tipo = parsed.tipo;
         }
       } catch {
@@ -55,13 +92,16 @@ export async function GET(req: Request) {
         : null;
 
       if (!payment || payment.status !== "approved") {
-        return NextResponse.json({
+        const base = {
           status: payment?.status || "pending",
           processed: false,
           effectsReady: false,
           operationId,
+        };
+        if (!canSeeDetails) return NextResponse.json(base);
+        return NextResponse.json({
+          ...base,
           paymentId: payment?.id ?? null,
-          providerPaymentId: meta.asaasId,
           tipo,
         });
       }
@@ -87,29 +127,43 @@ export async function GET(req: Request) {
         );
       }
 
+      // Público / não-owner: só o necessário para a página de sucesso
+      if (!canSeeDetails) {
+        return NextResponse.json({
+          status: payment.status,
+          processed: true,
+          effectsReady,
+          operationId,
+        });
+      }
+
       return NextResponse.json({
         status: payment.status,
         processed: true,
         effectsReady,
         operationId,
         paymentId: payment.id,
-        providerPaymentId: meta.asaasId,
         amount: payment.amount,
         tipo,
       });
     }
 
-    // Buscar pagamento no banco de dados
+    // --- paymentId: autenticação obrigatória ---
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
     const payment = await prisma.payment.findFirst({
       where: {
-        OR: [
-          { asaasId: paymentId! },
-          { mercadopagoId: paymentId! },
-        ],
+        OR: [{ asaasId: paymentId! }, { mercadopagoId: paymentId! }],
       },
     });
 
     if (payment) {
+      if (!isAdmin && payment.userId !== sessionUser.id) {
+        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      }
+
       const userPlan = await prisma.userPlan.findFirst({
         where: {
           userId: payment.userId,
@@ -136,6 +190,14 @@ export async function GET(req: Request) {
             }
           : null,
       });
+    }
+
+    // Lookup Asaas remoto: somente admin (evita uso como proxy aberto)
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Pagamento não encontrado" },
+        { status: 404 }
+      );
     }
 
     const apiKey = getAsaasApiKey();

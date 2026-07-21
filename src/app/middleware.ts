@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "./lib/prisma";
 import { isGoLiveBlockedPage, isGoLiveMaintenanceMode } from "./lib/go-live-maintenance";
+import { isDevToolPagePath } from "./lib/dev-tool-paths";
 
 async function sessionIsAdmin(sessionCookie: { value: string } | undefined): Promise<boolean> {
   if (!sessionCookie) return false;
@@ -56,6 +57,11 @@ export async function middleware(request: NextRequest) {
 
     const sessionCookie = request.cookies.get("session_id");
     const isAdmin = await sessionIsAdmin(sessionCookie);
+
+    // GO-04A.3 RC-05: páginas de teste/debug — apenas ADMIN (404 sem revelar rota)
+    if (isDevToolPagePath(pathname) && !isAdmin) {
+      return new NextResponse(null, { status: 404 });
+    }
 
     // GO-01 — modo preparação Go Live (env): login ok; cadastro/compra/agendamento bloqueados
     // ADMIN (role) continua com acesso total, inclusive boxes de pagamento de teste.

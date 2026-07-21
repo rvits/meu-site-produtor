@@ -3,6 +3,7 @@
 /**
  * Esqueci senha — fluxo seguro: email → código → verificação → troca.
  * GO-04A.1: removido modo admin / reset direto apenas com email.
+ * GO-04A.3 RC-06: UI não distingue e-mail existente vs inexistente.
  */
 
 import { useState } from "react";
@@ -16,6 +17,9 @@ import {
   Input,
   COPY,
 } from "@/components/design-system";
+
+const GENERIC_OK =
+  "Se existir uma conta vinculada a este endereço, enviaremos as instruções. Verifique sua caixa de entrada e spam.";
 
 export default function EsqueciSenhaPage() {
   const router = useRouter();
@@ -41,24 +45,26 @@ export default function EsqueciSenhaPage() {
       setCarregando(false);
 
       if (!res.ok) {
-        if (res.status === 404 && data.error === "email_nao_cadastrado") {
-          setErro(data.message || "Este email não possui cadastro em nosso sistema.");
+        if (res.status === 400) {
+          setErro(
+            typeof data.error === "string" ? data.error : "Dados inválidos"
+          );
           return;
         }
-
+        // 503/500: mensagem neutra (não revelar existência)
         setErro(
           typeof data.error === "string"
             ? data.error
-            : "Erro ao processar solicitação"
+            : "Não foi possível processar a solicitação. Tente novamente em instantes."
         );
         return;
       }
 
-      setMensagem(`Código enviado para ${email}. Verifique sua caixa de entrada e spam.`);
+      setMensagem(GENERIC_OK);
       router.push(`/verificar-codigo?email=${encodeURIComponent(email)}`);
     } catch {
       setCarregando(false);
-      setErro("Erro ao processar solicitação");
+      setErro("Não foi possível processar a solicitação. Tente novamente em instantes.");
     }
   }
 
