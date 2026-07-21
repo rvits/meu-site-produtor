@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingBlock, useFeedback } from "@/components/design-system";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import { couponOriginLabel, type CouponOrigin } from "@/app/lib/coupon-origin";
 import {
@@ -60,6 +61,7 @@ interface Payment {
 type ReprocessTarget = { paymentId: string; kind: "agendamento" | "plano" };
 
 export default function AdminPagamentosPage() {
+  const { notifySuccess, notifyError, askDelete } = useFeedback();
   const [pagamentos, setPagamentos] = useState<Payment[]>([]);
   const [pagamentosFiltrados, setPagamentosFiltrados] = useState<Payment[]>([]);
   const [busca, setBusca] = useState("");
@@ -139,9 +141,10 @@ export default function AdminPagamentosPage() {
 
   async function excluirPagamento(id: string) {
     if (
-      !confirm(
-        "Excluir este pagamento do banco de dados? Pagamentos reais ou vinculados serão bloqueados pela API (422). Esta ação não pode ser desfeita."
-      )
+      !(await askDelete(
+        "Excluir este pagamento do banco de dados?",
+        "Pagamentos reais ou vinculados serão bloqueados pela API (422). Esta ação não pode ser desfeita."
+      ))
     ) {
       return;
     }
@@ -154,11 +157,11 @@ export default function AdminPagamentosPage() {
       if (res.ok) {
         await carregarPagamentos();
       } else {
-        alert(data.error || "Erro ao excluir pagamento.");
+        notifyError(data.error || "Erro ao excluir pagamento.");
       }
     } catch (err) {
       console.error("Erro ao excluir pagamento", err);
-      alert("Erro ao excluir pagamento.");
+      notifyError("Erro ao excluir pagamento.");
     } finally {
       setExcluindoId(null);
     }
@@ -183,24 +186,23 @@ export default function AdminPagamentosPage() {
           kind === "agendamento"
             ? `Agendamento: ${data.appointmentId ?? "—"} · Cupons: ${data.couponsCount ?? 0} · Serviços: ${data.servicesCreatedThisRun ?? 0}`
             : `UserPlan: ${data.userPlanId ?? "—"} · Cupons: ${data.couponsCount ?? 0}`;
-        alert(`${data.message || "Reprocessamento concluído."}\n${detalhe}\n${data.hint || ""}`);
+        notifySuccess(
+          data.message || "Reprocessamento concluído.",
+          [detalhe, data.hint || ""].filter(Boolean).join(" · ")
+        );
         await carregarPagamentos();
       } else {
-        alert(data.error || "Erro ao reprocessar pagamento.");
+        notifyError(data.error || "Erro ao reprocessar pagamento.");
       }
     } catch {
-      alert("Erro ao reprocessar pagamento.");
+      notifyError("Erro ao reprocessar pagamento.");
     } finally {
       setReprocessando(null);
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <p className="text-zinc-400">Carregando pagamentos...</p>
-      </div>
-    );
+    return <LoadingBlock label="Carregando pagamentos..." />;
   }
 
   return (

@@ -1,18 +1,26 @@
 /**
  * POST /api/admin/servicos/upload-entrega
- * Upload de arquivo de entrega (WAV/MP3/ZIP) via StorageProvider.
+ * Upload de arquivo de entrega (WAV/MP3/ZIP).
+ *
+ * Dois modos:
+ * - JSON (client upload Vercel Blob): emite token para o navegador enviar o
+ *   arquivo direto ao Blob, contornando o limite de 4,5MB de body das
+ *   functions Vercel (413 FUNCTION_PAYLOAD_TOO_LARGE).
+ * - multipart/form-data (legado/dev): grava via StorageProvider local.
  */
 import { NextResponse } from "next/server";
 import path from "path";
 import { requireAdmin } from "@/app/lib/auth";
 import { randomUUID } from "crypto";
 import { getStorageProvider } from "@/app/lib/storage";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_EXT = new Set([".wav", ".mp3", ".zip"]);
 const MAX_BYTES = 80 * 1024 * 1024; // 80 MB
+const BLOB_PATH_PREFIX = "deliveries/";
 
 function formatFromExt(ext: string): "wav" | "mp3" | "zip" {
   if (ext === ".mp3") return "mp3";
@@ -20,8 +28,43 @@ function formatFromExt(ext: string): "wav" | "mp3" | "zip" {
   return "wav";
 }
 
+async function handleBlobClientUpload(req: Request) {
+  const body = (await req.json()) as HandleUploadBody;
+
+  // Só admin pode pedir token de upload. O callback blob.upload-completed é
+  // assinado pela Vercel e validado dentro de handleUpload (sem sessão).
+  if (body.type === "blob.generate-client-token") {
+    await requireAdmin();
+  }
+
+  const result = await handleUpload({
+    request: req,
+    body,
+    onBeforeGenerateToken: async (pathname) => {
+      const ext = path.extname(pathname).toLowerCase();
+      if (!pathname.startsWith(BLOB_PATH_PREFIX) || !ALLOWED_EXT.has(ext)) {
+        throw new Error("Formato não permitido. Use WAV, MP3 ou ZIP.");
+      }
+      return {
+        maximumSizeInBytes: MAX_BYTES,
+        addRandomSuffix: true,
+      };
+    },
+    // Persistência no domínio continua pelo PATCH /api/admin/servicos
+    // (completeService) — nenhuma escrita de banco aqui.
+    onUploadCompleted: async () => {},
+  });
+
+  return NextResponse.json(result);
+}
+
 export async function POST(req: Request) {
   try {
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return await handleBlobClientUpload(req);
+    }
+
     await requireAdmin();
 
     const form = await req.formData();

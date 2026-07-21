@@ -1,8 +1,21 @@
 "use client";
 
+/**
+ * Verificar código — GO-03F: Design System (AuthShell + Field/Input/Button).
+ * Fluxo de API /api/verificar-codigo inalterado.
+ */
+
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  AuthShell,
+  Button,
+  Callout,
+  Field,
+  Input,
+  LoadingBlock,
+} from "@/components/design-system";
 
 function VerificarCodigoContent() {
   const router = useRouter();
@@ -54,108 +67,91 @@ function VerificarCodigoContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-      <div className="w-full max-w-md">
-        <h1 className="mb-2 text-2xl text-center font-semibold">
-          Verificação de Código
-        </h1>
-
-        <p className="mb-6 text-sm text-center text-zinc-400">
-          Enviamos um código de verificação para <strong>{email}</strong>.
-          <br />
-          Por favor, verifique sua caixa de entrada e digite o código abaixo.
-        </p>
-
-        <div className="mb-6 rounded-lg border border-yellow-600 bg-yellow-500 p-4">
-          <p className="text-xs text-black">
-            <strong>Instruções:</strong>
-          </p>
-          <ol className="mt-2 ml-4 list-decimal space-y-1 text-xs text-black">
-            <li>Acesse sua caixa de entrada do email <strong>{email}</strong></li>
-            <li>Procure pelo email da THouse Rec com o assunto "Código de Recuperação de Senha"</li>
-            <li>Copie o código de 6 dígitos que está no email</li>
-            <li>Cole o código no campo abaixo</li>
-            <li>Clique em "Verificar Código"</li>
-          </ol>
-          <p className="mt-3 text-xs text-black">
-            ⚠️ <strong>Importante:</strong> O código expira em 15 minutos.
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-red-700/40 bg-zinc-900 p-6"
-        >
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-300">Código de Verificação</label>
-            <input
-              type="text"
-              required
-              value={codigo}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
-                setCodigo(value);
-              }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-2xl font-mono tracking-widest outline-none focus:border-red-500"
-              placeholder="000000"
-              maxLength={6}
-            />
-            <p className="text-xs text-zinc-500 mt-1">
-              Digite o código de 6 dígitos enviado por email
-            </p>
-          </div>
-
-          {erro && (
-            <p className="rounded bg-red-950/40 px-3 py-2 text-xs text-red-400">
-              {erro}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={carregando || codigo.length !== 6}
-            className={`w-full rounded-full border border-red-600 px-4 py-2 text-sm font-semibold transition ${
-              carregando || codigo.length !== 6
-                ? "cursor-wait bg-red-600/50 text-white border-red-600"
-                : "bg-red-600 text-white hover:bg-red-500"
-            }`}
-          >
-            {carregando ? "Verificando..." : "Verificar Código"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center space-y-2">
+    <AuthShell
+      title="Verificação de código"
+      subtitle={
+        <>
+          Enviamos um código de verificação para <strong>{email}</strong>. Verifique sua caixa
+          de entrada e digite o código abaixo.
+        </>
+      }
+      footer={
+        <div className="text-center space-y-2">
           <Link
             href="/esqueci-senha"
-            className="block text-xs text-zinc-400 hover:text-red-400 underline"
+            className="block text-xs text-zinc-400 hover:text-red-400 underline underline-offset-2"
           >
             Solicitar novo código
           </Link>
           <Link
             href="/login"
-            className="block text-xs text-zinc-400 hover:text-red-400 underline"
+            className="block text-xs text-zinc-400 hover:text-red-400 underline underline-offset-2"
           >
             Voltar para login
           </Link>
         </div>
-      </div>
-    </main>
+      }
+    >
+      <Callout intent="warning" title="Instruções" className="mb-4">
+        <ol className="ml-4 list-decimal space-y-1">
+          <li>Acesse sua caixa de entrada do email <strong>{email}</strong></li>
+          <li>Procure pelo email da THouse Rec com o assunto &quot;Código de Recuperação de Senha&quot;</li>
+          <li>Copie o código de 6 dígitos que está no email</li>
+          <li>Cole o código no campo abaixo</li>
+          <li>Clique em &quot;Verificar código&quot;</li>
+        </ol>
+        <p className="mt-2">⚠️ O código expira em 15 minutos.</p>
+      </Callout>
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Field
+          label="Código de verificação"
+          hint="Digite o código de 6 dígitos enviado por email"
+        >
+          <Input
+            type="text"
+            required
+            value={codigo}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+              setCodigo(value);
+            }}
+            className="text-center text-2xl font-mono tracking-widest"
+            placeholder="000000"
+            maxLength={6}
+          />
+        </Field>
+
+        {erro && (
+          <Callout intent="error" title="Não foi possível continuar">
+            {erro}
+          </Callout>
+        )}
+
+        <Button
+          type="submit"
+          variant="primary"
+          fullWidth
+          size="md"
+          loading={carregando}
+          disabled={codigo.length !== 6}
+        >
+          {carregando ? "Verificando…" : "Verificar código"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 
 export default function VerificarCodigoPage() {
   return (
-    <Suspense fallback={
-      <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-        <div className="w-full max-w-md">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-zinc-800 rounded"></div>
-            <div className="h-4 bg-zinc-800 rounded"></div>
-            <div className="h-10 bg-zinc-800 rounded"></div>
-          </div>
-        </div>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <AuthShell title="Verificação de código">
+          <LoadingBlock label="Carregando formulário…" />
+        </AuthShell>
+      }
+    >
       <VerificarCodigoContent />
     </Suspense>
   );

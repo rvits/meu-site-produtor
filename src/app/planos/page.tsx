@@ -4,6 +4,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import DuvidasBox from "../components/DuvidasBox";
+import {
+  Button,
+  Card,
+  Field,
+  PageHeader,
+  Select,
+  useFeedback,
+} from "@/components/design-system";
 
 // =========================================================
 // TIPOS
@@ -88,6 +96,7 @@ export default function PlanosPage() {
 
   const { user } = useAuth();
   const router = useRouter();
+  const { notifyError, notify } = useFeedback();
 
   useEffect(() => {
     setMounted(true);
@@ -97,13 +106,13 @@ export default function PlanosPage() {
 
   const handleAssinar = async (plano: Plano) => {
     if (!user) {
-      alert("Você precisa estar logado para assinar um plano.");
+      notify("Você precisa estar logado para assinar um plano.");
       router.push("/login");
       return;
     }
 
     if (!aceiteTermos[plano.id]) {
-      alert("É preciso marcar a declaração dos Termos de Contrato antes de assinar o plano.");
+      notify("É preciso marcar a declaração dos Termos de Contrato antes de assinar o plano.");
       return;
     }
 
@@ -132,14 +141,11 @@ export default function PlanosPage() {
       <div className="relative z-10">
       {/* TÍTULO */}
       <section className="mb-8 flex flex-col items-center justify-center w-full">
-        <h1 className="mb-3 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-semibold" style={{ textShadow: "0 4px 20px rgba(0, 0, 0, 0.8), 0 2px 10px rgba(239, 68, 68, 0.3)" }}>
-          Planos da <span className="text-red-500">THouse Rec</span>
-        </h1>
-        
-        {/* TEXTO DESCRITIVO SEM BOX */}
-        <p className="mb-6 sm:mb-8 md:mb-10 text-center text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300 px-2" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-          Escolha o plano que melhor se encaixa na sua rotina de lançamentos.
-        </p>
+        <PageHeader
+          title={<>Planos da <span className="text-red-500">THouse Rec</span></>}
+          subtitle="Escolha o plano que melhor se encaixa na sua rotina de lançamentos."
+          className="justify-center text-center mb-6 sm:mb-8 md:mb-10"
+        />
 
         {/* TOGGLE - BEM PRÓXIMO DO TEXTO */}
         <div className="flex justify-center items-center px-4 w-full mb-3">
@@ -279,13 +285,15 @@ export default function PlanosPage() {
                       </label>
                     </div>
 
-                    <button
+                    <Button
                       onClick={() => handleAssinar(plano)}
-                      className="mt-auto w-full rounded-full border border-red-600 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-600/20 transition-all"
+                      variant="outline"
+                      fullWidth
+                      className="mt-auto"
                       style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                     >
                       Assinar este plano
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -296,7 +304,7 @@ export default function PlanosPage() {
 
       {user && user.role === "ADMIN" && (
         <section className="mb-16 flex justify-center px-4">
-          <div className="relative w-full max-w-4xl border-2 border-yellow-500 rounded-xl bg-yellow-950/20 backdrop-blur-sm p-4">
+          <Card className="relative w-full max-w-4xl border-2 border-yellow-500 bg-yellow-950/20 backdrop-blur-sm">
             <div className="text-center space-y-4">
               <h3 className="text-xl font-semibold text-yellow-400">
                 🧪 Pagamento de Teste - Plano (Apenas Admin)
@@ -306,35 +314,35 @@ export default function PlanosPage() {
                 Escolha Bronze, Prata ou Ouro — os cupons do plano são gerados normalmente.
               </p>
               <div className="flex flex-wrap justify-center gap-3">
-                <label className="text-sm text-yellow-100">
-                  Plano{" "}
-                  <select
+                <Field label="Plano" className="text-left">
+                  <Select
                     value={testPlanId}
                     onChange={(e) =>
                       setTestPlanId(e.target.value as "bronze" | "prata" | "ouro")
                     }
-                    className="ml-1 rounded border border-yellow-600 bg-zinc-900 px-2 py-1 text-yellow-100"
-                  >
-                    <option value="bronze">Bronze</option>
-                    <option value="prata">Prata</option>
-                    <option value="ouro">Ouro</option>
-                  </select>
-                </label>
-                <label className="text-sm text-yellow-100">
-                  Modo{" "}
-                  <select
+                    className="border-yellow-600 text-yellow-100"
+                    options={[
+                      { value: "bronze", label: "Bronze" },
+                      { value: "prata", label: "Prata" },
+                      { value: "ouro", label: "Ouro" },
+                    ]}
+                  />
+                </Field>
+                <Field label="Modo" className="text-left">
+                  <Select
                     value={testPlanModo}
                     onChange={(e) =>
                       setTestPlanModo(e.target.value as "mensal" | "anual")
                     }
-                    className="ml-1 rounded border border-yellow-600 bg-zinc-900 px-2 py-1 text-yellow-100"
-                  >
-                    <option value="mensal">Mensal</option>
-                    <option value="anual">Anual</option>
-                  </select>
-                </label>
+                    className="border-yellow-600 text-yellow-100"
+                    options={[
+                      { value: "mensal", label: "Mensal" },
+                      { value: "anual", label: "Anual" },
+                    ]}
+                  />
+                </Field>
               </div>
-              <button
+              <Button
                 onClick={async () => {
                   try {
                     const res = await fetch("/api/test-payment", {
@@ -359,7 +367,7 @@ export default function PlanosPage() {
                         errorMessage = `❌ Ambiente Inválido\n\n${error.error}\n\n${error.details.solucao}`;
                       }
                       
-                      alert(errorMessage);
+                      notifyError(errorMessage);
                       console.error("[Test Payment Frontend] Erro completo:", error);
                       return;
                     }
@@ -368,20 +376,21 @@ export default function PlanosPage() {
                     if (data.initPoint) {
                       window.location.href = data.initPoint;
                     } else {
-                      alert("Não foi possível obter o link de pagamento de teste.");
+                      notifyError("Não foi possível obter o link de pagamento de teste.");
                     }
                   } catch (e) {
                     console.error(e);
-                    alert("Erro inesperado ao iniciar pagamento de teste.");
+                    notifyError("Erro inesperado ao iniciar pagamento de teste.");
                   }
                 }}
-                className="mt-4 w-full max-w-md mx-auto rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
+                variant="primary"
+                className="mt-4 w-full max-w-md mx-auto bg-yellow-600 hover:bg-yellow-500"
                 style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
               >
                 Testar pagamento — {testPlanId} ({testPlanModo})
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </section>
       )}
 

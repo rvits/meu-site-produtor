@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  useFeedback,
+  LoadingBlock,
+  EmptyState,
+  PageHeader,
+  Card,
+  SearchInput,
+  Input,
+  Button,
+} from "@/components/design-system";
 
 interface ChatMessage {
   id: string;
@@ -24,6 +34,7 @@ interface ChatSession {
 }
 
 export default function AdminChatsPendentesPage() {
+  const { notifySuccess, notifyError, ask } = useFeedback();
   const [sessoes, setSessoes] = useState<ChatSession[]>([]);
   const [sessoesFiltradas, setSessoesFiltradas] = useState<ChatSession[]>([]);
   const [sessaoAtual, setSessaoAtual] = useState<ChatSession | null>(null);
@@ -126,7 +137,7 @@ export default function AdminChatsPendentesPage() {
       }
     } catch (err) {
       console.error("Erro ao aceitar solicitação", err);
-      alert("Erro ao aceitar solicitação. Tente novamente.");
+      notifyError("Erro ao aceitar solicitação. Tente novamente.");
     }
   }
 
@@ -152,12 +163,17 @@ export default function AdminChatsPendentesPage() {
       }
     } catch (err) {
       console.error("Erro ao recusar solicitação", err);
-      alert("Erro ao recusar solicitação. Tente novamente.");
+      notifyError("Erro ao recusar solicitação. Tente novamente.");
     }
   }
 
   async function terminarAtendimento(sessionId: string) {
-    if (!confirm("Tem certeza que deseja terminar o atendimento humano? A IA voltará a funcionar para este chat.")) {
+    if (
+      !(await ask(
+        "Tem certeza que deseja terminar o atendimento humano?",
+        "A IA voltará a funcionar para este chat."
+      ))
+    ) {
       return;
     }
 
@@ -189,14 +205,14 @@ export default function AdminChatsPendentesPage() {
             setSessaoAtual(data.session);
           }
         }
-        alert("Atendimento humano finalizado com sucesso!");
+        notifySuccess("Atendimento humano finalizado com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao terminar atendimento");
+        notifyError(data.error || "Erro ao terminar atendimento");
       }
     } catch (err) {
       console.error("Erro ao terminar atendimento", err);
-      alert("Erro ao terminar atendimento. Tente novamente.");
+      notifyError("Erro ao terminar atendimento. Tente novamente.");
     }
   }
 
@@ -221,7 +237,7 @@ export default function AdminChatsPendentesPage() {
       }
     } catch (err) {
       console.error("Erro ao enviar mensagem", err);
-      alert("Erro ao enviar mensagem. Tente novamente.");
+      notifyError("Erro ao enviar mensagem. Tente novamente.");
     }
   }
 
@@ -244,15 +260,16 @@ export default function AdminChatsPendentesPage() {
     solicitacoesRecusadas;
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando chats pendentes...</p>;
+    return <LoadingBlock label="Carregando chats pendentes..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Chats Pendentes</h1>
-        <p className="text-zinc-400">Gerencie solicitações de atendimento humano e chats recusados</p>
-      </div>
+      <PageHeader
+        title="Chats Pendentes"
+        subtitle="Gerencie solicitações de atendimento humano e chats recusados"
+        icon="chat"
+      />
 
       {/* Abas */}
       <div className="flex gap-2 border-b border-zinc-700">
@@ -289,20 +306,19 @@ export default function AdminChatsPendentesPage() {
       </div>
 
       {/* Input de Busca */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-        <input
+      <Card>
+        <SearchInput
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome ou email do usuário..."
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
         />
         {busca && (
           <p className="mt-2 text-sm text-zinc-400">
             {sessoesFiltradas.length} chat(s) encontrado(s)
           </p>
         )}
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lista de Chats */}
@@ -319,11 +335,16 @@ export default function AdminChatsPendentesPage() {
               {abaAtiva === "recusados" && `Solicitações Recusadas (${solicitacoesRecusadas.length})`}
             </h2>
             {sessoesParaMostrar.length === 0 ? (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 text-center text-zinc-400 text-sm">
-                {abaAtiva === "pendentes" && "Nenhuma solicitação pendente"}
-                {abaAtiva === "aceitos" && "Nenhum chat aceito"}
-                {abaAtiva === "recusados" && "Nenhuma solicitação recusada"}
-              </div>
+              <EmptyState
+                icon="chat"
+                title={
+                  abaAtiva === "pendentes"
+                    ? "Nenhuma solicitação pendente"
+                    : abaAtiva === "aceitos"
+                    ? "Nenhum chat aceito"
+                    : "Nenhuma solicitação recusada"
+                }
+              />
             ) : (
               <div className="space-y-2">
                 {sessoesParaMostrar.map((s) => (
@@ -358,9 +379,7 @@ export default function AdminChatsPendentesPage() {
               Solicitações Recusadas ({solicitacoesRecusadas.length})
             </h2>
             {solicitacoesRecusadas.length === 0 ? (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 text-center text-zinc-400 text-sm">
-                Nenhuma solicitação recusada
-              </div>
+              <EmptyState icon="chat" title="Nenhuma solicitação recusada" />
             ) : (
               <div className="space-y-2">
                 {solicitacoesRecusadas.map((s) => (
@@ -391,7 +410,7 @@ export default function AdminChatsPendentesPage() {
         </div>
 
         {/* Visualização de Chat */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+        <Card className="!p-6">
           {sessaoAtual ? (
             <div className="space-y-4 h-[70vh] flex flex-col">
               <div className="flex items-center justify-between pb-4 border-b border-zinc-700">
@@ -402,27 +421,18 @@ export default function AdminChatsPendentesPage() {
                 <div className="flex gap-2">
                   {!sessaoAtual.adminAccepted && sessaoAtual.humanRequested && (
                     <>
-                      <button
-                        onClick={() => aceitarSolicitacao(sessaoAtual.id)}
-                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 transition"
-                      >
+                      <Button variant="success" size="xs" onClick={() => aceitarSolicitacao(sessaoAtual.id)}>
                         Aceitar
-                      </button>
-                      <button
-                        onClick={() => recusarSolicitacao(sessaoAtual.id)}
-                        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 transition"
-                      >
+                      </Button>
+                      <Button variant="danger" size="xs" onClick={() => recusarSolicitacao(sessaoAtual.id)}>
                         Recusar
-                      </button>
+                      </Button>
                     </>
                   )}
                   {sessaoAtual.adminAccepted && (
-                    <button
-                      onClick={() => terminarAtendimento(sessaoAtual.id)}
-                      className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-500 transition"
-                    >
+                    <Button variant="secondary" size="xs" onClick={() => terminarAtendimento(sessaoAtual.id)}>
                       Terminar Atendimento
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -452,7 +462,7 @@ export default function AdminChatsPendentesPage() {
 
               {sessaoAtual.adminAccepted && (
                 <div className="flex gap-2 pt-4 border-t border-zinc-700">
-                  <input
+                  <Input
                     type="text"
                     value={novaMensagem}
                     onChange={(e) => setNovaMensagem(e.target.value)}
@@ -463,14 +473,11 @@ export default function AdminChatsPendentesPage() {
                       }
                     }}
                     placeholder="Digite sua resposta..."
-                    className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
+                    className="flex-1"
                   />
-                  <button
-                    onClick={enviarMensagem}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition"
-                  >
+                  <Button variant="primary" size="md" onClick={enviarMensagem}>
                     Enviar
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -479,7 +486,7 @@ export default function AdminChatsPendentesPage() {
               Selecione um chat para visualizar
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

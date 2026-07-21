@@ -1,7 +1,25 @@
 "use client";
 
+/**
+ * FAQ — GO-03F: Design System (PageHeader, Section, Card, Button, Input,
+ * Textarea, EmptyState, LoadingBlock, Callout).
+ * Lógica de busca, listagem e envio de dúvidas mantida integralmente.
+ */
+
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import {
+  PageHeader,
+  Section,
+  Card,
+  Button,
+  Input,
+  Textarea,
+  EmptyState,
+  LoadingBlock,
+  Callout,
+  LinkButton,
+} from "@/components/design-system";
 
 interface FAQ {
   id: string;
@@ -27,6 +45,30 @@ const capitalizeWords = (str: string) => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 };
+
+function FaqItem({
+  faq,
+  expanded,
+  onToggle,
+}: {
+  faq: FAQ;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Card interactive onClick={onToggle} className="max-w-4xl">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex-1 text-left text-sm text-zinc-200">{faq.question}</span>
+        <span className="text-xs text-zinc-400">{expanded ? "▼" : "▶"}</span>
+      </div>
+      {expanded && (
+        <div className="mt-3 border-t border-zinc-800 pt-3 text-sm text-zinc-300 leading-relaxed text-left">
+          {faq.answer}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default function FAQPage() {
   const { user } = useAuth();
@@ -232,18 +274,6 @@ export default function FAQPage() {
     return () => clearTimeout(timeout);
   }, [query]);
 
-  // Recarregar perguntas frequentes quando a query for limpa
-  // Removido para evitar atualizações muito frequentes
-  // As FAQs frequentes serão atualizadas apenas:
-  // - No carregamento inicial
-  // - A cada 15 minutos automaticamente
-  // - Quando o usuário clicar em "Recarregar"
-  // useEffect(() => {
-  //   if (!query.trim()) {
-  //     fetchFrequentFaqs();
-  //   }
-  // }, [query]);
-
   // Recarregar FAQs quando as frequentes mudarem (para excluir as frequentes)
   // Ajustado para evitar atualizações desnecessárias - só atualiza no carregamento inicial
   useEffect(() => {
@@ -329,324 +359,245 @@ export default function FAQPage() {
         aria-hidden
       />
 
-      <div className="relative z-10">
-      {/* TÍTULO + TEXTO INTRODUTÓRIO */}
-      <section className="mb-7">
-        <h1 className="text-4xl text-center md:text-5xl font-bold text-zinc-100">
-          Suporte / Ouvidoria / FAQ
-        </h1>
-        <p className="mt-4 text-center text-sm md:text-base text-zinc-300">
-          Aqui você encontra respostas para dúvidas frequentes sobre
-          agendamentos, planos, pagamentos, produção musical e uso do site.
-          Você também pode enviar sua própria pergunta para que a equipe da
-          THouse Rec — e a comunidade — ajudem a construir uma base de
-          conhecimento cada vez mais completa.
-        </p>
-      </section>
-
-      {/* BUSCA + ATALHOS */}
-      <section className="mb-8">
-        <label className="mb-2 block text-xs text-center font-semibold uppercase tracking-wide text-zinc-400">
-          Buscar por dúvida, erro ou palavra-chave
-        </label>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ex: pagamento, agendamento, Pix, plano Prata, login..."
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm outline-none focus:border-red-500"
+      <div className="relative z-10 space-y-8">
+        {/* TÍTULO + TEXTO INTRODUTÓRIO */}
+        <PageHeader
+          className="justify-center text-center"
+          title="Suporte / Ouvidoria / FAQ"
+          subtitle="Aqui você encontra respostas para dúvidas frequentes sobre agendamentos, planos, pagamentos, produção musical e uso do site. Você também pode enviar sua própria pergunta para que a equipe da THouse Rec — e a comunidade — ajudem a construir uma base de conhecimento cada vez mais completa."
         />
 
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-          {QUICK_TOPICS.map((topic) => (
-            <button
-              key={topic}
-              type="button"
-              onClick={() => setQuery(topic)}
-              className="rounded-full border border-zinc-600 bg-black/80 px-3 py-1 text-zinc-300 hover:border-red-500 hover:text-red-300 transition-all"
-              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-            >
-              {capitalizeWords(topic)}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* PERGUNTAS FREQUENTES - Mostrar apenas quando não há busca ativa */}
-      {!query.trim() && (
-        <section className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-zinc-200">
-              {frequentFaqs.length > 0 ? "Perguntas Frequentes" : ""}
-            </h2>
-            {frequentFaqs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  console.log("🔄 Recarregando FAQs frequentes...");
-                  fetchFrequentFaqs();
-                }}
-                className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-              >
-                Recarregar
-              </button>
-            )}
-          </div>
-          {frequentFaqs.length > 0 ? (
-            <>
-              <div className="space-y-3">
-                {frequentFaqs.map((faq) => (
-                  <div key={faq.id} className="max-w-4xl">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                      className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
-                      style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="flex-1 pr-2 text-left">{faq.question}</span>
-                        <span className="text-xs text-zinc-400">
-                          {expandedFaq === faq.id ? "▼" : "▶"}
-                        </span>
-                      </div>
-                    </button>
-                    {expandedFaq === faq.id && (
-                      <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
-                        {faq.answer}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-center text-sm text-zinc-400 mb-4">
-                Nenhuma pergunta frequente encontrada. Clique no botão abaixo para ver todas as perguntas disponíveis.
-              </p>
-              <div className="flex justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log("🔄 Recarregando FAQs frequentes...");
-                    fetchFrequentFaqs();
-                  }}
-                  className="rounded-full border border-zinc-600 bg-zinc-800/50 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
-                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-                >
-                  Recarregar
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-      )}
-
-      {/* LISTA DE FAQS */}
-      <section className="mb-10">
-        <h2 className="mb-3 text-lg font-semibold">
-          {query.trim() ? `Resultados para "${query}"` : "Respostas rápidas"}
-        </h2>
-
-        {loading && (
-          <p className="text-xs text-zinc-400 mb-4">
-            Carregando respostas...
-          </p>
-        )}
-
-        {!loading && query.trim() && faqs.length === 0 && (
-          <p className="text-sm text-zinc-400">
-            Não encontramos nenhuma resposta com o termo "{query}". Tente usar outras palavras-chave ou verifique a ortografia.
-          </p>
-        )}
-
-        {!loading && !query.trim() && faqs.length === 0 && (
-          <p className="text-sm text-zinc-400">
-            Nenhuma pergunta encontrada no banco de dados. Execute o seed para popular o banco: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
-          </p>
-        )}
-
-        <div className="space-y-3">
-          {faqs.map((faq) => (
-            <div key={faq.id} className="max-w-4xl">
-              <button
-                type="button"
-                onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="flex-1 pr-2 text-left">{faq.question}</span>
-                  <span className="text-xs text-zinc-400">
-                    {expandedFaq === faq.id ? "▼" : "▶"}
-                  </span>
-                </div>
-              </button>
-              {expandedFaq === faq.id && (
-                <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
-                  {faq.answer}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Seção de todas as perguntas - Sempre visível, conteúdo toggle */}
-      <section className="mb-8">
-        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-semibold text-zinc-200">
-            Todas as Perguntas ({totalFaqs || allFaqs.length || 0})
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                console.log("🔄 Recarregando FAQs...");
-                fetchFrequentFaqs();
-                fetchTotalFaqs();
-                // Se estiver mostrando todas as FAQs, recarregar também
-                if (showAllFaqs) {
-                  fetchAllFaqs();
-                } else {
-                  // Se não estiver mostrando, recarregar as FAQs principais
-                  if (!query.trim()) {
-                    fetchFaqs("");
-                  }
-                }
-              }}
-              className="rounded-full border border-zinc-600 bg-zinc-800/50 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-500 transition-all"
-              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-            >
-              Recarregar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (showAllFaqs) {
-                  setShowAllFaqs(false);
-                } else {
-                  // Sempre recarregar do servidor para pegar FAQs novas
-                  fetchAllFaqs();
-                }
-              }}
-              disabled={loadingAll}
-              className="rounded-full border border-red-600 bg-red-600 px-3 md:px-6 py-1.5 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loadingAll ? "Carregando..." : showAllFaqs ? "Ocultar" : "Mostrar todas"}
-            </button>
-          </div>
-        </div>
-        
-        {showAllFaqs && (
-          <>
-            {loadingAll ? (
-              <p className="text-sm text-zinc-400">Carregando todas as perguntas...</p>
-            ) : allFaqs.length === 0 ? (
-              <p className="text-sm text-zinc-400">
-                Nenhuma pergunta encontrada no banco de dados. Execute o seed: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {allFaqs.map((faq) => (
-                  <div key={faq.id} className="max-w-4xl">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                      className="w-full rounded-lg border border-zinc-700 bg-black/80 px-4 py-3 text-left text-sm text-zinc-200 hover:border-red-500 hover:bg-black/90 transition-all"
-                      style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="flex-1 pr-2 text-left">{faq.question}</span>
-                        <span className="text-xs text-zinc-400">
-                          {expandedFaq === faq.id ? "▼" : "▶"}
-                        </span>
-                      </div>
-                    </button>
-                    {expandedFaq === faq.id && (
-                      <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-950/90 p-4 text-sm text-zinc-300 leading-relaxed text-left">
-                        {faq.answer}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* OUVIDORIA */}
-      <section className="mb-4 rounded-xl border border-zinc-700 bg-zinc-950/70 p-4">
-        <h2 className="mb-3 text-xl md:text-2xl font-semibold text-center">
-          Não achou sua resposta? Envie sua dúvida.
-        </h2>
-
-        {!user ? (
-          <div className="rounded-lg border border-orange-600/50 bg-orange-950/20 p-4 text-center">
-            <p className="text-orange-300 mb-3">Você precisa estar logado para enviar uma pergunta.</p>
-            <a
-              href="/login"
-              className="inline-block rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
-            >
-              Fazer Login
-            </a>
-          </div>
-        ) : (
-          <form onSubmit={handleAsk} className="space-y-3 text-sm">
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                type="text"
-                placeholder="Seu nome"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                required
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
-              />
-              <input
-                type="email"
-                placeholder="Seu e-mail"
-                value={user.email}
-                disabled
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-400 cursor-not-allowed"
-                title="O email da sua conta será usado automaticamente"
-              />
-            </div>
-
-          <textarea
-            rows={4}
-            value={userQuestion}
-            onChange={(e) => setUserQuestion(e.target.value)}
-            placeholder="Explique sua dúvida com detalhes..."
-            required
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
+        {/* BUSCA + ATALHOS */}
+        <Section title="Buscar por dúvida, erro ou palavra-chave">
+          <Input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ex: pagamento, agendamento, Pix, plano Prata, login..."
           />
 
-          {askMessage && (
-            <p className={`text-xs text-center ${
-              askMessage.includes("sucesso") 
-                ? "text-green-400" 
-                : "text-red-400"
-            }`}>
-              {askMessage}
-            </p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_TOPICS.map((topic) => (
+              <Button
+                key={topic}
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => setQuery(topic)}
+              >
+                {capitalizeWords(topic)}
+              </Button>
+            ))}
+          </div>
+        </Section>
+
+        {/* PERGUNTAS FREQUENTES - Mostrar apenas quando não há busca ativa */}
+        {!query.trim() && (
+          <Section
+            title={frequentFaqs.length > 0 ? "Perguntas Frequentes" : undefined}
+            actions={
+              frequentFaqs.length > 0 && (
+                <Button variant="secondary" size="sm" icon="refresh" onClick={fetchFrequentFaqs}>
+                  Recarregar
+                </Button>
+              )
+            }
+          >
+            {frequentFaqs.length > 0 ? (
+              <div className="space-y-3">
+                {frequentFaqs.map((faq) => (
+                  <FaqItem
+                    key={faq.id}
+                    faq={faq}
+                    expanded={expandedFaq === faq.id}
+                    onToggle={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon="help"
+                title="Nenhuma pergunta frequente encontrada"
+                description="Clique no botão abaixo para ver todas as perguntas disponíveis."
+                action={
+                  <Button variant="secondary" size="sm" icon="refresh" onClick={fetchFrequentFaqs}>
+                    Recarregar
+                  </Button>
+                }
+              />
+            )}
+          </Section>
+        )}
+
+        {/* LISTA DE FAQS */}
+        <Section title={query.trim() ? `Resultados para "${query}"` : "Respostas rápidas"}>
+          {loading && <LoadingBlock label="Carregando respostas..." />}
+
+          {!loading && query.trim() && faqs.length === 0 && (
+            <EmptyState
+              icon="search"
+              title={`Nenhuma resposta encontrada para "${query}"`}
+              description="Tente usar outras palavras-chave ou verifique a ortografia."
+            />
           )}
 
-            <button
-              type="submit"
-              disabled={askLoading}
-              className={`w-full rounded-full px-6 py-3 font-semibold transition-all ${
-                askLoading
-                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  : "bg-red-600 text-white hover:bg-red-500"
-              }`}
-            >
-              {askLoading ? "Enviando..." : "Enviar dúvida"}
-            </button>
-          </form>
-        )}
-      </section>
+          {!loading && !query.trim() && faqs.length === 0 && (
+            <EmptyState
+              icon="box"
+              title="Nenhuma pergunta encontrada no banco de dados"
+              description={
+                <>
+                  Execute o seed para popular o banco: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
+                </>
+              }
+            />
+          )}
+
+          {!loading && faqs.length > 0 && (
+            <div className="space-y-3">
+              {faqs.map((faq) => (
+                <FaqItem
+                  key={faq.id}
+                  faq={faq}
+                  expanded={expandedFaq === faq.id}
+                  onToggle={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {/* Seção de todas as perguntas - Sempre visível, conteúdo toggle */}
+        <Section
+          title={`Todas as Perguntas (${totalFaqs || allFaqs.length || 0})`}
+          actions={
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="refresh"
+                onClick={() => {
+                  console.log("🔄 Recarregando FAQs...");
+                  fetchFrequentFaqs();
+                  fetchTotalFaqs();
+                  // Se estiver mostrando todas as FAQs, recarregar também
+                  if (showAllFaqs) {
+                    fetchAllFaqs();
+                  } else {
+                    // Se não estiver mostrando, recarregar as FAQs principais
+                    if (!query.trim()) {
+                      fetchFaqs("");
+                    }
+                  }
+                }}
+              >
+                Recarregar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={loadingAll}
+                onClick={() => {
+                  if (showAllFaqs) {
+                    setShowAllFaqs(false);
+                  } else {
+                    // Sempre recarregar do servidor para pegar FAQs novas
+                    fetchAllFaqs();
+                  }
+                }}
+              >
+                {loadingAll ? "Carregando..." : showAllFaqs ? "Ocultar" : "Mostrar todas"}
+              </Button>
+            </>
+          }
+        >
+          {showAllFaqs && (
+            <>
+              {loadingAll ? (
+                <LoadingBlock label="Carregando todas as perguntas..." />
+              ) : allFaqs.length === 0 ? (
+                <EmptyState
+                  icon="box"
+                  title="Nenhuma pergunta encontrada no banco de dados"
+                  description={
+                    <>
+                      Execute o seed: <code className="bg-zinc-800 px-2 py-1 rounded">npm run seed</code>
+                    </>
+                  }
+                />
+              ) : (
+                <div className="space-y-3">
+                  {allFaqs.map((faq) => (
+                    <FaqItem
+                      key={faq.id}
+                      faq={faq}
+                      expanded={expandedFaq === faq.id}
+                      onToggle={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </Section>
+
+        {/* OUVIDORIA */}
+        <Section>
+          <Card>
+            <h2 className="mb-3 text-xl md:text-2xl font-semibold text-center">
+              Não achou sua resposta? Envie sua dúvida.
+            </h2>
+
+            {!user ? (
+              <Callout intent="warning" className="text-center">
+                <p className="mb-3">Você precisa estar logado para enviar uma pergunta.</p>
+                <div className="flex justify-center">
+                  <LinkButton href="/login" variant="primary" size="md">
+                    Fazer login
+                  </LinkButton>
+                </div>
+              </Callout>
+            ) : (
+              <form onSubmit={handleAsk} className="space-y-3 text-sm">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    type="text"
+                    placeholder="Seu nome"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    required
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Seu e-mail"
+                    value={user.email}
+                    disabled
+                    title="O email da sua conta será usado automaticamente"
+                    className="text-zinc-400 cursor-not-allowed"
+                  />
+                </div>
+
+                <Textarea
+                  rows={4}
+                  value={userQuestion}
+                  onChange={(e) => setUserQuestion(e.target.value)}
+                  placeholder="Explique sua dúvida com detalhes..."
+                  required
+                />
+
+                {askMessage && (
+                  <Callout intent={askMessage.includes("sucesso") ? "success" : "error"}>
+                    {askMessage}
+                  </Callout>
+                )}
+
+                <Button type="submit" variant="primary" fullWidth size="md" loading={askLoading}>
+                  {askLoading ? "Enviando..." : "Enviar dúvida"}
+                </Button>
+              </form>
+            )}
+          </Card>
+        </Section>
       </div>
     </main>
   );

@@ -7,6 +7,13 @@ import DuvidasBox from "../components/DuvidasBox";
 import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
 import { useDomainRefresh } from "../hooks/useDomainRefresh";
 import { exigeAgendamentoDataHora } from "../lib/agendamento-payment-rules";
+import {
+  Button,
+  EmptyState,
+  Input,
+  LoadingBlock,
+  useFeedback,
+} from "@/components/design-system";
 
 type Servico = {
   id: string;
@@ -115,6 +122,7 @@ function AgendamentoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { notifySuccess, notifyError, notify } = useFeedback();
   const [quantidadesServicos, setQuantidadesServicos] = useState<Record<string, number>>({});
   const [quantidadesBeats, setQuantidadesBeats] = useState<Record<string, number>>({});
   const [comentarios, setComentarios] = useState("");
@@ -468,31 +476,31 @@ function AgendamentoContent() {
   const handleConfirmar = async () => {
     // 🔒 Verificar se usuário está logado (exceto admin que pode testar)
     if (!user) {
-      alert("Você precisa estar logado para fazer um agendamento.");
+      notify("Você precisa estar logado para fazer um agendamento.");
       router.push("/login?redirect=/agendamento");
       return;
     }
     
     // Verificar se há algum serviço ou pacote selecionado
     if (totalGeral <= 0) {
-      alert("Nenhum serviço selecionado");
+      notify("Nenhum serviço selecionado");
       return;
     }
 
     if (precisaAgenda) {
       if (!dataSelecionada) {
-        alert("O dia não foi selecionado");
+        notify("O dia não foi selecionado");
         return;
       }
       if (!horaSelecionada) {
-        alert("A hora não foi selecionada");
+        notify("A hora não foi selecionada");
         return;
       }
     }
     
     // Verificar se os termos foram aceitos
     if (!aceiteTermos) {
-      alert("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
+      notify("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
       return;
     }
     
@@ -556,7 +564,7 @@ function AgendamentoContent() {
 
         const data = await res.json();
         if (res.ok && data.success) {
-          alert("Agendamento criado com sucesso! Aguarde a confirmação por email.");
+          notifySuccess("Agendamento criado com sucesso!", "Aguarde a confirmação por email.");
           // Limpar formulário
           setQuantidadesServicos({});
           setQuantidadesBeats({});
@@ -572,12 +580,12 @@ function AgendamentoContent() {
         } else {
           const errorMessage = data.error || "Erro ao criar agendamento com cupom";
           console.error("[Agendamento] Erro ao criar com cupom:", errorMessage, data);
-          alert(errorMessage);
+          notifyError(errorMessage);
           return;
         }
       } catch (err: any) {
         console.error("[Agendamento] Erro ao criar agendamento com cupom:", err);
-        alert(`Erro ao criar agendamento: ${err.message || "Tente novamente."}`);
+        notifyError(`Erro ao criar agendamento: ${err.message || "Tente novamente."}`);
         return;
       }
     }
@@ -624,32 +632,32 @@ function AgendamentoContent() {
       window.location.href = "/carrinho";
     } catch (e) {
       console.warn("[Agendamento] Erro ao ir para carrinho:", e);
-      alert("Não foi possível continuar. Tente novamente.");
+      notifyError("Não foi possível continuar. Tente novamente.");
     }
   };
 
   const handleAdicionarAoCarrinho = () => {
     if (!user) {
-      alert("Você precisa estar logado para adicionar ao carrinho.");
+      notify("Você precisa estar logado para adicionar ao carrinho.");
       router.push("/login?redirect=/agendamento");
       return;
     }
     if (totalGeral <= 0) {
-      alert("Nenhum serviço selecionado");
+      notify("Nenhum serviço selecionado");
       return;
     }
     if (precisaAgenda) {
       if (!dataSelecionada) {
-        alert("O dia não foi selecionado");
+        notify("O dia não foi selecionado");
         return;
       }
       if (!horaSelecionada) {
-        alert("A hora não foi selecionada");
+        notify("A hora não foi selecionada");
         return;
       }
     }
     if (!aceiteTermos) {
-      alert("É preciso marcar a declaração dos Termos de Contrato antes de adicionar ao carrinho.");
+      notify("É preciso marcar a declaração dos Termos de Contrato antes de adicionar ao carrinho.");
       return;
     }
     const servicos = SERVICOS_ESTUDIO
@@ -717,7 +725,7 @@ function AgendamentoContent() {
       } catch (_) {}
     } catch (e) {
       console.warn("[Agendamento] Erro ao salvar carrinho:", e);
-      alert("Não foi possível adicionar ao carrinho. Tente novamente.");
+      notifyError("Não foi possível adicionar ao carrinho. Tente novamente.");
     }
   };
 
@@ -1411,24 +1419,24 @@ function AgendamentoContent() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <input
+              <Input
                 type="text"
                 value={cupomCode}
                 onChange={(e) => setCupomCode(e.target.value.toUpperCase())}
                 placeholder="Digite o código do cupom"
                 disabled={validandoCupom || !!cupomAplicado}
-                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1"
               />
               {!cupomAplicado ? (
-                <button
+                <Button
                   type="button"
                   onClick={async () => {
                     if (!cupomCode.trim()) {
-                      alert("Digite um código de cupom");
+                      notify("Digite um código de cupom");
                       return;
                     }
                     if (totalGeral <= 0) {
-                      alert("Selecione pelo menos um serviço antes de aplicar o cupom");
+                      notify("Selecione pelo menos um serviço antes de aplicar o cupom");
                       return;
                     }
                     setValidandoCupom(true);
@@ -1467,30 +1475,31 @@ function AgendamentoContent() {
                           couponType: data.couponType,
                         });
                       } else {
-                        alert(data.error || "Cupom inválido ou inexistente");
+                        notifyError(data.error || "Cupom inválido ou inexistente");
                       }
                     } catch (err) {
-                      alert("Erro ao validar cupom. Tente novamente.");
+                      notifyError("Erro ao validar cupom. Tente novamente.");
                     } finally {
                       setValidandoCupom(false);
                     }
                   }}
                   disabled={validandoCupom || totalGeral <= 0}
-                  className="rounded-xl bg-red-600 px-4 md:px-6 py-2 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  variant="primary"
+                  loading={validandoCupom}
                 >
-                  {validandoCupom ? "Validando..." : "Aplicar"}
-                </button>
+                  Aplicar
+                </Button>
               ) : (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setCupomAplicado(null);
                     setCupomCode("");
                   }}
-                  className="rounded-xl bg-red-600 px-4 md:px-6 py-2 md:py-3 text-xs md:text-sm font-semibold text-white hover:bg-red-500 transition-colors whitespace-nowrap"
+                  variant="danger"
                 >
                   Remover
-                </button>
+                </Button>
               )}
             </div>
             {cupomAplicado && (
@@ -1548,9 +1557,7 @@ function AgendamentoContent() {
               })}
 
               {totalGeral === 0 && (
-                <li className="text-zinc-500">
-                  Nenhum serviço selecionado ainda.
-                </li>
+                <li><EmptyState title="Nenhum serviço selecionado ainda." className="py-5" /></li>
               )}
             </ul>
           </div>
@@ -1643,40 +1650,42 @@ function AgendamentoContent() {
               <div className="mt-8 space-y-3 flex flex-col items-center">
                 <p className="text-green-400 font-medium">Agendamento adicionado ao carrinho!</p>
                 <div className="flex flex-wrap gap-3 justify-center">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setAdicionadoAoCart(false)}
-                    className="rounded-full border border-zinc-500 bg-zinc-700/50 px-5 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-600/50 transition-colors"
+                    variant="secondary"
                   >
                     Continuar agendando
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => router.push("/carrinho")}
-                    className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+                    variant="primary"
                   >
                     Ir ao carrinho e finalizar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
-                <button
+                <Button
                   type="button"
                   onClick={handleAdicionarAoCarrinho}
-                  className="w-full sm:w-auto max-w-6xl rounded-full border-2 border-red-500 bg-transparent px-6 py-3 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-all"
+                  variant="outline"
+                  className="w-full sm:w-auto max-w-6xl"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Adicionar ao carrinho
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleConfirmar}
-                  className="w-full sm:w-auto max-w-6xl rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-all"
+                  variant="primary"
+                  className="w-full sm:w-auto max-w-6xl"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Confirmar e ir ao carrinho
-                </button>
+                </Button>
               </div>
             )}
 
@@ -1790,11 +1799,11 @@ function AgendamentoContent() {
                         type="button"
                         onClick={async () => {
                           if (!cupomCode.trim()) {
-                            alert("Digite um código de cupom");
+                            notify("Digite um código de cupom");
                             return;
                           }
                           if (totalGeral <= 0) {
-                            alert("Selecione pelo menos um serviço antes de aplicar o cupom");
+                            notify("Selecione pelo menos um serviço antes de aplicar o cupom");
                             return;
                           }
                           setValidandoCupom(true);
@@ -1833,10 +1842,10 @@ function AgendamentoContent() {
                                 couponType: data.couponType,
                               });
                             } else {
-                              alert(data.error || "Cupom inválido");
+                              notifyError(data.error || "Cupom inválido");
                             }
                           } catch (err) {
-                            alert("Erro ao validar cupom");
+                            notifyError("Erro ao validar cupom");
                           } finally {
                             setValidandoCupom(false);
                           }
@@ -1910,22 +1919,22 @@ function AgendamentoContent() {
                     // Validações
                     if (precisaAgenda) {
                       if (!dataSelecionada) {
-                        alert("Por favor, selecione uma data.");
+                        notify("Por favor, selecione uma data.");
                         return;
                       }
                       if (!horaSelecionada) {
-                        alert("Por favor, selecione um horário.");
+                        notify("Por favor, selecione um horário.");
                         return;
                       }
                     }
                     
                     if (!comentarios.trim()) {
-                      alert("Por favor, preencha o campo de comentários.");
+                      notify("Por favor, preencha o campo de comentários.");
                       return;
                     }
                     
                     if (!aceiteTermos) {
-                      alert("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
+                      notify("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
                       return;
                     }
 
@@ -1937,14 +1946,14 @@ function AgendamentoContent() {
                       .filter((b) => (quantidadesBeats[b.id] || 0) > 0)
                       .map((b) => ({ id: b.id, nome: b.nome, quantidade: quantidadesBeats[b.id], preco: b.preco }));
                     if (servicosTeste.length === 0 && beatsTeste.length === 0) {
-                      alert("Selecione pelo menos um serviço ou beat acima para testar a aba \"Serviços Solicitados\" no admin.");
+                      notify("Selecione pelo menos um serviço ou beat acima para testar a aba \"Serviços Solicitados\" no admin.");
                       return;
                     }
 
                     if (precisaAgenda && dataSelecionada && horaSelecionada) {
                       const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
                       if (dataHoraISO < new Date()) {
-                        alert("Não é possível agendar para uma data/hora que já passou.");
+                        notify("Não é possível agendar para uma data/hora que já passou.");
                         return;
                       }
                     }
@@ -1972,7 +1981,7 @@ function AgendamentoContent() {
 
                       const data = await res.json().catch(() => ({}));
                       if (!res.ok) {
-                        alert(data.error || "Erro na simulação gratuita.");
+                        notifyError(data.error || "Erro na simulação gratuita.");
                         console.error("[Simulação Gratuita]", data);
                         return;
                       }
@@ -1980,9 +1989,9 @@ function AgendamentoContent() {
                       const run = data.run;
                       const cups = (run?.couponCodes || []).join(", ") || "—";
                       const apts = (run?.appointmentIds || []).join(", ") || "—";
-                      alert(
+                      notifySuccess(
+                        run?.ok ? "Simulação PASS (sem Asaas)." : "Simulação concluída com avisos.",
                         [
-                          run?.ok ? "Simulação PASS (sem Asaas)." : "Simulação concluída com avisos.",
                           `Run: ${run?.runId || "—"}`,
                           `Payment: ${run?.providerPaymentId || "—"}`,
                           `Appointments: ${apts}`,
@@ -1993,7 +2002,7 @@ function AgendamentoContent() {
                       window.location.href = "/admin/homologacao";
                     } catch (e) {
                       console.error(e);
-                      alert("Erro inesperado na simulação gratuita.");
+                      notifyError("Erro inesperado na simulação gratuita.");
                     }
                   }}
                   className="w-full rounded-full bg-yellow-600 px-6 py-3 text-sm font-semibold text-white hover:bg-yellow-500 transition-all"
@@ -2011,12 +2020,12 @@ function AgendamentoContent() {
                         const data = await res.json().catch(() => ({}));
                         if (res.ok && data.success) {
                           const who = data.forUser ? ` (usuário: ${data.forUser.email || data.forUser.nome || "—"})` : "";
-                          alert(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados${who}. ${data.hint || "Atualize Minha Conta e o admin."}`);
+                          notifySuccess(`Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados${who}.`, data.hint || "Atualize Minha Conta e o admin.");
                         } else {
-                          alert(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
+                          notifyError(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
                         }
                       } catch (e) {
-                        alert("Erro ao reprocessar pagamento de teste.");
+                        notifyError("Erro ao reprocessar pagamento de teste.");
                       }
                     }}
                     className="underline hover:text-yellow-300"
@@ -2102,7 +2111,7 @@ export default function AgendamentoPage() {
     <Suspense
       fallback={
         <main className="min-h-screen flex items-center justify-center text-zinc-400 bg-zinc-950">
-          Carregando...
+          <LoadingBlock label="Carregando..." />
         </main>
       }
     >

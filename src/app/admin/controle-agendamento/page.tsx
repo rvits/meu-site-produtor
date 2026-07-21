@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import {
+  useFeedback,
+  LoadingBlock,
+  PageHeader,
+  Card,
+  Button,
+  Modal,
+} from "@/components/design-system";
 
 const HORARIOS_PADRAO = [
   "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
@@ -14,6 +22,7 @@ interface BlockedSlot {
 }
 
 export default function AdminControleAgendamentoPage() {
+  const { notifySuccess, notifyError, ask } = useFeedback();
   // Data mínima: 1 de janeiro do ano atual
   const DATA_MINIMA = new Date(new Date().getFullYear(), 0, 1); // 1 de janeiro do ano atual
 
@@ -192,7 +201,7 @@ export default function AdminControleAgendamentoPage() {
           } else {
             const error = await res.json().catch(() => ({}));
             console.error("Erro ao remover slot:", error);
-            alert(`Erro ao remover bloqueio: ${error.error || "Erro desconhecido"}`);
+            notifyError(`Erro ao remover bloqueio: ${error.error || "Erro desconhecido"}`);
           }
         } else {
           console.warn("[DEBUG] Slot não encontrado para remover");
@@ -224,12 +233,12 @@ export default function AdminControleAgendamentoPage() {
           }
           console.error("Erro ao criar slot - Status:", res.status);
           console.error("Erro ao criar slot - Resposta:", error);
-          alert(`Erro ao bloquear horário (${res.status}): ${error.error || error.message || "Erro desconhecido"}`);
+          notifyError(`Erro ao bloquear horário (${res.status}): ${error.error || error.message || "Erro desconhecido"}`);
         }
       }
     } catch (err) {
       console.error("Erro ao alternar slot", err);
-      alert(`Erro ao alterar horário: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+      notifyError(`Erro ao alterar horário: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
     }
   }
 
@@ -265,12 +274,12 @@ export default function AdminControleAgendamentoPage() {
           console.error("Alguns horários não puderam ser desbloqueados:", { errors, failed });
           const totalErrors = errors.length + failed.length;
           if (totalErrors < slotsDoDia.length) {
-            alert(`${slotsDoDia.length - totalErrors} horário(s) desbloqueado(s) com sucesso. ${totalErrors} falharam.`);
+            notifyError(`${slotsDoDia.length - totalErrors} horário(s) desbloqueado(s) com sucesso. ${totalErrors} falharam.`);
           } else {
-            alert("Erro ao desbloquear horários. Verifique o console para mais detalhes.");
+            notifyError("Erro ao desbloquear horários. Verifique o console para mais detalhes.");
           }
         } else {
-          alert(`${slotsDoDia.length} horário(s) desbloqueado(s) com sucesso!`);
+          notifySuccess(`${slotsDoDia.length} horário(s) desbloqueado(s) com sucesso!`);
         }
         await carregarDados();
       } else {
@@ -318,18 +327,18 @@ export default function AdminControleAgendamentoPage() {
           console.error("Alguns horários não puderam ser bloqueados:", { errors, failed });
           const totalErrors = errors.length + failed.length;
           if (sucessos.length > 0) {
-            alert(`${sucessos.length} horário(s) bloqueado(s) com sucesso. ${totalErrors} falharam.`);
+            notifyError(`${sucessos.length} horário(s) bloqueado(s) com sucesso. ${totalErrors} falharam.`);
           } else {
-            alert("Erro ao bloquear horários. Verifique o console para mais detalhes.");
+            notifyError("Erro ao bloquear horários. Verifique o console para mais detalhes.");
           }
         } else {
-          alert(`${horariosParaBloquear.length} horário(s) bloqueado(s) com sucesso!`);
+          notifySuccess(`${horariosParaBloquear.length} horário(s) bloqueado(s) com sucesso!`);
         }
         await carregarDados();
       }
     } catch (err) {
       console.error("Erro ao alternar dia", err);
-      alert(`Erro ao alterar dia: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+      notifyError(`Erro ao alterar dia: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
     }
   }
 
@@ -376,7 +385,12 @@ export default function AdminControleAgendamentoPage() {
 
   // Função para confirmar e publicar mudanças
   async function confirmarMudancas() {
-    if (!confirm("Tem certeza que deseja confirmar e publicar todas as mudanças? Isso tornará os horários bloqueados visíveis na página pública de agendamento.")) {
+    if (
+      !(await ask(
+        "Tem certeza que deseja confirmar e publicar todas as mudanças?",
+        "Isso tornará os horários bloqueados visíveis na página pública de agendamento."
+      ))
+    ) {
       return;
     }
 
@@ -390,65 +404,60 @@ export default function AdminControleAgendamentoPage() {
 
       if (res.ok) {
         const data = await res.json();
-        alert(data.message || "Mudanças confirmadas e publicadas com sucesso!");
+        notifySuccess(data.message || "Mudanças confirmadas e publicadas com sucesso!");
         await carregarDados(); // Recarregar dados
       } else {
         const error = await res.json();
-        alert(error.error || "Erro ao confirmar mudanças. Tente novamente.");
+        notifyError(error.error || "Erro ao confirmar mudanças. Tente novamente.");
       }
     } catch (err) {
       console.error("Erro ao confirmar mudanças:", err);
-      alert("Erro ao confirmar mudanças. Tente novamente.");
+      notifyError("Erro ao confirmar mudanças. Tente novamente.");
     } finally {
       setConfirmando(false);
     }
   }
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando calendário...</p>;
+    return <LoadingBlock label="Carregando calendário..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-100 mb-2">Controle de Agendamento</h1>
-          <p className="text-zinc-400">Clique em um dia para gerenciar seus horários.</p>
-        </div>
-        <button
-          onClick={confirmarMudancas}
-          disabled={confirmando}
-          className="rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
-        >
-          {confirmando ? "Confirmando..." : "✓ Confirmar e Publicar Mudanças"}
-        </button>
-      </div>
+      <PageHeader
+        title="Controle de Agendamento"
+        subtitle="Clique em um dia para gerenciar seus horários."
+        icon="calendar"
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            loading={confirmando}
+            icon="check"
+            onClick={confirmarMudancas}
+          >
+            Confirmar e Publicar Mudanças
+          </Button>
+        }
+      />
 
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="mb-4 flex items-center justify-between">
-          <button
+          <Button
+            variant="outline"
             onClick={handleMesAnterior}
             disabled={!podeIrMesAnterior()}
-            className={`rounded-full border border-zinc-600 px-4 py-2 transition ${
-              podeIrMesAnterior()
-                ? "hover:border-red-500 hover:bg-zinc-700 cursor-pointer"
-                : "opacity-50 cursor-not-allowed"
-            }`}
           >
             ◀ Anterior
-          </button>
+          </Button>
 
           <span className="text-xl font-semibold text-zinc-100">
             {dataBase.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
           </span>
 
-          <button
-            onClick={handleProximoMes}
-            className="rounded-full border border-zinc-600 px-4 py-2 hover:border-red-500 hover:bg-zinc-700 transition"
-          >
+          <Button variant="outline" onClick={handleProximoMes}>
             Próximo ▶
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-7 gap-2">
@@ -523,115 +532,103 @@ export default function AdminControleAgendamentoPage() {
             <span>Dia completo</span>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* MODAL DE HORÁRIOS DO DIA SELECIONADO */}
-      {selectedDay && selectedDayData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 rounded-xl border border-red-500 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-zinc-100">
-                    Horários - {selectedDayData.date.toLocaleDateString("pt-BR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </h2>
-                  <p className="text-sm text-zinc-400 mt-1">
-                    {selectedDayData.ocupados.size} de {HORARIOS_PADRAO.length} horários ocupados
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedDay(null)}
-                  className="text-zinc-400 hover:text-red-400 text-2xl transition"
-                >
-                  ×
-                </button>
-              </div>
+      <Modal
+        open={!!(selectedDay && selectedDayData)}
+        onClose={() => setSelectedDay(null)}
+        title={
+          selectedDayData
+            ? `Horários - ${selectedDayData.date.toLocaleDateString("pt-BR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}`
+            : "Horários"
+        }
+        maxWidth="max-w-2xl"
+      >
+        {selectedDay && selectedDayData && (
+          <div className="space-y-6">
+            <p className="text-sm text-zinc-400">
+              {selectedDayData.ocupados.size} de {HORARIOS_PADRAO.length} horários ocupados
+            </p>
 
-              {/* Botão para bloquear/desbloquear dia inteiro */}
-              <div className="mb-6">
-                <button
-                  onClick={() => toggleDia(selectedDay)}
-                  className={`w-full rounded-lg border px-4 py-3 font-semibold transition ${
-                    selectedDayData.slotsBloqueados.length === HORARIOS_PADRAO.length
-                      ? "border-green-600 bg-green-600/20 text-green-300 hover:bg-green-600/30"
-                      : "border-red-600 bg-red-600/20 text-red-300 hover:bg-red-600/30"
-                  }`}
-                >
-                  {selectedDayData.slotsBloqueados.length === HORARIOS_PADRAO.length
-                    ? "Desbloquear todos os horários do dia"
-                    : "Bloquear todos os horários do dia"}
-                </button>
-              </div>
+            <Button
+              fullWidth
+              size="md"
+              variant={
+                selectedDayData.slotsBloqueados.length === HORARIOS_PADRAO.length
+                  ? "success"
+                  : "danger"
+              }
+              onClick={() => toggleDia(selectedDay)}
+            >
+              {selectedDayData.slotsBloqueados.length === HORARIOS_PADRAO.length
+                ? "Desbloquear todos os horários do dia"
+                : "Bloquear todos os horários do dia"}
+            </Button>
 
-              {/* Grid de horários */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {HORARIOS_PADRAO.map((hora) => {
-                  const bloqueado = isSlotBlocked(selectedDay, hora);
-                  const ocupadoPorAgendamento = selectedDayData.ocupados.has(hora) && !bloqueado;
-                  const podeBloquear = !ocupadoPorAgendamento;
-                  
-                  // Verificar se o horário já passou
-                  const horarioPassado = selectedDay ? isHorarioPassado(selectedDay, hora) : false;
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {HORARIOS_PADRAO.map((hora) => {
+                const bloqueado = isSlotBlocked(selectedDay, hora);
+                const ocupadoPorAgendamento = selectedDayData.ocupados.has(hora) && !bloqueado;
+                const podeBloquear = !ocupadoPorAgendamento;
+                const horarioPassado = selectedDay ? isHorarioPassado(selectedDay, hora) : false;
 
-                  return (
-                    <button
-                      key={hora}
-                      onClick={() => {
-                        // Não permitir bloquear/desbloquear horários passados
-                        if (!horarioPassado && podeBloquear) {
-                          toggleSlot(selectedDay, hora);
-                        }
-                      }}
-                      disabled={ocupadoPorAgendamento || horarioPassado}
-                      className={`rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                        horarioPassado
-                          ? "bg-red-900/60 text-red-200 border-red-700 cursor-not-allowed opacity-60"
-                          : bloqueado
-                          ? "bg-red-600 text-white border-red-500 hover:bg-red-500"
-                          : ocupadoPorAgendamento
-                          ? "bg-zinc-700 text-zinc-500 border-zinc-600 cursor-not-allowed"
-                          : "bg-green-600/20 text-green-300 border-green-600 hover:bg-green-600/30"
-                      }`}
-                      title={
-                        horarioPassado
-                          ? "Horário já passou"
-                          : bloqueado
-                          ? "Clique para desbloquear"
-                          : ocupadoPorAgendamento
-                          ? "Ocupado por agendamento"
-                          : "Clique para bloquear"
+                return (
+                  <button
+                    key={hora}
+                    onClick={() => {
+                      if (!horarioPassado && podeBloquear) {
+                        toggleSlot(selectedDay, hora);
                       }
-                    >
-                      {hora}
-                    </button>
-                  );
-                })}
-              </div>
+                    }}
+                    disabled={ocupadoPorAgendamento || horarioPassado}
+                    className={`rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                      horarioPassado
+                        ? "bg-red-900/60 text-red-200 border-red-700 cursor-not-allowed opacity-60"
+                        : bloqueado
+                        ? "bg-red-600 text-white border-red-500 hover:bg-red-500"
+                        : ocupadoPorAgendamento
+                        ? "bg-zinc-700 text-zinc-500 border-zinc-600 cursor-not-allowed"
+                        : "bg-green-600/20 text-green-300 border-green-600 hover:bg-green-600/30"
+                    }`}
+                    title={
+                      horarioPassado
+                        ? "Horário já passou"
+                        : bloqueado
+                        ? "Clique para desbloquear"
+                        : ocupadoPorAgendamento
+                        ? "Ocupado por agendamento"
+                        : "Clique para bloquear"
+                    }
+                  >
+                    {hora}
+                  </button>
+                );
+              })}
+            </div>
 
-              {/* Legenda */}
-              <div className="mt-6 flex flex-wrap gap-4 text-sm text-zinc-400">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-green-600/20 border border-green-600"></div>
-                  <span>Disponível</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-red-600"></div>
-                  <span>Bloqueado</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-zinc-700"></div>
-                  <span>Ocupado (agendamento)</span>
-                </div>
+            <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-green-600/20 border border-green-600"></div>
+                <span>Disponível</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-red-600"></div>
+                <span>Bloqueado</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-zinc-700"></div>
+                <span>Ocupado (agendamento)</span>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

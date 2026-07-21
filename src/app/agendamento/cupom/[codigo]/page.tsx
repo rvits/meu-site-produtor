@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import { isSchedulableServiceType } from "@/app/lib/service-catalog";
+import {
+  Button,
+  Callout,
+  Card,
+  Field,
+  Input,
+  LinkButton,
+  LoadingBlock,
+  PageHeader,
+  Textarea,
+  useFeedback,
+} from "@/components/design-system";
 
 type CouponPayload = {
   code: string;
@@ -23,6 +34,7 @@ export default function AgendamentoCupomPage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { notifySuccess, notifyError, notify } = useFeedback();
   const codigo = String(params?.codigo || "").toUpperCase();
 
   const [coupon, setCoupon] = useState<CouponPayload | null>(null);
@@ -90,11 +102,11 @@ export default function AgendamentoCupomPage() {
 
   async function confirmar() {
     if (!coupon?.catalogItem || !coupon.serviceType) {
-      alert("Cupom sem serviço vinculado.");
+      notifyError("Cupom sem serviço vinculado.");
       return;
     }
     if (!dataSelecionada || !horaSelecionada) {
-      alert(precisaAgenda ? "Selecione data e horário." : "Informe a data e horário de referência.");
+      notify(precisaAgenda ? "Selecione data e horário." : "Informe a data e horário de referência.");
       return;
     }
     const item = {
@@ -123,13 +135,13 @@ export default function AgendamentoCupomPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Não foi possível agendar com este cupom.");
+        notifyError(data.error || "Não foi possível agendar com este cupom.");
         return;
       }
-      alert("Agendamento criado com sucesso. Acompanhe em Minha Conta.");
+      notifySuccess("Agendamento criado com sucesso.", "Acompanhe em Minha Conta.");
       router.push("/minha-conta");
     } catch {
-      alert("Erro inesperado ao agendar.");
+      notifyError("Erro inesperado ao agendar.");
     } finally {
       setSubmitting(false);
     }
@@ -138,7 +150,7 @@ export default function AgendamentoCupomPage() {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
-        <p className="text-zinc-400">Carregando cupom…</p>
+        <LoadingBlock label="Carregando cupom…" />
       </main>
     );
   }
@@ -147,11 +159,11 @@ export default function AgendamentoCupomPage() {
     return (
       <main className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
         <div className="max-w-lg mx-auto space-y-4">
-          <h1 className="text-2xl font-semibold text-red-400">Cupom indisponível</h1>
-          <p className="text-zinc-300">{error}</p>
-          <Link href="/minha-conta" className="text-red-400 underline">
+          <PageHeader title="Cupom indisponível" />
+          <Callout intent="error">{error}</Callout>
+          <LinkButton href="/minha-conta" variant="outline">
             Voltar para Minha Conta
-          </Link>
+          </LinkButton>
         </div>
       </main>
     );
@@ -161,13 +173,13 @@ export default function AgendamentoCupomPage() {
     return (
       <main className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
         <div className="max-w-lg mx-auto space-y-4">
-          <h1 className="text-2xl font-semibold text-red-400">Serviço do cupom inválido</h1>
-          <p className="text-zinc-300">
+          <PageHeader title="Serviço do cupom inválido" />
+          <Callout intent="error">
             O cupom {coupon?.code} não possui um serviço reconhecido no catálogo.
-          </p>
-          <Link href="/minha-conta" className="text-red-400 underline">
+          </Callout>
+          <LinkButton href="/minha-conta" variant="outline">
             Voltar para Minha Conta
-          </Link>
+          </LinkButton>
         </div>
       </main>
     );
@@ -176,74 +188,66 @@ export default function AgendamentoCupomPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8">
       <div className="max-w-xl mx-auto space-y-6">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Agenda exclusiva do cupom</p>
-          <h1 className="text-2xl font-bold text-zinc-100 mt-1">{coupon.catalogItem.nome}</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+        <div className="space-y-2">
+          <PageHeader
+            title={coupon.catalogItem.nome}
+            subtitle="Agenda exclusiva do cupom"
+          />
+          <p className="text-sm text-zinc-400">
             Código <span className="font-mono text-zinc-200">{coupon.code}</span> · {coupon.typeLabel}
           </p>
           <p className="text-sm text-zinc-500 mt-2">
             Serviço travado. Não é possível adicionar outros itens nem passar pelo Asaas.
           </p>
-          {error && <p className="text-sm text-amber-400 mt-2">{error}</p>}
+          {error && <Callout intent="warning">{error}</Callout>}
         </div>
 
-        <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 space-y-4">
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">
-              {precisaAgenda ? "Data da sessão" : "Data de referência"}
-            </label>
-            <input
+        <Card className="space-y-4">
+          <Field label={precisaAgenda ? "Data da sessão" : "Data de referência"}>
+            <Input
               type="date"
               min={minDate}
               value={dataSelecionada}
               onChange={(e) => setDataSelecionada(e.target.value)}
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-100"
             />
-          </div>
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">Horário</label>
+          </Field>
+          <Field label="Horário">
             <div className="grid grid-cols-3 gap-2">
               {HORARIOS.map((h) => (
-                <button
+                <Button
                   key={h}
                   type="button"
                   onClick={() => setHoraSelecionada(h)}
-                  className={[
-                    "rounded border px-2 py-1.5 text-sm",
-                    horaSelecionada === h
-                      ? "border-red-500 bg-red-600/20 text-red-200"
-                      : "border-zinc-600 text-zinc-300 hover:border-zinc-400",
-                  ].join(" ")}
+                  variant={horaSelecionada === h ? "primary" : "outline"}
                 >
                   {h}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-zinc-400 mb-1">Observações (opcional)</label>
-            <textarea
+          </Field>
+          <Field label="Observações (opcional)">
+            <Textarea
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               placeholder="Detalhes do projeto…"
             />
-          </div>
-          <button
+          </Field>
+          <Button
             type="button"
             disabled={submitting || coupon.used}
             onClick={() => void confirmar()}
-            className="w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+            variant="primary"
+            fullWidth
+            loading={submitting}
           >
-            {submitting ? "Agendando…" : "Confirmar agendamento com cupom"}
-          </button>
-        </div>
+            Confirmar agendamento com cupom
+          </Button>
+        </Card>
 
-        <Link href="/minha-conta" className="text-sm text-zinc-400 hover:text-zinc-200">
+        <LinkButton href="/minha-conta" variant="ghost">
           ← Voltar para Minha Conta
-        </Link>
+        </LinkButton>
       </div>
     </main>
   );

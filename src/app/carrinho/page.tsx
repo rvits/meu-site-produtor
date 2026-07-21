@@ -4,6 +4,17 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
+import {
+  Button,
+  EmptyState,
+  Field,
+  Input,
+  LinkButton,
+  LoadingBlock,
+  PageHeader,
+  Select,
+  useFeedback,
+} from "@/components/design-system";
 
 const CARRINHO_KEY = "agendamento_carrinho";
 
@@ -24,6 +35,7 @@ type CartItem = {
 export default function CarrinhoPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { notifyError, notify } = useFeedback();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<"asaas" | "infinitypay" | "mercadopago">("asaas");
@@ -161,7 +173,7 @@ export default function CarrinhoPage() {
 
   const handleFinalizar = async () => {
     if (cart.length === 0) {
-      alert("Carrinho vazio.");
+      notify("Carrinho vazio.");
       return;
     }
     if (!validarFormulario()) return;
@@ -187,7 +199,7 @@ export default function CarrinhoPage() {
       });
       if (!updateRes.ok) {
         const d = await updateRes.json();
-        alert(d.error || "Erro ao salvar dados. Verifique os campos.");
+        notifyError(d.error || "Erro ao salvar dados. Verifique os campos.");
         setCarregando(false);
         return;
       }
@@ -216,7 +228,7 @@ export default function CarrinhoPage() {
       if (!res.ok) {
         const msg = (data.error as string) || (data.message as string) || `Erro ${res.status} ao criar pagamento.`;
         console.error("[Carrinho] Erro na API:", res.status, text);
-        alert(msg);
+        notifyError(msg);
         setCarregando(false);
         return;
       }
@@ -226,12 +238,12 @@ export default function CarrinhoPage() {
         window.location.href = url;
       } else {
         console.error("[Carrinho] Resposta sem URL de pagamento:", data);
-        alert("Não foi possível obter o link de pagamento. Verifique o console (F12).");
+        notifyError("Não foi possível obter o link de pagamento. Verifique o console (F12).");
         setCarregando(false);
       }
     } catch (e) {
       console.error(e);
-      alert("Erro inesperado. Tente novamente.");
+      notifyError("Erro inesperado. Tente novamente.");
       setCarregando(false);
     }
   };
@@ -239,7 +251,7 @@ export default function CarrinhoPage() {
   if (authLoading) {
     return (
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-10 text-zinc-100">
-        <div className="flex h-64 items-center justify-center text-zinc-400">Carregando...</div>
+        <LoadingBlock label="Carregando..." />
       </main>
     );
   }
@@ -259,25 +271,20 @@ export default function CarrinhoPage() {
       />
       <div className="relative z-10">
         <section className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-semibold text-center">
-            Carrinho de agendamentos <span className="text-red-500">THouse Rec</span>
-          </h1>
-          <p className="text-sm text-zinc-300 text-center mt-2">
-            Revise os agendamentos, preencha seus dados e finalize o pagamento.
-          </p>
+          <PageHeader
+            title={<>Carrinho de agendamentos <span className="text-red-500">THouse Rec</span></>}
+            subtitle="Revise os agendamentos, preencha seus dados e finalize o pagamento."
+            className="justify-center text-center"
+          />
         </section>
 
         {cart.length === 0 ? (
           <section className="mb-8 flex justify-center px-4">
-            <div className="relative w-full max-w-4xl border border-red-500 rounded-xl p-5 text-center" style={{ borderWidth: "1px", borderBottomWidth: "2px" }}>
-              <p className="text-zinc-300 mb-4">Seu carrinho está vazio.</p>
-              <Link
-                href="/agendamento"
-                className="inline-block rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
-              >
-                Ir para agendamento
-              </Link>
-            </div>
+            <EmptyState
+              title="Seu carrinho está vazio."
+              action={<LinkButton href="/agendamento">Ir para agendamento</LinkButton>}
+              className="w-full max-w-4xl"
+            />
           </section>
         ) : (
           <>
@@ -320,13 +327,14 @@ export default function CarrinhoPage() {
                               Total deste agendamento: R$ {(Number(item.total) || 0).toFixed(2).replace(".", ",")}
                             </p>
                           </div>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => item.cartId != null && removeItem(item.cartId)}
-                            className="shrink-0 rounded-lg border border-red-500/60 bg-red-500/10 px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                            variant="danger"
+                            className="shrink-0"
                           >
                             Remover
-                          </button>
+                          </Button>
                         </li>
                       );
                     })}
@@ -358,113 +366,92 @@ export default function CarrinhoPage() {
               <h2 className="text-lg font-semibold text-red-400">Informações para pagamento</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">Nome completo *</label>
-                  <input
+                <Field label="Nome completo *" hint={erros.nome}>
+                  <Input
                     type="text"
                     name="nome"
                     value={formData.nome}
                     onChange={(e) => handleChange("nome", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.nome ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.nome ? "border-red-500" : ""}
                     placeholder="Seu nome completo"
                   />
-                  {erros.nome && <p className="mt-1 text-xs text-red-400">{erros.nome}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">Data de nascimento *</label>
-                  <input
+                </Field>
+                <Field label="Data de nascimento *" hint={erros.dataNascimento}>
+                  <Input
                     type="date"
                     name="dataNascimento"
                     value={formData.dataNascimento}
                     onChange={(e) => handleChange("dataNascimento", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.dataNascimento ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.dataNascimento ? "border-red-500" : ""}
                   />
-                  {erros.dataNascimento && <p className="mt-1 text-xs text-red-400">{erros.dataNascimento}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">CPF *</label>
-                  <input
+                </Field>
+                <Field label="CPF *" hint={erros.cpf}>
+                  <Input
                     type="text"
                     name="cpf"
                     value={formData.cpf}
                     onChange={(e) => handleChange("cpf", formatarCPF(e.target.value))}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.cpf ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.cpf ? "border-red-500" : ""}
                     placeholder="00000000000"
                     maxLength={11}
                   />
-                  {erros.cpf && <p className="mt-1 text-xs text-red-400">{erros.cpf}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">País *</label>
-                  <input
+                </Field>
+                <Field label="País *" hint={erros.pais}>
+                  <Input
                     type="text"
                     name="pais"
                     value={formData.pais}
                     onChange={(e) => handleChange("pais", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.pais ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.pais ? "border-red-500" : ""}
                     placeholder="Brasil"
                   />
-                  {erros.pais && <p className="mt-1 text-xs text-red-400">{erros.pais}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">Cidade *</label>
-                  <input
+                </Field>
+                <Field label="Cidade *" hint={erros.cidade}>
+                  <Input
                     type="text"
                     name="cidade"
                     value={formData.cidade}
                     onChange={(e) => handleChange("cidade", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.cidade ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.cidade ? "border-red-500" : ""}
                     placeholder="Sua cidade"
                   />
-                  {erros.cidade && <p className="mt-1 text-xs text-red-400">{erros.cidade}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">Bairro *</label>
-                  <input
+                </Field>
+                <Field label="Bairro *" hint={erros.bairro}>
+                  <Input
                     type="text"
                     name="bairro"
                     value={formData.bairro}
                     onChange={(e) => handleChange("bairro", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.bairro ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.bairro ? "border-red-500" : ""}
                     placeholder="Seu bairro"
                   />
-                  {erros.bairro && <p className="mt-1 text-xs text-red-400">{erros.bairro}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">CEP *</label>
-                  <input
+                </Field>
+                <Field label="CEP *" hint={erros.cep}>
+                  <Input
                     type="text"
                     name="cep"
                     value={formData.cep}
                     onChange={(e) => handleChange("cep", formatarCEP(e.target.value))}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none ${erros.cep ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
+                    className={erros.cep ? "border-red-500" : ""}
                     placeholder="00000000"
                     maxLength={8}
                   />
-                  {erros.cep && <p className="mt-1 text-xs text-red-400">{erros.cep}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">Forma de pagamento *</label>
-                  <select
+                </Field>
+                <Field label="Forma de pagamento *" hint={erros.formaPagamento}>
+                  <Select
                     name="formaPagamento"
                     value={formData.formaPagamento}
                     onChange={(e) => handleChange("formaPagamento", e.target.value)}
-                    className={`w-full rounded-lg border bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none appearance-none ${erros.formaPagamento ? "border-red-500" : "border-zinc-600 focus:border-red-500"}`}
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      paddingRight: "2.5rem",
-                    }}
-                  >
-                    <option value="">Selecione a forma de pagamento</option>
-                    <option value="cartao_credito">Cartão de crédito</option>
-                    <option value="cartao_debito">Cartão de débito</option>
-                    <option value="pix">Pix</option>
-                    <option value="boleto">Boleto bancário</option>
-                  </select>
-                  {erros.formaPagamento && <p className="mt-1 text-xs text-red-400">{erros.formaPagamento}</p>}
-                </div>
+                    className={erros.formaPagamento ? "border-red-500" : ""}
+                    options={[
+                      { value: "", label: "Selecione a forma de pagamento" },
+                      { value: "cartao_credito", label: "Cartão de crédito" },
+                      { value: "cartao_debito", label: "Cartão de débito" },
+                      { value: "pix", label: "Pix" },
+                      { value: "boleto", label: "Boleto bancário" },
+                    ]}
+                  />
+                </Field>
               </div>
 
               <div className="flex items-start gap-3 pt-4 border-t border-zinc-700 flex-wrap">
@@ -485,15 +472,17 @@ export default function CarrinhoPage() {
             </section>
 
             <section>
-              <button
+              <Button
                 type="button"
                 onClick={handleFinalizar}
                 disabled={carregando}
-                className="w-full rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white hover:bg-red-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                variant="primary"
+                fullWidth
+                loading={carregando}
                 style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
               >
-                {carregando ? "Redirecionando para o Asaas..." : "Pagar com Asaas (Pix, cartão, boleto)"}
-              </button>
+                Pagar com Asaas (Pix, cartão, boleto)
+              </Button>
             </section>
           </>
         )}

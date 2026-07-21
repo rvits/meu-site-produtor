@@ -1,6 +1,12 @@
 "use client";
 
+/**
+ * Testar email — utilitário interno. GO-03F: visual no Design System
+ * (PageHeader + Card + Button + Callout). Chamada /api/test-email inalterada.
+ */
+
 import { useState } from "react";
+import { Button, Callout, Card, PageHeader } from "@/components/design-system";
 
 export default function TestarEmailPage() {
   const [resultado, setResultado] = useState<any>(null);
@@ -27,30 +33,39 @@ export default function TestarEmailPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-      <div className="w-full max-w-2xl">
-        <h1 className="mb-6 text-3xl font-bold text-center">Teste de Email</h1>
+      <div className="w-full max-w-2xl space-y-6">
+        <PageHeader
+          title="Teste de Email"
+          subtitle="Utilitário interno para verificar o envio de emails da plataforma."
+          className="justify-center text-center"
+        />
 
-        <button
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          fullWidth
+          loading={carregando}
           onClick={testarEmail}
-          disabled={carregando}
-          className={`w-full rounded-lg px-4 py-3 text-sm font-semibold transition ${
-            carregando
-              ? "cursor-wait bg-zinc-900 text-zinc-500"
-              : "bg-red-600 text-white hover:bg-red-500"
-          }`}
         >
           {carregando ? "Testando..." : "Testar Envio de Email"}
-        </button>
+        </Button>
 
         {resultado && (
-          <div className="mt-6 rounded-lg border border-zinc-700 bg-zinc-900 p-6">
-            <h2 className="mb-4 text-xl font-semibold">
-              {resultado.success ? "✅ Sucesso" : "❌ Erro"}
-            </h2>
-            <pre className="overflow-auto rounded bg-zinc-950 p-4 text-xs text-zinc-300">
+          <Card className="space-y-4">
+            <Callout
+              intent={resultado.success ? "success" : "error"}
+              icon={resultado.success ? "check-circle" : "x-circle"}
+              title={resultado.success ? "Sucesso" : "Erro"}
+            >
+              {resultado.success
+                ? "O email de teste foi enviado."
+                : resultado.error || "Falha ao enviar o email de teste."}
+            </Callout>
+            <pre className="overflow-auto rounded-lg bg-zinc-950 p-4 text-xs text-zinc-300">
               {JSON.stringify(resultado, null, 2)}
             </pre>
-          </div>
+          </Card>
         )}
       </div>
     </main>

@@ -4,6 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import QuickActions from "./components/QuickActions";
+import {
+  useFeedback,
+  PageHeader,
+  Card,
+  Button,
+  Input,
+  EmptyState,
+  LoadingBlock,
+} from "@/components/design-system";
 
 type ChatMessage = {
   id: string;
@@ -28,6 +37,7 @@ type ChatSession = {
 export default function ChatPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { notifyError } = useFeedback();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -144,7 +154,7 @@ export default function ChatPage() {
       }, 1000);
     } catch (error) {
       console.error("Erro ao carregar conversa:", error);
-      alert("Erro ao carregar conversa. Tente novamente.");
+      notifyError("Erro ao carregar conversa. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -218,7 +228,7 @@ export default function ChatPage() {
       setShowDeleteConfirm(null);
     } catch (error) {
       console.error("Erro ao deletar conversa:", error);
-      alert("Erro ao deletar conversa. Tente novamente.");
+      notifyError("Erro ao deletar conversa. Tente novamente.");
     }
   }
 
@@ -256,7 +266,7 @@ export default function ChatPage() {
       setShowBulkDeleteConfirm(false);
     } catch (error) {
       console.error("Erro ao deletar conversas:", error);
-      alert("Erro ao deletar conversas. Tente novamente.");
+      notifyError("Erro ao deletar conversas. Tente novamente.");
     }
   }
 
@@ -322,7 +332,7 @@ export default function ChatPage() {
         }
       } catch (error) {
         console.error("Erro ao enviar mensagem para admin:", error);
-        alert("Erro ao enviar mensagem. Tente novamente.");
+        notifyError("Erro ao enviar mensagem. Tente novamente.");
         // Remover mensagem do estado se falhou
         setMessages(messages);
       } finally {
@@ -354,7 +364,7 @@ export default function ChatPage() {
         }
       } catch (error) {
         console.error("Erro ao enviar mensagem:", error);
-        alert("Erro ao enviar mensagem. Tente novamente.");
+        notifyError("Erro ao enviar mensagem. Tente novamente.");
         setMessages(messages);
       } finally {
         setLoading(false);
@@ -468,9 +478,7 @@ export default function ChatPage() {
   if (authLoading) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-10 text-zinc-100">
-        <div className="flex h-64 items-center justify-center text-zinc-400">
-          Carregando...
-        </div>
+        <LoadingBlock label="Carregando..." />
       </main>
     );
   }
@@ -492,14 +500,12 @@ export default function ChatPage() {
         }}
         aria-hidden
       />
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-4">
+      <PageHeader title="Suporte THouse Rec" className="justify-center lg:justify-start text-center lg:text-left" />
       {/* CONTAINER PRINCIPAL - RESPONSIVO (COLUNAS NO DESKTOP, EMPILHADO NO MOBILE) */}
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[70vh]">
         {/* COLUNA ESQUERDA - CHAT */}
         <div className="flex-1 flex flex-col min-h-[60vh] lg:min-h-0">
-          <h1 className="mb-4 text-center lg:text-left text-2xl font-semibold">
-            Suporte THouse Rec
-          </h1>
           <div className="relative w-full rounded-2xl border border-red-500 bg-zinc-950 flex-1 flex flex-col min-h-0 overflow-hidden" style={{ borderWidth: "1px" }}>
             {/* HISTÓRICO */}
             <div className="chat-scroll flex-1 overflow-y-auto space-y-3 p-4 min-h-0">
@@ -534,7 +540,7 @@ export default function ChatPage() {
 
             {/* INPUT */}
             <div className="flex gap-2 p-3">
-              <input
+              <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -544,16 +550,12 @@ export default function ChatPage() {
                   }
                 }}
                 placeholder="Digite sua mensagem..."
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-red-500 focus:bg-zinc-800 transition-all"
+                className="flex-1"
               />
 
-              <button
-                onClick={() => enviarMensagem()}
-                className="rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-all"
-                style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.8)" }}
-              >
+              <Button variant="primary" size="md" onClick={() => enviarMensagem()}>
                 Enviar
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -580,64 +582,47 @@ export default function ChatPage() {
             {selectionMode ? (
               <div className="space-y-2">
                 {selectedSessions.size > 0 && (
-                  <button
-                    onClick={() => setShowBulkDeleteConfirm(true)}
-                    className="w-full rounded-lg border border-red-600 bg-red-600/20 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-600/30 hover:border-red-500 transition-colors"
-                  >
+                  <Button variant="danger" size="sm" fullWidth onClick={() => setShowBulkDeleteConfirm(true)}>
                     Deletar ({selectedSessions.size})
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
                   onClick={() => {
                     setSelectionMode(false);
                     setSelectedSessions(new Set());
                   }}
-                  className="w-full rounded-lg border border-zinc-600 bg-zinc-800/50 px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 transition-colors"
                 >
                   Cancelar
-                </button>
+                </Button>
                 <div className="flex items-center gap-2 pt-2">
-                  <button
-                    onClick={selecionarTodas}
-                    className="flex-1 rounded-lg border border-zinc-600 bg-zinc-800/50 px-2 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition-colors"
-                  >
+                  <Button variant="secondary" size="xs" className="flex-1" onClick={selecionarTodas}>
                     Marcar todas
-                  </button>
-                  <button
-                    onClick={desselecionarTodas}
-                    className="flex-1 rounded-lg border border-zinc-600 bg-zinc-800/50 px-2 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition-colors"
-                  >
+                  </Button>
+                  <Button variant="secondary" size="xs" className="flex-1" onClick={desselecionarTodas}>
                     Desmarcar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <button
-                  onClick={iniciarNovaConversa}
-                  className="w-full rounded-lg border border-red-600 bg-red-600/20 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-600/30 hover:border-red-500 transition-colors"
-                >
+                <Button variant="primary" size="sm" fullWidth onClick={iniciarNovaConversa}>
                   + Nova
-                </button>
-                <button
-                  onClick={() => setSelectionMode(true)}
-                  className="w-full rounded-lg border border-zinc-600 bg-zinc-800/50 px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-700 transition-colors"
-                >
+                </Button>
+                <Button variant="secondary" size="sm" fullWidth onClick={() => setSelectionMode(true)}>
                   Selecionar todos
-                </button>
+                </Button>
               </div>
             )}
           </div>
 
           <div className="chat-scroll flex-1 overflow-y-auto min-h-0">
             {loadingSessions ? (
-              <div className="p-4 text-center text-zinc-400 text-sm">
-                Carregando...
-              </div>
+              <LoadingBlock label="Carregando..." />
             ) : sessions.length === 0 ? (
-              <div className="p-4 text-center text-zinc-400 text-sm">
-                Nenhuma conversa ainda
-              </div>
+              <EmptyState icon="chat" title="Nenhuma conversa ainda" className="border-none bg-transparent py-6" />
             ) : (
               <div className="p-2">
                 {sessions.map((session) => (
@@ -708,24 +693,28 @@ export default function ChatPage() {
                           Você tem certeza que quer apagar essa conversa?
                         </p>
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            variant="danger"
+                            size="xs"
+                            className="flex-1"
                             onClick={(e) => {
                               e.stopPropagation();
                               deletarConversa(session.id);
                             }}
-                            className="flex-1 rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition"
                           >
                             Sim
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            className="flex-1"
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowDeleteConfirm(null);
                             }}
-                            className="flex-1 rounded bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-600 transition"
                           >
                             Não
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -741,7 +730,7 @@ export default function ChatPage() {
       {/* Confirmação de deletar múltiplas conversas */}
       {showBulkDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-zinc-900 rounded-lg border border-red-500 p-6 max-w-md w-full mx-4">
+          <Card className="border-red-500 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-red-400 mb-3">
               Confirmar exclusão
             </h3>
@@ -749,20 +738,14 @@ export default function ChatPage() {
               Você tem certeza que quer apagar {selectedSessions.size} conversa{selectedSessions.size > 1 ? "s" : ""}?
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={deletarConversasSelecionadas}
-                className="flex-1 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
-              >
+              <Button variant="danger" size="sm" className="flex-1" onClick={deletarConversasSelecionadas}>
                 Sim
-              </button>
-              <button
-                onClick={() => setShowBulkDeleteConfirm(false)}
-                className="flex-1 rounded bg-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-600 transition"
-              >
+              </Button>
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowBulkDeleteConfirm(false)}>
                 Não
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
       </div>

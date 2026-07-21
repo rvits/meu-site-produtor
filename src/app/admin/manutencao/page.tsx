@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingBlock, useFeedback } from "@/components/design-system";
 
 export default function AdminManutencaoPage() {
+  const { notifySuccess, notifyError, notify } = useFeedback();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,25 +47,28 @@ export default function AdminManutencaoPage() {
         const data = await res.json();
         setMaintenanceMode(data.maintenanceMode ?? novoEstado);
         if (data.maintenanceMode) {
-          alert("Modo de manutenção ATIVADO. Todos os usuários (exceto admin) verão a página de manutenção.");
+          notify(
+            "Modo de manutenção ATIVADO.",
+            "Todos os usuários (exceto admin) verão a página de manutenção."
+          );
         } else {
-          alert("Modo de manutenção DESATIVADO. O site voltou ao normal.");
+          notifySuccess("Modo de manutenção DESATIVADO.", "O site voltou ao normal.");
         }
       } else {
         const error = await res.json().catch(() => ({ error: `Erro ${res.status}: ${res.statusText}` }));
         console.error("Erro na resposta:", error);
-        alert(`Erro ao atualizar: ${error.error || "Erro desconhecido"}`);
+        notifyError(`Erro ao atualizar: ${error.error || "Erro desconhecido"}`);
       }
     } catch (err: any) {
       console.error("Erro ao atualizar modo de manutenção", err);
-      alert(`Erro ao atualizar modo de manutenção: ${err.message || "Erro desconhecido"}`);
+      notifyError(`Erro ao atualizar modo de manutenção: ${err.message || "Erro desconhecido"}`);
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando...</p>;
+    return <LoadingBlock />;
   }
 
   return (

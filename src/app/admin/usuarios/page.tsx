@@ -1,6 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  useFeedback,
+  LoadingBlock,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Card,
+  SearchInput,
+  Select,
+  Button,
+  Badge,
+  Callout,
+} from "@/components/design-system";
 
 interface PlanoUsuario {
   id: string;
@@ -85,6 +98,7 @@ function calcularIdade(dataNascimento: string): number {
 }
 
 export default function AdminUsuariosPage() {
+  const { notifySuccess, notifyError, ask } = useFeedback();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState<Usuario[]>([]);
   const [busca, setBusca] = useState("");
@@ -152,7 +166,12 @@ export default function AdminUsuariosPage() {
   }
 
   async function resetarSenha(userId: string, email: string) {
-    if (!confirm(`Tem certeza que deseja resetar a senha de ${email}? Uma nova senha temporária será gerada.`)) {
+    if (
+      !(await ask(
+        `Tem certeza que deseja resetar a senha de ${email}?`,
+        "Uma nova senha temporária será gerada."
+      ))
+    ) {
       return;
     }
 
@@ -176,81 +195,70 @@ export default function AdminUsuariosPage() {
           u.id === userId ? { ...u, senhaTemporaria } : u
         ));
 
-        alert(`Senha resetada com sucesso!\n\nNova senha temporária: ${senhaTemporaria}\n\nCopie esta senha e envie para o usuário.`);
+        notifySuccess(
+          "Senha resetada com sucesso!",
+          `Nova senha temporária: ${senhaTemporaria} — copie e envie para o usuário.`
+        );
       } else {
-        alert("Erro ao resetar senha.");
+        notifyError("Erro ao resetar senha.");
       }
     } catch (err) {
       console.error("Erro ao resetar senha", err);
-      alert("Erro ao resetar senha.");
+      notifyError("Erro ao resetar senha.");
     }
   }
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando usuários...</p>;
+    return <LoadingBlock label="Carregando usuários..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Usuários</h1>
-        <p className="text-zinc-400">Gerenciar clientes, permissões e histórico de logins</p>
-      </div>
+      <PageHeader
+        title="Usuários"
+        subtitle="Gerenciar clientes, permissões e histórico de logins"
+        icon="user"
+      />
 
       {/* Input de Busca */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-        <input
+      <Card>
+        <SearchInput
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome completo, nome artístico, email ou telefone..."
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
         />
         {busca && (
           <p className="mt-2 text-sm text-zinc-400">
             {usuariosFiltrados.length} usuário(s) encontrado(s)
           </p>
         )}
-      </div>
+      </Card>
 
       {erroUsuarios ? (
-        <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-6 text-center text-red-300">
-          <p className="font-semibold mb-2">Erro ao carregar usuários</p>
-          <p className="text-sm">{erroUsuarios}</p>
-          <button
-            type="button"
-            onClick={() => { setErroUsuarios(null); carregarUsuarios(); }}
-            className="mt-4 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm"
-          >
-            Tentar novamente
-          </button>
-        </div>
+        <ErrorState
+          title="Erro ao carregar usuários"
+          description={erroUsuarios}
+          onRetry={() => { setErroUsuarios(null); carregarUsuarios(); }}
+        />
       ) : usuariosFiltrados.length === 0 ? (
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
-          Nenhum usuário encontrado.
-        </div>
+        <EmptyState title="Nenhum usuário encontrado." />
       ) : (
         <div className="space-y-4">
           {usuariosFiltrados.map((u) => {
             const idade = calcularIdade(u.dataNascimento);
             const menorIdade = idade < 18;
             return (
-              <div
+              <Card
                 key={u.id}
-                className={`rounded-xl border ${
-                  u.blocked ? "border-red-700/50 bg-red-950/10" : "border-zinc-700 bg-zinc-800/50"
-                } p-6`}
+                className={`!p-6 ${u.blocked ? "!border-red-700/50 !bg-red-950/10" : ""}`}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Informações Básicas */}
                   <div className="space-y-2">
                     <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                       {u.nomeArtistico}
-                      {menorIdade && (
-                        <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
-                          Menor de idade
-                        </span>
-                      )}
+                      {menorIdade && <Badge intent="warning">Menor de idade</Badge>}
                     </h3>
                     <div className="text-sm text-zinc-400 space-y-1">
                       <div><strong className="text-zinc-300">Nome Completo:</strong> {u.nomeCompleto}</div>
@@ -260,11 +268,10 @@ export default function AdminUsuariosPage() {
                       <div><strong className="text-zinc-300">Idade:</strong> {idade} anos</div>
                       <div><strong className="text-zinc-300">Data de Nascimento:</strong> {new Date(u.dataNascimento).toLocaleDateString("pt-BR")}</div>
                       {u.senhaTemporaria && (
-                        <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/50 rounded">
-                          <div className="text-xs text-yellow-300 font-semibold mb-1">Senha Temporária:</div>
-                          <div className="text-yellow-200 font-mono text-sm">{u.senhaTemporaria}</div>
-                          <div className="text-xs text-yellow-400 mt-1">⚠️ Esta senha foi gerada agora. Envie para o usuário.</div>
-                        </div>
+                        <Callout intent="warning" title="Senha Temporária:" className="mt-2">
+                          <div className="font-mono text-sm text-amber-200">{u.senhaTemporaria}</div>
+                          <div className="mt-1">Esta senha foi gerada agora. Envie para o usuário.</div>
+                        </Callout>
                       )}
                     </div>
                   </div>
@@ -287,15 +294,11 @@ export default function AdminUsuariosPage() {
                   {/* Estatísticas e Ações */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        u.role === "ADMIN" ? "bg-red-500/20 text-red-300" : "bg-blue-500/20 text-blue-300"
-                      }`}>
-                        {u.role}
-                      </span>
+                      <Badge intent={u.role === "ADMIN" ? "error" : "info"}>{u.role}</Badge>
                       {u.blocked ? (
-                        <span className="text-xs text-red-400">Bloqueado</span>
+                        <Badge intent="error" dot>Bloqueado</Badge>
                       ) : (
-                        <span className="text-xs text-green-400">Ativo</span>
+                        <Badge intent="success" dot>Ativo</Badge>
                       )}
                     </div>
                     <div className="text-sm text-zinc-400 space-y-1">
@@ -312,35 +315,36 @@ export default function AdminUsuariosPage() {
                     )}
                     <div className="flex flex-col gap-2 mt-3">
                       <div className="flex gap-2">
-                        <select
+                        <Select
                           value={u.role}
                           onChange={(e) => atualizarUsuario(u.id, { role: e.target.value })}
-                          className="rounded bg-zinc-900 border border-zinc-600 px-2 py-1 text-xs text-zinc-300"
-                        >
-                          <option value="USER">USER</option>
-                          <option value="ADMIN">ADMIN</option>
-                        </select>
-                        <button
+                          className="!px-2 !py-1 text-xs"
+                          options={[
+                            { value: "USER", label: "USER" },
+                            { value: "ADMIN", label: "ADMIN" },
+                          ]}
+                        />
+                        <Button
+                          variant={u.blocked ? "success" : "danger"}
+                          size="xs"
                           onClick={() => atualizarUsuario(u.id, { blocked: !u.blocked, blockedReason: !u.blocked ? "Bloqueado pelo admin" : undefined })}
-                          className={`rounded px-3 py-1 text-xs font-semibold ${
-                            u.blocked
-                              ? "bg-green-600 text-white hover:bg-green-500"
-                              : "bg-red-600 text-white hover:bg-red-500"
-                          }`}
                         >
                           {u.blocked ? "Liberar" : "Bloquear"}
-                        </button>
+                        </Button>
                       </div>
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        icon="lock"
+                        fullWidth
                         onClick={() => resetarSenha(u.id, u.email)}
-                        className="rounded px-3 py-1 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500 w-full"
                       >
-                        🔑 Resetar Senha
-                      </button>
+                        Resetar Senha
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

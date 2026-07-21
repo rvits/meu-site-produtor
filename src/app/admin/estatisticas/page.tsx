@@ -3,6 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import {
+  LoadingBlock,
+  ErrorState,
+  PageHeader,
+  Card,
+  Button,
+  Select,
+  Input,
+  Callout,
+} from "@/components/design-system";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -162,26 +172,21 @@ export default function AdminEstatisticasPage() {
   );
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando estatísticas...</p>;
+    return <LoadingBlock label="Carregando estatísticas..." />;
   }
 
   if (erro || !stats) {
     return (
-      <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-6 text-center text-red-300 max-w-md mx-auto">
-        <p className="font-semibold mb-2">Erro ao carregar estatísticas</p>
-        <p className="text-sm mb-4">{erro || "Dados não disponíveis."}</p>
-        <button
-          type="button"
-          onClick={() => {
-            setErro(null);
-            setLoading(true);
-            carregarEstatisticas();
-          }}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm"
-        >
-          Tentar novamente
-        </button>
-      </div>
+      <ErrorState
+        title="Erro ao carregar estatísticas"
+        description={erro || "Dados não disponíveis."}
+        onRetry={() => {
+          setErro(null);
+          setLoading(true);
+          carregarEstatisticas();
+        }}
+        className="max-w-md mx-auto"
+      />
     );
   }
 
@@ -195,22 +200,19 @@ export default function AdminEstatisticasPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Estatísticas do Site</h1>
-        <p className="text-zinc-400">Visão geral completa do uso da plataforma</p>
-      </div>
+      <PageHeader
+        title="Estatísticas do Site"
+        subtitle="Visão geral completa do uso da plataforma"
+        icon="star"
+      />
 
       {/* Usuários */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-zinc-100">👥 Usuários</h2>
-          <button
-            type="button"
-            onClick={() => setGraficoUsuarios((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
-          >
+          <Button variant="secondary" onClick={() => setGraficoUsuarios((v) => !v)}>
             {graficoUsuarios ? "Ocultar gráfico" : "Ver gráfico"}
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
@@ -233,44 +235,47 @@ export default function AdminEstatisticasPage() {
         {graficoUsuarios && (
           <div className="mt-6 pt-6 border-t border-zinc-700">
             <div className="flex flex-wrap gap-2 mb-4">
-              <select
-                value={periodoUsuarios}
-                onChange={(e) => setPeriodoUsuarios(e.target.value as Periodo)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
-              >
-                <option value="diario">Diário (por hora)</option>
-                <option value="semanal">Semanal (por dia)</option>
-                <option value="mensal">Mensal (por dia)</option>
-                <option value="anual">Anual (por mês)</option>
-              </select>
+              <div className="w-48">
+                <Select
+                  value={periodoUsuarios}
+                  onChange={(e) => setPeriodoUsuarios(e.target.value as Periodo)}
+                  options={[
+                    { value: "diario", label: "Diário (por hora)" },
+                    { value: "semanal", label: "Semanal (por dia)" },
+                    { value: "mensal", label: "Mensal (por dia)" },
+                    { value: "anual", label: "Anual (por mês)" },
+                  ]}
+                />
+              </div>
               {periodoUsuarios === "diario" && (
-                <input
+                <Input
                   type="date"
                   value={dataUsuarios}
                   onChange={(e) => setDataUsuarios(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
               {periodoUsuarios === "mensal" && (
-                <input
+                <Input
                   type="month"
                   value={mesUsuarios}
                   onChange={(e) => setMesUsuarios(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
               {periodoUsuarios === "anual" && (
-                <input
+                <Input
                   type="number"
                   min={2020}
                   max={2030}
                   value={anoUsuarios}
                   onChange={(e) => setAnoUsuarios(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm w-20"
+                  className="!w-24"
                 />
               )}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                icon="refresh"
                 onClick={() =>
                   buscarGrafico(
                     "usuarios",
@@ -280,16 +285,15 @@ export default function AdminEstatisticasPage() {
                     periodoUsuarios === "anual" ? anoUsuarios : undefined
                   )
                 }
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
               >
                 Atualizar
-              </button>
+              </Button>
             </div>
             {qualGrafico === "usuarios" && (
               <>
-                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {loadingGrafico && <LoadingBlock />}
                 {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
-                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                  <Callout intent="error">{(dadosGrafico as { error: string }).error}</Callout>
                 )}
                 {!loadingGrafico && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
                   <div className="h-72 w-full">
@@ -308,19 +312,15 @@ export default function AdminEstatisticasPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Pagamentos */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-zinc-100">💰 Pagamentos</h2>
-          <button
-            type="button"
-            onClick={() => setGraficoPagamentos((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
-          >
+          <Button variant="secondary" onClick={() => setGraficoPagamentos((v) => !v)}>
             {graficoPagamentos ? "Ocultar gráfico" : "Ver gráfico"}
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
@@ -344,37 +344,33 @@ export default function AdminEstatisticasPage() {
           <div className="mt-6 pt-6 border-t border-zinc-700">
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <span className="text-zinc-400 text-sm">Mês:</span>
-              <input
+              <Input
                 type="month"
                 value={mesPagamentos}
                 onChange={(e) => setMesPagamentos(e.target.value)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                className="!w-auto"
               />
               <span className="text-zinc-400 text-sm">Filtro:</span>
-              <select
-                value={filtroPagamentos}
-                onChange={(e) => setFiltroPagamentos(e.target.value)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
-              >
-                {filtrosPagamentosLista.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
+              <div className="w-48">
+                <Select
+                  value={filtroPagamentos}
+                  onChange={(e) => setFiltroPagamentos(e.target.value)}
+                  options={filtrosPagamentosLista.map((f) => ({ value: f.id, label: f.label }))}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                icon="refresh"
                 onClick={() => buscarGrafico("pagamentos", "mensal", mesPagamentos, undefined, undefined, filtroPagamentos)}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
               >
                 Atualizar
-              </button>
+              </Button>
             </div>
             {qualGrafico === "pagamentos" && (
               <>
-                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {loadingGrafico && <LoadingBlock />}
                 {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
-                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                  <Callout intent="error">{(dadosGrafico as { error: string }).error}</Callout>
                 )}
                 {!loadingGrafico && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
                   <div className="h-72 w-full">
@@ -397,19 +393,15 @@ export default function AdminEstatisticasPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Planos */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-zinc-100">⭐ Planos</h2>
-          <button
-            type="button"
-            onClick={() => setGraficoPlanos((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
-          >
+          <Button variant="secondary" onClick={() => setGraficoPlanos((v) => !v)}>
             {graficoPlanos ? "Ocultar gráfico" : "Ver gráfico"}
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
@@ -429,25 +421,25 @@ export default function AdminEstatisticasPage() {
           <div className="mt-6 pt-6 border-t border-zinc-700">
             <div className="flex flex-wrap gap-2 mb-4">
               <span className="text-zinc-400 text-sm">Mês:</span>
-              <input
+              <Input
                 type="month"
                 value={mesPlanos}
                 onChange={(e) => setMesPlanos(e.target.value)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                className="!w-auto"
               />
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                icon="refresh"
                 onClick={() => buscarGrafico("planos", "mensal", mesPlanos)}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
               >
                 Atualizar
-              </button>
+              </Button>
             </div>
             {qualGrafico === "planos" && (
               <>
-                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {loadingGrafico && <LoadingBlock />}
                 {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
-                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                  <Callout intent="error">{(dadosGrafico as { error: string }).error}</Callout>
                 )}
                 {!loadingGrafico && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
                   <div className="h-72 w-full">
@@ -470,19 +462,15 @@ export default function AdminEstatisticasPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Agendamentos */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-zinc-100">📅 Agendamentos</h2>
-          <button
-            type="button"
-            onClick={() => setGraficoAgendamentos((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
-          >
+          <Button variant="secondary" onClick={() => setGraficoAgendamentos((v) => !v)}>
             {graficoAgendamentos ? "Ocultar gráfico" : "Ver gráfico"}
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
@@ -512,33 +500,36 @@ export default function AdminEstatisticasPage() {
         {graficoAgendamentos && (
           <div className="mt-6 pt-6 border-t border-zinc-700">
             <div className="flex flex-wrap gap-2 mb-4">
-              <select
-                value={periodoAgendamentos}
-                onChange={(e) => setPeriodoAgendamentos(e.target.value as Periodo)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
-              >
-                <option value="diario">Diário (por hora)</option>
-                <option value="semanal">Semanal (por dia)</option>
-                <option value="mensal">Mensal (por dia)</option>
-              </select>
+              <div className="w-48">
+                <Select
+                  value={periodoAgendamentos}
+                  onChange={(e) => setPeriodoAgendamentos(e.target.value as Periodo)}
+                  options={[
+                    { value: "diario", label: "Diário (por hora)" },
+                    { value: "semanal", label: "Semanal (por dia)" },
+                    { value: "mensal", label: "Mensal (por dia)" },
+                  ]}
+                />
+              </div>
               {periodoAgendamentos === "diario" && (
-                <input
+                <Input
                   type="date"
                   value={dataAgendamentos}
                   onChange={(e) => setDataAgendamentos(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
               {periodoAgendamentos === "mensal" && (
-                <input
+                <Input
                   type="month"
                   value={mesAgendamentos}
                   onChange={(e) => setMesAgendamentos(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                icon="refresh"
                 onClick={() => {
                   if (periodoAgendamentos === "diario") {
                     buscarGrafico("agendamentos", "diario", undefined, dataAgendamentos);
@@ -548,12 +539,11 @@ export default function AdminEstatisticasPage() {
                     buscarGrafico("agendamentos", "mensal", mesAgendamentos);
                   }
                 }}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
               >
                 Atualizar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => {
                   if (periodoAgendamentos === "diario") {
                     buscarGrafico("agendamentos-servicos", "diario", undefined, dataAgendamentos);
@@ -563,16 +553,15 @@ export default function AdminEstatisticasPage() {
                     buscarGrafico("agendamentos-servicos", "mensal", mesAgendamentos);
                   }
                 }}
-                className="px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded text-sm text-white"
               >
                 Por tipo de serviço
-              </button>
+              </Button>
             </div>
             {(qualGrafico === "agendamentos" || qualGrafico === "agendamentos-servicos") && (
               <>
-                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {loadingGrafico && <LoadingBlock />}
                 {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
-                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                  <Callout intent="error">{(dadosGrafico as { error: string }).error}</Callout>
                 )}
                 {!loadingGrafico && qualGrafico === "agendamentos" && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
                   <div className="h-72 w-full">
@@ -620,19 +609,15 @@ export default function AdminEstatisticasPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Serviços - estatísticas + gráfico e análise por tipo */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+      <Card className="!p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-xl font-bold text-zinc-100">🎵 Serviços</h2>
-          <button
-            type="button"
-            onClick={() => setGraficoServicos((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm"
-          >
+          <Button variant="secondary" onClick={() => setGraficoServicos((v) => !v)}>
             {graficoServicos ? "Ocultar análises" : "Ver gráfico e por tipo"}
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
@@ -667,33 +652,36 @@ export default function AdminEstatisticasPage() {
         {graficoServicos && (
           <div className="mt-6 pt-6 border-t border-zinc-700">
             <div className="flex flex-wrap gap-2 mb-4 items-center">
-              <select
-                value={periodoServicos}
-                onChange={(e) => setPeriodoServicos(e.target.value as Periodo)}
-                className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
-              >
-                <option value="diario">Diário (por hora)</option>
-                <option value="semanal">Semanal (por dia)</option>
-                <option value="mensal">Mensal (por dia)</option>
-              </select>
+              <div className="w-48">
+                <Select
+                  value={periodoServicos}
+                  onChange={(e) => setPeriodoServicos(e.target.value as Periodo)}
+                  options={[
+                    { value: "diario", label: "Diário (por hora)" },
+                    { value: "semanal", label: "Semanal (por dia)" },
+                    { value: "mensal", label: "Mensal (por dia)" },
+                  ]}
+                />
+              </div>
               {periodoServicos === "diario" && (
-                <input
+                <Input
                   type="date"
                   value={dataServicos}
                   onChange={(e) => setDataServicos(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
               {periodoServicos === "mensal" && (
-                <input
+                <Input
                   type="month"
                   value={mesServicos}
                   onChange={(e) => setMesServicos(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-zinc-200 text-sm"
+                  className="!w-auto"
                 />
               )}
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                icon="refresh"
                 onClick={() =>
                   buscarGrafico(
                     "servicos",
@@ -702,12 +690,11 @@ export default function AdminEstatisticasPage() {
                     periodoServicos === "diario" ? dataServicos : undefined
                   )
                 }
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
               >
                 Gráfico por período
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() =>
                   buscarGrafico(
                     "servicos-tipos",
@@ -716,16 +703,15 @@ export default function AdminEstatisticasPage() {
                     periodoServicos === "diario" ? dataServicos : undefined
                   )
                 }
-                className="px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded text-sm text-white"
               >
                 Por tipo de serviço
-              </button>
+              </Button>
             </div>
             {(qualGrafico === "servicos" || qualGrafico === "servicos-tipos") && (
               <>
-                {loadingGrafico && <p className="text-zinc-400 text-sm">Carregando...</p>}
+                {loadingGrafico && <LoadingBlock />}
                 {!loadingGrafico && dadosGrafico && "error" in (dadosGrafico as { error?: string }) && (
-                  <p className="text-red-400 text-sm">{(dadosGrafico as { error: string }).error}</p>
+                  <Callout intent="error">{(dadosGrafico as { error: string }).error}</Callout>
                 )}
                 {!loadingGrafico && qualGrafico === "servicos" && dadosGrafico && "buckets" in (dadosGrafico as { buckets?: unknown[] }) && (
                   <div className="h-72 w-full mb-6">
@@ -797,7 +783,7 @@ export default function AdminEstatisticasPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

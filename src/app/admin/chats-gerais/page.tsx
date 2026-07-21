@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  useFeedback,
+  LoadingBlock,
+  EmptyState,
+  PageHeader,
+  Card,
+  SearchInput,
+  Button,
+  COPY,
+} from "@/components/design-system";
 
 interface ChatMessage {
   id: string;
@@ -24,6 +34,7 @@ interface ChatSession {
 }
 
 export default function AdminChatsGeraisPage() {
+  const { notifySuccess, notifyError, ask } = useFeedback();
   const [sessoes, setSessoes] = useState<ChatSession[]>([]);
   const [sessoesFiltradas, setSessoesFiltradas] = useState<ChatSession[]>([]);
   const [sessaoAtual, setSessaoAtual] = useState<ChatSession | null>(null);
@@ -85,7 +96,13 @@ export default function AdminChatsGeraisPage() {
   }
 
   async function excluirChat(sessionId: string) {
-    if (!confirm("Tem certeza que deseja excluir este chat? Esta ação não pode ser desfeita.")) {
+    if (
+      !(await ask(
+        "Tem certeza que deseja excluir este chat?",
+        "Esta ação não pode ser desfeita.",
+        true
+      ))
+    ) {
       return;
     }
 
@@ -99,14 +116,14 @@ export default function AdminChatsGeraisPage() {
         if (sessaoAtual?.id === sessionId) {
           setSessaoAtual(null);
         }
-        alert("Chat excluído com sucesso!");
+        notifySuccess("Chat excluído com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao excluir chat");
+        notifyError(data.error || "Erro ao excluir chat");
       }
     } catch (err) {
       console.error("Erro ao excluir chat", err);
-      alert("Erro ao excluir chat. Tente novamente.");
+      notifyError("Erro ao excluir chat. Tente novamente.");
     }
   }
 
@@ -115,62 +132,54 @@ export default function AdminChatsGeraisPage() {
   );
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando chats...</p>;
+    return <LoadingBlock label="Carregando chats..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Chats Gerais e Respondidos</h1>
-        <p className="text-zinc-400">Visualize todas as conversas dos usuários, incluindo chats respondidos</p>
-      </div>
+      <PageHeader
+        title="Chats Gerais e Respondidos"
+        subtitle="Visualize todas as conversas dos usuários, incluindo chats respondidos"
+        icon="chat"
+      />
 
       {/* Filtros e Busca */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-4">
-        <div className="flex gap-4">
-          <button
+      <Card className="space-y-4">
+        <div className="flex gap-2">
+          <Button
+            variant={filtro === "todos" ? "primary" : "secondary"}
+            size="md"
             onClick={() => setFiltro("todos")}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              filtro === "todos"
-                ? "bg-red-600 text-white"
-                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-            }`}
           >
             Todos os Chats ({sessoes.length})
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={filtro === "respondidos" ? "success" : "secondary"}
+            size="md"
             onClick={() => setFiltro("respondidos")}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              filtro === "respondidos"
-                ? "bg-green-600 text-white"
-                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-            }`}
           >
             Chats Respondidos ({chatsRespondidos.length})
-          </button>
+          </Button>
         </div>
 
-        <input
+        <SearchInput
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome ou email do usuário..."
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
         />
         {busca && (
           <p className="text-sm text-zinc-400">
             {sessoesFiltradas.length} chat(s) encontrado(s)
           </p>
         )}
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lista de Chats */}
         <div className="space-y-2">
           {sessoesFiltradas.length === 0 ? (
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
-              Nenhum chat encontrado.
-            </div>
+            <EmptyState title="Nenhum chat encontrado." />
           ) : (
             sessoesFiltradas.map((s) => {
               const temRespostaAdmin = s.messages.some((m) => m.senderType === "admin");
@@ -209,7 +218,7 @@ export default function AdminChatsGeraisPage() {
         </div>
 
         {/* Visualização de Chat */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+        <Card className="!p-6">
           {sessaoAtual ? (
             <div className="space-y-4 h-[70vh] flex flex-col">
               <div className="pb-4 border-b border-zinc-700 flex items-start justify-between">
@@ -221,13 +230,15 @@ export default function AdminChatsGeraisPage() {
                     {new Date(sessaoAtual.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="danger"
+                  size="xs"
+                  icon="x"
                   onClick={() => excluirChat(sessaoAtual.id)}
-                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 transition"
                   title="Excluir chat"
                 >
-                  🗑️ Excluir
-                </button>
+                  {COPY.actions.delete}
+                </Button>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-3 pr-2">
@@ -260,7 +271,7 @@ export default function AdminChatsGeraisPage() {
               Selecione um chat para visualizar
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

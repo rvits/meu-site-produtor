@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import DuvidasBox from "../components/DuvidasBox";
+import { PageHeader, Section, Card, Button } from "@/components/design-system";
 
 type DocKey =
   | "termos"
@@ -509,53 +510,41 @@ export default function TermosContratosPage() {
       />
       {/* Overlay preto bem leve para facilitar a leitura */}
       <div className="fixed inset-0 z-0 bg-black/25 pointer-events-none" aria-hidden />
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-6">
       {/* TÍTULO GERAL */}
-      <section className="mb-6 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold">
-          Termos de Contrato
-        </h1>
-        <p className="mt-3 text-xs md:text-sm text-zinc-300">
-          Nesta página você encontra todos os documentos legais que regem o
-          uso da plataforma THouse Rec, as sessões de estúdio, os planos
-          mensais, pagamentos, direitos autorais, uso de imagem, conduta no
-          estúdio e armazenamento de arquivos.
-        </p>
-      </section>
+      <PageHeader
+        className="justify-center text-center"
+        title="Termos de Contrato"
+        subtitle="Nesta página você encontra todos os documentos legais que regem o uso da plataforma THouse Rec, as sessões de estúdio, os planos mensais, pagamentos, direitos autorais, uso de imagem, conduta no estúdio e armazenamento de arquivos."
+      />
 
       {/* BOTÕES DE DOCUMENTOS - Mobile: 1 por linha, ordenados do maior pro menor; Desktop: wrap como antes */}
-      <section className="mb-6">
+      <Section>
         <div className="flex flex-col md:flex-row md:flex-wrap gap-2 justify-center items-stretch md:items-center">
           {[...DOCS]
             .sort((a, b) => b.title.length - a.title.length)
             .map((doc) => {
             const isActive = activeDoc === doc.key;
             return (
-              <button
+              <Button
                 key={doc.key}
                 type="button"
+                variant={isActive ? "primary" : "secondary"}
+                size="sm"
                 onClick={() => handleDocClick(doc.key)}
-                className={`w-full md:w-auto rounded-lg border px-3 py-1.5 text-xs transition md:whitespace-nowrap ${
-                  isActive
-                    ? "border-red-500 bg-red-600 text-white"
-                    : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-red-500/60 hover:bg-zinc-800"
-                }`}
+                className="w-full md:w-auto md:whitespace-nowrap"
               >
-                <div className="font-semibold">{doc.title}</div>
-              </button>
+                {doc.title}
+              </Button>
             );
           })}
         </div>
-      </section>
+      </Section>
 
       {/* TEXTO DO DOCUMENTO SELECIONADO */}
-      <section className="mb-8">
+      <Section>
         <div className="w-full max-w-5xl mx-auto">
-          <div
-            id={`doc-${activeDoc}`}
-            className="rounded-2xl border border-red-500 bg-zinc-950 p-4 md:p-6"
-            style={{ borderWidth: "1px" }}
-          >
+          <Card id={`doc-${activeDoc}`} className="border-red-500 p-4 md:p-6">
           <h2 className="mb-4 text-base md:text-lg font-semibold text-center text-zinc-100">
             {DOCS.find((d) => d.key === activeDoc)?.title ||
               "Documento selecionado"}
@@ -1835,26 +1824,18 @@ export default function TermosContratosPage() {
             </p>
 
             <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleGeneratePDF}
-                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-900"
-              >
+              <Button type="button" variant="outline" size="xs" onClick={handleGeneratePDF}>
                 Gerar PDF deste termo
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="rounded-full border border-zinc-600 px-3 py-2 text-[11px] font-semibold hover:bg-zinc-900"
-              >
+              <Button type="button" variant="outline" size="xs" onClick={handlePrint}>
                 Imprimir
-              </button>
+              </Button>
             </div>
           </div>
-          </div>
+          </Card>
         </div>
-      </section>
+      </Section>
 
       {/* BOX DE DÚVIDAS */}
       <DuvidasBox />

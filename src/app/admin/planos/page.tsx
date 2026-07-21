@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingBlock, useFeedback } from "@/components/design-system";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 
 interface UserPlan {
@@ -45,6 +46,7 @@ interface Cupom {
 }
 
 export default function AdminPlanosPage() {
+  const { notifySuccess, notifyError, ask, askDelete } = useFeedback();
   const [planos, setPlanos] = useState<UserPlan[]>([]);
   const [planosFiltrados, setPlanosFiltrados] = useState<UserPlan[]>([]);
   const [cupons, setCupons] = useState<Cupom[]>([]);
@@ -137,41 +139,47 @@ export default function AdminPlanosPage() {
       const res = await fetch("/api/admin/cupons/corrigir-antigos", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        alert(`✅ ${data.message}`);
+        notifySuccess(data.message);
         carregarCupons(); // Recarregar cupons após correção
       } else {
         const error = await res.json();
-        alert(`Erro: ${error.error || "Erro ao corrigir cupons"}`);
+        notifyError(`Erro: ${error.error || "Erro ao corrigir cupons"}`);
       }
     } catch (err) {
       console.error("Erro ao corrigir cupons", err);
-      alert("Erro ao corrigir cupons");
+      notifyError("Erro ao corrigir cupons");
     }
   }
 
   async function excluirCanceladosEInativos() {
-    if (!confirm("Excluir permanentemente do banco de dados todos os planos cancelados e os cupons inativos (vinculados a esses planos)? Esta ação não pode ser desfeita.")) return;
+    if (
+      !(await askDelete(
+        "Excluir planos cancelados e cupons inativos?",
+        "Exclui permanentemente do banco de dados todos os planos cancelados e os cupons inativos (vinculados a esses planos). Esta ação não pode ser desfeita."
+      ))
+    )
+      return;
     try {
       setExcluindo(true);
       const res = await fetch("/api/admin/planos/excluir-cancelados", { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || "Excluído com sucesso.");
+        notifySuccess(data.message || "Excluído com sucesso.");
         await carregarPlanos();
         await carregarCupons();
       } else {
-        alert(data.error || "Erro ao excluir.");
+        notifyError(data.error || "Erro ao excluir.");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao excluir.");
+      notifyError("Erro ao excluir.");
     } finally {
       setExcluindo(false);
     }
   }
 
   async function liberarCupom(cupomCode: string) {
-    if (!confirm(`Deseja realmente liberar o cupom ${cupomCode}?`)) {
+    if (!(await ask(`Liberar o cupom ${cupomCode}?`, "O cupom voltará a ficar disponível para uso."))) {
       return;
     }
 
@@ -184,20 +192,26 @@ export default function AdminPlanosPage() {
       
       if (res.ok) {
         const data = await res.json();
-        alert(`✅ ${data.message}`);
+        notifySuccess(data.message);
         carregarCupons(); // Recarregar cupons após liberação
       } else {
         const error = await res.json();
-        alert(`Erro: ${error.error || "Erro ao liberar cupom"}`);
+        notifyError(`Erro: ${error.error || "Erro ao liberar cupom"}`);
       }
     } catch (err) {
       console.error("Erro ao liberar cupom", err);
-      alert("Erro ao liberar cupom");
+      notifyError("Erro ao liberar cupom");
     }
   }
 
   async function excluirCupom(cupomId: string, codigo: string) {
-    if (!confirm(`Excluir o cupom "${codigo}" do banco? Esta ação não pode ser desfeita.`)) return;
+    if (
+      !(await askDelete(
+        `Excluir o cupom "${codigo}" do banco?`,
+        "Esta ação não pode ser desfeita."
+      ))
+    )
+      return;
     try {
       setExcluindoCupomId(cupomId);
       const res = await fetch(`/api/admin/cupons?id=${encodeURIComponent(cupomId)}`, { method: "DELETE" });
@@ -205,11 +219,11 @@ export default function AdminPlanosPage() {
       if (res.ok) {
         await carregarCupons();
       } else {
-        alert(data.error || "Erro ao excluir cupom.");
+        notifyError(data.error || "Erro ao excluir cupom.");
       }
     } catch (err) {
       console.error("Erro ao excluir cupom", err);
-      alert("Erro ao excluir cupom.");
+      notifyError("Erro ao excluir cupom.");
     } finally {
       setExcluindoCupomId(null);
     }
@@ -218,7 +232,7 @@ export default function AdminPlanosPage() {
   async function adicionarCuponsAMinhaConta(c: Cupom) {
     const aid = c.appointmentId;
     if (aid == null) {
-      alert("Este cupom não está vinculado a um agendamento.");
+      notifyError("Este cupom não está vinculado a um agendamento.");
       return;
     }
     try {
@@ -230,21 +244,21 @@ export default function AdminPlanosPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || "Cupons vinculados à Minha Conta do usuário.");
+        notifySuccess(data.message || "Cupons vinculados à Minha Conta do usuário.");
         await carregarCupons();
       } else {
-        alert(data.error || "Erro ao vincular cupons.");
+        notifyError(data.error || "Erro ao vincular cupons.");
       }
     } catch (err) {
       console.error("Erro ao adicionar cupons à conta", err);
-      alert("Erro ao vincular cupons.");
+      notifyError("Erro ao vincular cupons.");
     } finally {
       setAdicionandoAContaAppointmentId(null);
     }
   }
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando planos...</p>;
+    return <LoadingBlock label="Carregando planos..." />;
   }
 
   function getServiceName(serviceType: string | null): string {
@@ -504,7 +518,7 @@ export default function AdminPlanosPage() {
                           setAssociarEmail("");
                           setSelectedCouponIds([]);
                           await carregarCupons();
-                          alert(data.message || "Cupons associados.");
+                          notifySuccess(data.message || "Cupons associados.");
                         } else {
                           setAssociarError(data.error || "Erro ao associar.");
                         }

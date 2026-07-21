@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import ProfessionalBox from "@/app/components/ProfessionalBox";
+import { Button, LinkButton } from "@/components/design-system";
 
 // ID do vídeo do YouTube - Substitua pelo ID real do vídeo
 // Para obter o ID: pegue a URL do YouTube (ex: https://www.youtube.com/watch?v=VIDEO_ID)
@@ -27,42 +28,6 @@ const BIO = {
   p8: <>A ideia é simples: transformar suas referências e ideias em sons que tenham força, sentimento e qualidade de lançamento.</>,
   p9: <>Seja bem-vindo(a), conheça a plataforma, explore nossos serviços e agende sua sessão. Estamos à disposição para que você transforme seu projeto em música com identidade e qualidade profissional.</>,
 };
-
-/* =========================
-   SERVICO CARD
-========================= */
-type ServicoCardProps = {
-  titulo: string;
-  preco: string;
-  subtitulo?: string;
-  destaque?: boolean;
-};
-
-function ServicoCard({
-  titulo,
-  preco,
-  subtitulo,
-  destaque = false,
-}: ServicoCardProps) {
-  return (
-    <Link
-      href="/agendamento"
-      className={
-        "flex min-h-[120px] flex-col items-center justify-center rounded-xl border p-4 text-center transition-all cursor-pointer " +
-        (destaque
-          ? "border-red-500/60 bg-black/60 backdrop-blur-sm shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-          : "border-red-700/40 bg-black/50 backdrop-blur-sm hover:border-red-500/60 hover:bg-black/70")
-      }
-      style={{
-        textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)",
-      }}
-    >
-      <p className="text-sm font-medium text-white">{titulo}</p>
-      {subtitulo && <p className="text-xs text-zinc-300">{subtitulo}</p>}
-      <p className="mt-1 text-xl font-bold text-red-400">{preco}</p>
-    </Link>
-  );
-}
 
 /* =========================
    PLANOS
@@ -449,28 +414,24 @@ export default function Home() {
             {/* Toggle Mensal / Anual */}
             <div className="flex justify-center">
               <div className="inline-flex rounded-full border border-red-700/60 bg-black/60 backdrop-blur-sm p-1 text-xs" style={{ boxShadow: "0 2px 10px rgba(239, 68, 68, 0.2)" }}>
-                <button
+                <Button
                   type="button"
+                  variant={modoPlano === "mensal" ? "primary" : "ghost"}
+                  size="xs"
+                  className="rounded-full"
                   onClick={() => setModoPlano("mensal")}
-                  className={`rounded-full px-4 py-1 font-semibold transition-all ${
-                    modoPlano === "mensal"
-                      ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-                      : "text-zinc-300 hover:text-red-300 hover:bg-black/40"
-                  }`}
                 >
                   Mensal
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={modoPlano === "anual" ? "primary" : "ghost"}
+                  size="xs"
+                  className="rounded-full"
                   onClick={() => setModoPlano("anual")}
-                  className={`rounded-full px-4 py-1 font-semibold transition-all ${
-                    modoPlano === "anual"
-                      ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-                      : "text-zinc-300 hover:text-red-300 hover:bg-black/40"
-                  }`}
                 >
                   Anual
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -558,12 +519,14 @@ export default function Home() {
                     </ul>
                       </div>
 
-                    <a
+                    <LinkButton
                       href="/planos"
-                      className="mt-auto inline-block rounded-full border border-red-600 px-4 py-2 text-center text-sm font-semibold text-red-300 hover:bg-red-600/20"
+                      variant="outline"
+                      size="sm"
+                      className="mt-auto rounded-full border-red-600 text-red-300 hover:bg-red-600/20"
                     >
                       Ver este plano em detalhes
-                    </a>
+                    </LinkButton>
                     </div>
                   </div>
                 );
@@ -613,13 +576,15 @@ export default function Home() {
               </div>
 
               <div className="flex justify-center">
-                <a
+                <LinkButton
                   href="/shopping"
-                  className="max-w-2xl w-full rounded-full bg-red-600 py-2 text-sm font-semibold text-white text-center hover:bg-red-500 transition-all"
+                  variant="primary"
+                  size="md"
+                  className="max-w-2xl w-full"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Acessar Shopping
-                </a>
+                </LinkButton>
               </div>
             </div>
             {/* Linha vermelha inferior */}
@@ -656,13 +621,15 @@ export default function Home() {
           </p>
 
               <div className="flex justify-center">
-                <a
+                <LinkButton
                   href="/agendamento"
-                  className="max-w-xl w-full rounded-full bg-red-600 py-2.5 text-sm font-semibold text-white text-center hover:bg-red-500 transition-all"
+                  variant="primary"
+                  size="md"
+                  className="max-w-xl w-full"
                   style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
                 >
                   Agendar sessão
-                </a>
+                </LinkButton>
               </div>
             </div>
           </div>
@@ -689,29 +656,35 @@ export default function Home() {
           </p>
 
               <div className="flex flex-wrap justify-center items-center gap-2">
-            <a
+            <LinkButton
               href="/faq"
-                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
-                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              variant="outline"
+              size="xs"
+              className="rounded-full border-red-600 text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Ver FAQ
-            </a>
+            </LinkButton>
 
-            <a
+            <LinkButton
               href="/chat"
-                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
-                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              variant="outline"
+              size="xs"
+              className="rounded-full border-red-600 text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Suporte via Chat
-            </a>
+            </LinkButton>
 
-            <a
+            <LinkButton
               href="/contato"
-                  className="rounded-full border border-red-600 px-4 py-2 text-xs font-semibold text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10 transition-all"
-                  style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+              variant="outline"
+              size="xs"
+              className="rounded-full border-red-600 text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-600/10"
+              style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
             >
               Contato direto
-            </a>
+            </LinkButton>
               </div>
             </div>
           </div>

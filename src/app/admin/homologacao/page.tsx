@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  PageHeader,
+  Card,
+  Section,
+  Button,
+  Select,
+  Field,
+  Badge,
+  Callout,
+  LoadingBlock,
+  COPY,
+} from "@/components/design-system";
 
 type Check = { key: string; label: string; ok: boolean; detail?: string };
 type Timeline = { at: string; step: string; ok: boolean; detail?: string };
@@ -119,79 +131,72 @@ export default function HomologacaoAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Homologation Engine</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Provider virtual (<code className="text-zinc-300">SimulationProvider</code>) no mesmo
-          pipeline de domínio do Asaas — sem cobrança real. Cenários oficiais OP-02B.
-        </p>
-      </div>
+      <PageHeader
+        title="Homologation Engine"
+        subtitle={
+          <>
+            Provider virtual (<code className="text-zinc-300">SimulationProvider</code>) no mesmo
+            pipeline de domínio do Asaas — sem cobrança real. Cenários oficiais OP-02B.
+          </>
+        }
+        icon="sparkles"
+      />
 
-      <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-amber-300">Cenários</h2>
-        <div className="flex flex-wrap gap-3 items-end">
-          <label className="text-xs text-zinc-300 block min-w-[220px]">
-            Cenário
-            <select
+      <Callout intent="warning" title="Cenários">
+        <div className="flex flex-wrap gap-3 items-end mt-2">
+          <Field label="Cenário" className="min-w-[220px]">
+            <Select
               value={scenarioId}
               onChange={(e) => setScenarioId(e.target.value)}
-              className="mt-1 w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1.5"
-            >
-              {scenarios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={busy}
+              options={scenarios.map((s) => ({ value: s.id, label: s.label }))}
+            />
+          </Field>
+          <Button
+            variant="primary"
+            loading={busy}
             onClick={() => void runSimulation()}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+            className="!bg-amber-600 hover:!bg-amber-500"
           >
-            {busy ? "Executando…" : "Rodar cenário"}
-          </button>
-          <button
-            type="button"
+            Rodar cenário
+          </Button>
+          <Button
+            variant="outline"
             disabled={busy}
+            icon="refresh"
             onClick={() => void refresh()}
-            className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
           >
-            Atualizar
-          </button>
+            {COPY.actions.refresh}
+          </Button>
         </div>
-        {selected && <p className="text-xs text-amber-100/80">{selected.description}</p>}
-        <div className="flex flex-wrap gap-2 pt-1">
+        {selected && <p className="text-xs text-amber-100/80 mt-2">{selected.description}</p>}
+        <div className="flex flex-wrap gap-2 pt-2">
           <span className="text-xs text-zinc-500 self-center">Refund manual:</span>
           {(["APPROVED", "PENDING", "FAILED", "TIMEOUT"] as const).map((o) => (
-            <button
+            <Button
               key={o}
-              type="button"
+              variant="outline"
+              size="xs"
               disabled={busy || !latest}
               onClick={() => void refundLatest(o)}
-              className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
             >
               {o}
-            </button>
+            </Button>
           ))}
         </div>
-        {message && <p className="text-sm text-amber-100">{message}</p>}
-      </div>
+        {message && <p className="text-sm text-amber-100 mt-2">{message}</p>}
+      </Callout>
 
-      {loading && <p className="text-zinc-500">Carregando…</p>}
+      {loading && <LoadingBlock />}
 
       {latest && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-4">
-            <h2 className="text-sm font-semibold text-zinc-100 mb-3">
+          <Card>
+            <h2 className="text-sm font-semibold text-zinc-100 mb-3 flex flex-wrap items-center gap-2">
               Checklist — {latest.runId}{" "}
               {latest.scenarioId && (
                 <span className="text-zinc-500 font-normal">({latest.scenarioId})</span>
               )}{" "}
-              <span className={latest.ok ? "text-green-400" : "text-red-400"}>
-                {latest.ok ? "PASS" : "FAIL"}
-              </span>
+              <Badge intent={latest.ok ? "success" : "error"}>{latest.ok ? "PASS" : "FAIL"}</Badge>
             </h2>
             <ul className="space-y-2 text-sm">
               {latest.checks.map((c) => (
@@ -230,37 +235,39 @@ export default function HomologacaoAdminPage() {
                 Estatísticas
               </Link>
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-4">
-            <h2 className="text-sm font-semibold text-zinc-100 mb-3">Timeline</h2>
-            <ol className="space-y-2 max-h-[70vh] overflow-y-auto text-xs">
-              {latest.timeline.map((t, i) => (
-                <li key={`${t.at}-${i}`} className="border-b border-zinc-800 pb-2">
-                  <div className="text-zinc-500">{new Date(t.at).toLocaleString("pt-BR")}</div>
-                  <div className={t.ok ? "text-zinc-200" : "text-red-300"}>
-                    {t.step}
-                    {t.detail ? ` — ${t.detail}` : ""}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <Card>
+            <Section title="Timeline">
+              <ol className="space-y-2 max-h-[70vh] overflow-y-auto text-xs">
+                {latest.timeline.map((t, i) => (
+                  <li key={`${t.at}-${i}`} className="border-b border-zinc-800 pb-2">
+                    <div className="text-zinc-500">{new Date(t.at).toLocaleString("pt-BR")}</div>
+                    <div className={t.ok ? "text-zinc-200" : "text-red-300"}>
+                      {t.step}
+                      {t.detail ? ` — ${t.detail}` : ""}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          </Card>
         </div>
       )}
 
       {runs.length > 1 && (
-        <div className="rounded-xl border border-zinc-700 p-4">
-          <h2 className="text-sm font-semibold mb-2">Runs recentes</h2>
-          <ul className="text-xs text-zinc-400 space-y-1">
-            {runs.slice(0, 10).map((r) => (
-              <li key={r.runId}>
-                {r.runId} · {r.ok ? "PASS" : "FAIL"} · {r.scenarioId || r.input?.tipo || "?"} ·{" "}
-                {new Date(r.startedAt).toLocaleString("pt-BR")}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Card>
+          <Section title="Runs recentes">
+            <ul className="text-xs text-zinc-400 space-y-1">
+              {runs.slice(0, 10).map((r) => (
+                <li key={r.runId}>
+                  {r.runId} · {r.ok ? "PASS" : "FAIL"} · {r.scenarioId || r.input?.tipo || "?"} ·{" "}
+                  {new Date(r.startedAt).toLocaleString("pt-BR")}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        </Card>
       )}
     </div>
   );

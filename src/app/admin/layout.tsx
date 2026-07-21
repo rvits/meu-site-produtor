@@ -1,19 +1,30 @@
 "use client";
 
+/**
+ * Admin shell — GO-03E: Design System + navegação consistente.
+ * Sem alteração de regras de acesso (role ADMIN).
+ */
+
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
+import {
+  Breadcrumb,
+  Button,
+  Icon,
+  LoadingBlock,
+  cx,
+} from "@/components/design-system";
 
-// Menu sem Dashboard (Dashboard será exibido separadamente no header)
 const MENU = [
   { label: "Usuários", href: "/admin/usuarios" },
   { label: "Agendamentos", href: "/admin/agendamentos" },
-  { label: "Controle Agendamento", href: "/admin/controle-agendamento" },
+  { label: "Controle", href: "/admin/controle-agendamento" },
   { label: "Planos e Cupons", href: "/admin/planos" },
   { label: "FAQ", href: "/admin/faq" },
-  { label: "Serviços Selecionados", href: "/admin/servicos-solicitados" },
-  { label: "Serviços Gerais", href: "/admin/servicos-aceitos" },
+  { label: "Serviços Selecionados", href: "/admin/servicos-selecionados" },
+  { label: "Serviços Gerais", href: "/admin/servicos" },
   { label: "Pagamentos", href: "/admin/pagamentos" },
   { label: "Homologação", href: "/admin/homologacao" },
   { label: "Estatísticas", href: "/admin/estatisticas" },
@@ -22,6 +33,39 @@ const MENU = [
   { label: "Chats Gerais", href: "/admin/chats-gerais" },
   { label: "Pausa Virtual", href: "/admin/manutencao" },
 ];
+
+function crumbFor(pathname: string): Array<{ label: string; href?: string }> {
+  const items: Array<{ label: string; href?: string }> = [
+    { label: "Admin", href: "/admin" },
+  ];
+  if (pathname === "/admin") {
+    items.push({ label: "Dashboard" });
+    return items;
+  }
+  const match = MENU.find(
+    (m) => pathname === m.href || pathname.startsWith(`${m.href}/`)
+  );
+  if (match) {
+    items.push({
+      label: match.label,
+      href: pathname === match.href ? undefined : match.href,
+    });
+    if (pathname !== match.href) {
+      const tail = pathname.replace(match.href, "").replace(/^\//, "");
+      if (tail) {
+        items.push({
+          label: tail
+            .split("/")
+            .map((p) => p.replace(/-/g, " "))
+            .join(" / "),
+        });
+      }
+    }
+  } else {
+    items.push({ label: pathname.replace("/admin/", "") || "Página" });
+  }
+  return items;
+}
 
 export default function AdminLayout({
   children,
@@ -32,7 +76,6 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🔒 Proteção real de rota ADMIN
   useEffect(() => {
     if (!loading && (!user || user.role !== "ADMIN")) {
       router.replace("/");
@@ -41,62 +84,64 @@ export default function AdminLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-zinc-400">
-        Verificando permissões...
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <LoadingBlock label="Verificando permissões…" />
       </div>
     );
   }
 
   if (!user || user.role !== "ADMIN") return null;
 
+  const crumbs = crumbFor(pathname);
+
   return (
-    <div className="min-h-screen bg-zinc-900 text-zinc-100">
-      {/* HEADER ADMIN */}
-      <header className="sticky top-0 z-50 border-b border-red-700/40 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <span className="text-base font-bold text-red-500">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 py-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-sm sm:text-base font-bold text-red-500 whitespace-nowrap">
                 THouse Rec — Admin
               </span>
-              <button
-                onClick={() => router.push("/")}
-                className="text-xs text-zinc-400 hover:text-red-400 transition"
-              >
-                ← Voltar ao site
-              </button>
+              <Breadcrumb items={crumbs} className="hidden md:flex" />
             </div>
+            <Button variant="ghost" size="xs" onClick={() => router.push("/")}>
+              ← Voltar ao site
+            </Button>
           </div>
-          
-          {/* DASHBOARD CENTRALIZADO */}
-          <div className="flex justify-center mb-3">
+
+          <div className="flex justify-center">
             <Link
               href="/admin"
-              className={`
-                rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-all duration-300
-                ${pathname === "/admin"
-                  ? "bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20"
-                  : "bg-gradient-to-br from-red-500/20 to-red-600/20 border-red-500/50 text-zinc-100 hover:from-red-500/30 hover:to-red-600/30 hover:border-red-500/70"
-                }
-              `}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all",
+                pathname === "/admin"
+                  ? "bg-red-600 text-white border-red-500 shadow-lg shadow-red-900/30"
+                  : "bg-zinc-900 border-zinc-700 text-zinc-200 hover:border-red-500/60 hover:text-red-300"
+              )}
             >
-              📊 Dashboard
+              <Icon name="home" className="w-4 h-4" />
+              Dashboard
             </Link>
           </div>
 
-          {/* NAVEGAÇÃO PRINCIPAL - compacto */}
-          <nav className="flex flex-wrap gap-1.5 justify-center">
+          <nav
+            className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-thin"
+            aria-label="Menu administrativo"
+          >
             {MENU.map((item) => {
-              const ativo = pathname === item.href;
+              const ativo =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                  className={cx(
+                    "rounded-lg px-3 py-1.5 text-xs font-medium transition whitespace-nowrap flex-shrink-0 border",
                     ativo
-                      ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
-                      : "text-zinc-300 hover:text-red-400 hover:bg-zinc-800 border border-zinc-700"
-                  }`}
+                      ? "bg-red-600 text-white border-red-500 shadow-md shadow-red-900/20"
+                      : "text-zinc-400 border-zinc-800 hover:text-zinc-100 hover:bg-zinc-900 hover:border-zinc-700"
+                  )}
                 >
                   {item.label}
                 </Link>
@@ -106,8 +151,10 @@ export default function AdminLayout({
         </div>
       </header>
 
-      {/* CONTEÚDO */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
+      <main className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6 animate-[fadeIn_.2s_ease]">
+        <div className="md:hidden mb-3">
+          <Breadcrumb items={crumbs} />
+        </div>
         {children}
       </main>
     </div>

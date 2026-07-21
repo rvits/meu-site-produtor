@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  useFeedback,
+  LoadingBlock,
+  EmptyState,
+  PageHeader,
+  Card,
+  Button,
+  Input,
+  SearchInput,
+  Field,
+  Textarea,
+  StatusBadge,
+  Callout,
+  COPY,
+} from "@/components/design-system";
 
 interface FAQ {
   id: string;
@@ -35,6 +50,7 @@ interface UserQuestion {
 }
 
 export default function AdminFaqPage() {
+  const { notify, notifySuccess, notifyError, ask } = useFeedback();
   const [abaAtiva, setAbaAtiva] = useState<"faqs" | "perguntas" | "recusadas">("faqs");
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [perguntas, setPerguntas] = useState<UserQuestion[]>([]);
@@ -137,7 +153,7 @@ export default function AdminFaqPage() {
   }
 
   async function deletarFAQ(id: string) {
-    if (!confirm("Tem certeza que deseja deletar esta FAQ?")) return;
+    if (!(await ask("Tem certeza que deseja deletar esta FAQ?", undefined, true))) return;
 
     try {
       const res = await fetch(`/api/admin/faq?id=${id}`, {
@@ -166,7 +182,7 @@ export default function AdminFaqPage() {
 
   async function salvarEdicao() {
     if (!editandoFaq || !editPergunta.trim() || !editResposta.trim()) {
-      alert("Preencha pergunta e resposta");
+      notify("Preencha pergunta e resposta");
       return;
     }
 
@@ -185,11 +201,11 @@ export default function AdminFaqPage() {
         cancelarEdicao();
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao atualizar FAQ");
+        notifyError(data.error || "Erro ao atualizar FAQ");
       }
     } catch (err) {
       console.error("Erro ao atualizar FAQ", err);
-      alert("Erro ao atualizar FAQ. Tente novamente.");
+      notifyError("Erro ao atualizar FAQ. Tente novamente.");
     }
   }
 
@@ -205,7 +221,7 @@ export default function AdminFaqPage() {
 
   async function salvarResposta() {
     if (!respondendoPergunta || !respostaTexto.trim()) {
-      alert("Digite uma resposta");
+      notify("Digite uma resposta");
       return;
     }
 
@@ -222,21 +238,27 @@ export default function AdminFaqPage() {
       if (res.ok) {
         await carregarPerguntas();
         cancelarResposta();
-        alert("Resposta enviada com sucesso!");
+        notifySuccess("Resposta enviada com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao responder pergunta");
+        notifyError(data.error || "Erro ao responder pergunta");
       }
     } catch (err) {
       console.error("Erro ao responder pergunta", err);
-      alert("Erro ao responder pergunta. Tente novamente.");
+      notifyError("Erro ao responder pergunta. Tente novamente.");
     }
   }
 
   async function toggleBanco(pergunta: UserQuestion) {
     // Se já está no banco, remover
     if (pergunta.published && (pergunta.faqId || pergunta.faq?.id)) {
-      if (!confirm(`Deseja REMOVER esta pergunta do banco de FAQs?\n\nPergunta: ${pergunta.question}\n\nEla será removida do banco público, mas a resposta permanecerá.`)) {
+      if (
+        !(await ask(
+          "Deseja REMOVER esta pergunta do banco de FAQs?",
+          `Pergunta: ${pergunta.question}\n\nEla será removida do banco público, mas a resposta permanecerá.`,
+          true
+        ))
+      ) {
         return;
       }
 
@@ -252,23 +274,28 @@ export default function AdminFaqPage() {
         if (res.ok) {
           await carregarPerguntas();
           await carregarFAQs(); // Atualizar também a lista de FAQs do banco
-          alert("Pergunta removida do banco de FAQs com sucesso!");
+          notifySuccess("Pergunta removida do banco de FAQs com sucesso!");
         } else {
           const data = await res.json();
-          alert(data.error || "Erro ao remover do banco");
+          notifyError(data.error || "Erro ao remover do banco");
         }
       } catch (err) {
         console.error("Erro ao remover do banco", err);
-        alert("Erro ao remover do banco. Tente novamente.");
+        notifyError("Erro ao remover do banco. Tente novamente.");
       }
     } else {
       // Se não está no banco, adicionar
       if (!pergunta.answer) {
-        alert("A pergunta precisa ter uma resposta antes de ser adicionada ao banco");
+        notify("A pergunta precisa ter uma resposta antes de ser adicionada ao banco");
         return;
       }
 
-      if (!confirm(`Deseja adicionar esta pergunta ao banco de FAQs?\n\nPergunta: ${pergunta.question}\nResposta: ${pergunta.answer.substring(0, 100)}...`)) {
+      if (
+        !(await ask(
+          "Deseja adicionar esta pergunta ao banco de FAQs?",
+          `Pergunta: ${pergunta.question}\nResposta: ${pergunta.answer.substring(0, 100)}...`
+        ))
+      ) {
         return;
       }
 
@@ -286,29 +313,32 @@ export default function AdminFaqPage() {
         if (res.ok) {
           await carregarPerguntas();
           await carregarFAQs(); // Atualizar também a lista de FAQs do banco
-          alert("Pergunta adicionada ao banco de FAQs com sucesso!");
+          notifySuccess("Pergunta adicionada ao banco de FAQs com sucesso!");
         } else {
           const data = await res.json();
-          alert(data.error || "Erro ao adicionar ao banco");
+          notifyError(data.error || "Erro ao adicionar ao banco");
         }
       } catch (err) {
         console.error("Erro ao adicionar ao banco", err);
-        alert("Erro ao adicionar ao banco. Tente novamente.");
+        notifyError("Erro ao adicionar ao banco. Tente novamente.");
       }
     }
   }
 
   async function associarPerguntaAoUsuario(pergunta: UserQuestion) {
     if (pergunta.userEmail) {
-      const mensagem = pergunta.userId 
-        ? `Reassociar esta pergunta ao usuário com email ${pergunta.userEmail}?\n\nIsso atualizará a associação e fará com que a pergunta apareça na página "Minha Conta" do usuário.`
-        : `Associar esta pergunta ao usuário com email ${pergunta.userEmail}?\n\nIsso fará com que a pergunta apareça na página "Minha Conta" do usuário.`;
-      
-      if (confirm(mensagem)) {
+      const titulo = pergunta.userId
+        ? `Reassociar esta pergunta ao usuário com email ${pergunta.userEmail}?`
+        : `Associar esta pergunta ao usuário com email ${pergunta.userEmail}?`;
+      const descricao = pergunta.userId
+        ? `Isso atualizará a associação e fará com que a pergunta apareça na página "Minha Conta" do usuário.`
+        : `Isso fará com que a pergunta apareça na página "Minha Conta" do usuário.`;
+
+      if (await ask(titulo, descricao)) {
         await associarPerguntaPorEmail(pergunta.id, pergunta.userEmail);
       }
     } else {
-      alert("Esta pergunta não tem email associado. Não é possível associar automaticamente.");
+      notify("Esta pergunta não tem email associado. Não é possível associar automaticamente.");
     }
   }
 
@@ -326,16 +356,19 @@ export default function AdminFaqPage() {
       if (res.ok) {
         const data = await res.json();
         await carregarPerguntas();
-        alert(`✅ Pergunta associada ao usuário ${data.pergunta.userEmail} com sucesso!\n\nA pergunta agora deve aparecer na página "Minha Conta" do usuário.`);
+        notifySuccess(
+          `Pergunta associada ao usuário ${data.pergunta.userEmail} com sucesso!`,
+          `A pergunta agora deve aparecer na página "Minha Conta" do usuário.`
+        );
         console.log(`[Admin FAQ] Pergunta associada:`, data.pergunta);
       } else {
         const errorData = await res.json();
-        alert(errorData.error || "Erro ao associar pergunta");
+        notifyError(errorData.error || "Erro ao associar pergunta");
         console.error("[Admin FAQ] Erro ao associar:", errorData);
       }
     } catch (err) {
       console.error("Erro ao associar pergunta", err);
-      alert("Erro ao associar pergunta. Tente novamente.");
+      notifyError("Erro ao associar pergunta. Tente novamente.");
     }
   }
 
@@ -352,20 +385,26 @@ export default function AdminFaqPage() {
 
       if (res.ok) {
         await carregarPerguntas();
-        alert("Pergunta associada ao usuário com sucesso!");
+        notifySuccess("Pergunta associada ao usuário com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao associar pergunta");
+        notifyError(data.error || "Erro ao associar pergunta");
       }
     } catch (err) {
       console.error("Erro ao associar pergunta", err);
-      alert("Erro ao associar pergunta. Tente novamente.");
+      notifyError("Erro ao associar pergunta. Tente novamente.");
     }
   }
 
   async function recusarPergunta(pergunta: UserQuestion) {
-    const motivo = prompt("Motivo da recusa (opcional):");
-    if (motivo === null) return; // Usuário cancelou
+    if (
+      !(await ask(
+        "Recusar esta pergunta?",
+        "A pergunta será movida para a lista de recusadas."
+      ))
+    ) {
+      return;
+    }
 
     try {
       const res = await fetch("/api/admin/faq/recusar", {
@@ -373,26 +412,32 @@ export default function AdminFaqPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           questionId: pergunta.id,
-          motivo: motivo || undefined,
+          motivo: undefined,
         }),
       });
 
       if (res.ok) {
         await carregarPerguntas();
         await carregarPerguntasRecusadas(); // Atualizar lista de recusadas também
-        alert("Pergunta recusada com sucesso!");
+        notifySuccess("Pergunta recusada com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao recusar pergunta");
+        notifyError(data.error || "Erro ao recusar pergunta");
       }
     } catch (err) {
       console.error("Erro ao recusar pergunta", err);
-      alert("Erro ao recusar pergunta. Tente novamente.");
+      notifyError("Erro ao recusar pergunta. Tente novamente.");
     }
   }
 
   async function excluirPergunta(pergunta: UserQuestion) {
-    if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente esta pergunta?\n\n"${pergunta.question.substring(0, 50)}..."\n\nEsta ação não pode ser desfeita!`)) {
+    if (
+      !(await ask(
+        "Tem certeza que deseja EXCLUIR permanentemente esta pergunta?",
+        `"${pergunta.question.substring(0, 50)}..."\n\nEsta ação não pode ser desfeita!`,
+        true
+      ))
+    ) {
       return;
     }
 
@@ -407,19 +452,24 @@ export default function AdminFaqPage() {
         } else {
           await carregarPerguntas();
         }
-        alert("Pergunta excluída com sucesso!");
+        notifySuccess("Pergunta excluída com sucesso!");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao excluir pergunta");
+        notifyError(data.error || "Erro ao excluir pergunta");
       }
     } catch (err) {
       console.error("Erro ao excluir pergunta", err);
-      alert("Erro ao excluir pergunta. Tente novamente.");
+      notifyError("Erro ao excluir pergunta. Tente novamente.");
     }
   }
 
   async function reaceitarPergunta(pergunta: UserQuestion) {
-    if (!confirm(`Deseja reaceitar esta pergunta?\n\n"${pergunta.question.substring(0, 50)}..."\n\nA pergunta voltará a aparecer na lista de pendentes.`)) {
+    if (
+      !(await ask(
+        "Deseja reaceitar esta pergunta?",
+        `"${pergunta.question.substring(0, 50)}..."\n\nA pergunta voltará a aparecer na lista de pendentes.`
+      ))
+    ) {
       return;
     }
 
@@ -434,29 +484,28 @@ export default function AdminFaqPage() {
 
       if (res.ok) {
         await carregarPerguntasRecusadas();
-        alert("Pergunta reaceita com sucesso! Ela voltou para a lista de pendentes.");
+        notifySuccess("Pergunta reaceita com sucesso! Ela voltou para a lista de pendentes.");
       } else {
         const data = await res.json();
-        alert(data.error || "Erro ao reaceitar pergunta");
+        notifyError(data.error || "Erro ao reaceitar pergunta");
       }
     } catch (err) {
       console.error("Erro ao reaceitar pergunta", err);
-      alert("Erro ao reaceitar pergunta. Tente novamente.");
+      notifyError("Erro ao reaceitar pergunta. Tente novamente.");
     }
   }
 
   if (loading && faqs.length === 0 && perguntas.length === 0) {
-    return <p className="text-zinc-400">Carregando...</p>;
+    return <LoadingBlock />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-100 mb-2">FAQ</h1>
-          <p className="text-zinc-400">Gerenciar perguntas frequentes e responder solicitações</p>
-        </div>
-      </div>
+      <PageHeader
+        title="FAQ"
+        subtitle="Gerenciar perguntas frequentes e responder solicitações"
+        icon="help"
+      />
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-zinc-700">
@@ -497,105 +546,82 @@ export default function AdminFaqPage() {
         <>
           {/* Busca e Controles */}
           <div className="flex gap-3 items-center">
-            <input
+            <SearchInput
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar por pergunta ou resposta..."
-              className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+              className="flex-1"
             />
-            <button
+            <Button
+              variant={mostrarTodas ? "secondary" : "outline"}
+              size="md"
               onClick={() => setMostrarTodas(!mostrarTodas)}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                mostrarTodas
-                  ? "bg-blue-600 text-white hover:bg-blue-500"
-                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-              }`}
             >
-              {mostrarTodas ? "👁️ Ocultar Todas" : "👁️ Mostrar Todas"}
-            </button>
-            <button
-              onClick={() => setMostrarForm(!mostrarForm)}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
-            >
-              {mostrarForm ? "Cancelar" : "+ Nova FAQ"}
-            </button>
+              {mostrarTodas ? "Ocultar Todas" : "Mostrar Todas"}
+            </Button>
+            <Button variant="primary" size="md" onClick={() => setMostrarForm(!mostrarForm)}>
+              {mostrarForm ? COPY.actions.cancel : "+ Nova FAQ"}
+            </Button>
           </div>
 
           {mostrarForm && (
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 space-y-4">
+            <Card className="!p-6 space-y-4">
               <h3 className="text-lg font-semibold text-zinc-100">Criar Nova FAQ</h3>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-zinc-300">Pergunta</label>
-                <input
+              <Field label="Pergunta">
+                <Input
                   type="text"
                   value={novaPergunta}
                   onChange={(e) => setNovaPergunta(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
                   placeholder="Digite a pergunta"
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-zinc-300">Resposta</label>
-                <textarea
+              </Field>
+              <Field label="Resposta">
+                <Textarea
                   value={novaResposta}
                   onChange={(e) => setNovaResposta(e.target.value)}
                   rows={4}
-                  className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
                   placeholder="Digite a resposta"
                 />
-              </div>
-              <button
-                onClick={criarFAQ}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-              >
+              </Field>
+              <Button variant="success" size="md" onClick={criarFAQ}>
                 Criar FAQ
-              </button>
-            </div>
+              </Button>
+            </Card>
           )}
 
           {/* Lista de FAQs */}
           <div className="space-y-4">
             {faqs.length === 0 ? (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
-                {busca ? "Nenhuma FAQ encontrada para esta busca." : "Nenhuma FAQ encontrada. Crie a primeira!"}
-              </div>
+              <EmptyState
+                title={busca ? "Nenhuma FAQ encontrada para esta busca." : "Nenhuma FAQ encontrada. Crie a primeira!"}
+              />
             ) : (
               faqs.map((faq) => (
-                <div key={faq.id} className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
+                <Card key={faq.id} className="!p-6">
                   {editandoFaq?.id === faq.id ? (
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-zinc-300">Pergunta</label>
-                        <input
+                      <Field label="Pergunta">
+                        <Input
                           type="text"
                           value={editPergunta}
                           onChange={(e) => setEditPergunta(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-zinc-300">Resposta</label>
-                        <textarea
+                      </Field>
+                      <Field label="Resposta">
+                        <Textarea
                           value={editResposta}
                           onChange={(e) => setEditResposta(e.target.value)}
                           rows={4}
-                          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
                         />
-                      </div>
+                      </Field>
                       <div className="flex gap-2">
-                        <button
-                          onClick={salvarEdicao}
-                          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                        >
-                          Salvar
-                        </button>
-                        <button
-                          onClick={cancelarEdicao}
-                          className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-500"
-                        >
-                          Cancelar
-                        </button>
+                        <Button variant="success" size="md" onClick={salvarEdicao}>
+                          {COPY.actions.save}
+                        </Button>
+                        <Button variant="secondary" size="md" onClick={cancelarEdicao}>
+                          {COPY.actions.cancel}
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -605,27 +631,21 @@ export default function AdminFaqPage() {
                           <h3 className="text-lg font-semibold text-zinc-100 mb-2">{faq.question}</h3>
                           <p className="text-sm text-zinc-300">{faq.answer}</p>
                           <div className="mt-2 text-xs text-zinc-400">
-                            👁️ {faq.views} visualizações
+                            {faq.views} visualizações
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => iniciarEdicao(faq)}
-                            className="rounded px-3 py-1 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => deletarFAQ(faq.id)}
-                            className="rounded px-3 py-1 text-xs font-semibold bg-red-600 text-white hover:bg-red-500"
-                          >
-                            Deletar
-                          </button>
+                          <Button variant="secondary" size="xs" onClick={() => iniciarEdicao(faq)}>
+                            {COPY.actions.edit}
+                          </Button>
+                          <Button variant="danger" size="xs" onClick={() => deletarFAQ(faq.id)}>
+                            {COPY.actions.delete}
+                          </Button>
                         </div>
                       </div>
                     </>
                   )}
-                </div>
+                </Card>
               ))
             )}
           </div>
@@ -637,52 +657,40 @@ export default function AdminFaqPage() {
         <>
           {/* Filtro de Status */}
           <div className="flex gap-2">
-            <button
+            <Button
+              variant={filtroStatus === "pendente" ? "primary" : "secondary"}
+              size="md"
               onClick={() => setFiltroStatus("pendente")}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                filtroStatus === "pendente"
-                  ? "bg-orange-600 text-white"
-                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-              }`}
+              className={filtroStatus === "pendente" ? "!bg-orange-600 hover:!bg-orange-500" : ""}
             >
               Pendentes ({perguntas.filter(p => p.status === "pendente").length})
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={filtroStatus === "respondida" ? "success" : "secondary"}
+              size="md"
               onClick={() => setFiltroStatus("respondida")}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                filtroStatus === "respondida"
-                  ? "bg-green-600 text-white"
-                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-              }`}
             >
               Respondidas ({perguntas.filter(p => p.status === "respondida").length})
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={filtroStatus === "todas" ? "secondary" : "outline"}
+              size="md"
               onClick={() => setFiltroStatus("todas")}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                filtroStatus === "todas"
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-              }`}
             >
               Todas ({perguntas.length})
-            </button>
+            </Button>
           </div>
 
           {/* Lista de Perguntas */}
           <div className="space-y-4">
             {perguntas.length === 0 ? (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
-                Nenhuma pergunta encontrada.
-              </div>
+              <EmptyState title="Nenhuma pergunta encontrada." />
             ) : (
               perguntas.map((pergunta) => (
-                <div
+                <Card
                   key={pergunta.id}
-                  className={`rounded-xl border p-6 ${
-                    pergunta.status === "pendente"
-                      ? "border-orange-500/50 bg-orange-500/10"
-                      : "border-zinc-700 bg-zinc-800/50"
+                  className={`!p-6 ${
+                    pergunta.status === "pendente" ? "!border-orange-500/50 !bg-orange-500/10" : ""
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -701,104 +709,68 @@ export default function AdminFaqPage() {
                         )}
                         {pergunta.published && pergunta.faq && (
                           <div className="text-blue-400">
-                            ✅ Publicada no FAQ: {pergunta.faq.question.substring(0, 50)}...
+                            Publicada no FAQ: {pergunta.faq.question.substring(0, 50)}...
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          pergunta.status === "pendente"
-                            ? "bg-orange-500/20 text-orange-300"
-                            : "bg-green-500/20 text-green-300"
-                        }`}
-                      >
-                        {pergunta.status === "pendente" ? "Pendente" : "Respondida"}
-                      </span>
-                    </div>
+                    <StatusBadge status={pergunta.status} />
                   </div>
 
                   {pergunta.answer && (
-                    <div className="mt-4 p-4 rounded-lg bg-zinc-900/50 border border-zinc-700">
-                      <div className="text-sm font-semibold text-zinc-300 mb-2">Resposta:</div>
-                      <div className="text-sm text-zinc-200">{pergunta.answer}</div>
-                    </div>
+                    <Callout intent="info" title="Resposta:" className="mt-4">
+                      {pergunta.answer}
+                    </Callout>
                   )}
 
                   <div className="mt-4 flex gap-2 flex-wrap">
                     {pergunta.status === "pendente" && (
-                      <button
-                        onClick={() => iniciarResposta(pergunta)}
-                        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                      >
+                      <Button variant="success" size="md" onClick={() => iniciarResposta(pergunta)}>
                         {pergunta.answer ? "Editar Resposta" : "Responder"}
-                      </button>
+                      </Button>
                     )}
                     {pergunta.status === "pendente" && (
-                      <button
-                        onClick={() => recusarPergunta(pergunta)}
-                        className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500"
-                        title="Recusar esta solicitação"
-                      >
-                        ❌ Recusar
-                      </button>
+                      <Button variant="secondary" size="md" onClick={() => recusarPergunta(pergunta)}>
+                        {COPY.actions.reject}
+                      </Button>
                     )}
-                    <button
-                      onClick={() => excluirPergunta(pergunta)}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
-                      title="Excluir permanentemente esta pergunta"
-                    >
-                      🗑️ Excluir
-                    </button>
+                    <Button variant="danger" size="md" onClick={() => excluirPergunta(pergunta)}>
+                      {COPY.actions.delete}
+                    </Button>
                     {pergunta.status === "respondida" && (
-                      <button
+                      <Button
+                        variant={pergunta.published && (pergunta.faqId || pergunta.faq?.id) ? "danger" : "secondary"}
+                        size="md"
                         onClick={() => toggleBanco(pergunta)}
-                        className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors ${
-                          pergunta.published && (pergunta.faqId || pergunta.faq?.id)
-                            ? "bg-red-600 hover:bg-red-500"
-                            : "bg-blue-600 hover:bg-blue-500"
-                        }`}
                       >
-                        {pergunta.published && (pergunta.faqId || pergunta.faq?.id) ? "➖ Remover do Banco" : "➕ Adicionar ao Banco"}
-                      </button>
+                        {pergunta.published && (pergunta.faqId || pergunta.faq?.id) ? "Remover do Banco" : "Adicionar ao Banco"}
+                      </Button>
                     )}
                     {pergunta.userEmail && (
-                      <button
-                        onClick={() => associarPerguntaAoUsuario(pergunta)}
-                        className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-500"
-                        title="Associar/Reassociar esta pergunta ao usuário correto para que apareça na 'Minha Conta'"
-                      >
-                        🔗 {pergunta.userId ? "Reassociar ao Usuário" : "Associar ao Usuário"}
-                      </button>
+                      <Button variant="outline" size="md" onClick={() => associarPerguntaAoUsuario(pergunta)}>
+                        {pergunta.userId ? "Reassociar ao Usuário" : "Associar ao Usuário"}
+                      </Button>
                     )}
                     {respondendoPergunta?.id === pergunta.id && (
-                      <div className="flex-1 space-y-2">
-                        <textarea
+                      <div className="flex-1 space-y-2 w-full">
+                        <Textarea
                           value={respostaTexto}
                           onChange={(e) => setRespostaTexto(e.target.value)}
                           rows={4}
-                          className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
                           placeholder="Digite a resposta..."
                         />
                         <div className="flex gap-2">
-                          <button
-                            onClick={salvarResposta}
-                            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                          >
+                          <Button variant="success" size="md" onClick={salvarResposta}>
                             Salvar Resposta
-                          </button>
-                          <button
-                            onClick={cancelarResposta}
-                            className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-500"
-                          >
-                            Cancelar
-                          </button>
+                          </Button>
+                          <Button variant="secondary" size="md" onClick={cancelarResposta}>
+                            {COPY.actions.cancel}
+                          </Button>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               ))
             )}
           </div>
@@ -808,22 +780,18 @@ export default function AdminFaqPage() {
       {/* Conteúdo da Aba Recusadas */}
       {abaAtiva === "recusadas" && (
         <>
-          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-            <p className="text-zinc-400 text-sm">
-              Perguntas recusadas (bloqueadas). Você pode reaceitar ou excluir permanentemente.
-            </p>
-          </div>
+          <Callout intent="info">
+            Perguntas recusadas (bloqueadas). Você pode reaceitar ou excluir permanentemente.
+          </Callout>
 
           <div className="space-y-4">
             {perguntasRecusadas.length === 0 ? (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
-                Nenhuma pergunta recusada encontrada.
-              </div>
+              <EmptyState title="Nenhuma pergunta recusada encontrada." />
             ) : (
               perguntasRecusadas.map((pergunta) => (
-                <div
+                <Card
                   key={pergunta.id}
-                  className="rounded-xl border border-red-500/50 bg-red-500/10 p-6"
+                  className="!p-6 !border-red-500/50 !bg-red-500/10"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
@@ -836,30 +804,18 @@ export default function AdminFaqPage() {
                         <div>{new Date(pergunta.createdAt).toLocaleString("pt-BR")}</div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="rounded-full px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-300">
-                        Recusada
-                      </span>
-                    </div>
+                    <StatusBadge status="recusada" />
                   </div>
 
                   <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => reaceitarPergunta(pergunta)}
-                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                      title="Reaceitar esta pergunta (voltar para pendentes)"
-                    >
-                      ✅ Reaceitar
-                    </button>
-                    <button
-                      onClick={() => excluirPergunta(pergunta)}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
-                      title="Excluir permanentemente esta pergunta"
-                    >
-                      🗑️ Excluir
-                    </button>
+                    <Button variant="success" size="md" onClick={() => reaceitarPergunta(pergunta)}>
+                      Reaceitar
+                    </Button>
+                    <Button variant="danger" size="md" onClick={() => excluirPergunta(pergunta)}>
+                      {COPY.actions.delete}
+                    </Button>
                   </div>
-                </div>
+                </Card>
               ))
             )}
           </div>

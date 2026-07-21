@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  LoadingBlock,
+  EmptyState,
+  PageHeader,
+  Card,
+  SearchInput,
+  Input,
+  Button,
+  Badge,
+} from "@/components/design-system";
 
 interface ChatMessage {
   id: string;
@@ -140,43 +150,42 @@ export default function AdminChatPage() {
   }
 
   if (loading) {
-    return <p className="text-zinc-400">Carregando chat...</p>;
+    return <LoadingBlock label="Carregando chat..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Chat Admin</h1>
-        <p className="text-zinc-400">Atender solicitações humanas e responder usuários</p>
-      </div>
+      <PageHeader
+        title="Chat Admin"
+        subtitle="Atender solicitações humanas e responder usuários"
+        icon="chat"
+      />
 
       {/* Filtros e Busca */}
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
+      <Card className="space-y-3">
         <div className="flex gap-3">
-          <input
+          <SearchInput
             type="text"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por nome ou email do usuário..."
-            className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+            className="flex-1"
           />
-          <button
+          <Button
+            variant={apenasUsoIndevido ? "primary" : "secondary"}
+            size="md"
+            icon={apenasUsoIndevido ? "alert" : undefined}
             onClick={() => setApenasUsoIndevido(!apenasUsoIndevido)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              apenasUsoIndevido
-                ? "bg-red-600 text-white hover:bg-red-500"
-                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-            }`}
           >
-            {apenasUsoIndevido ? "🔴 Apenas Uso Indevido" : "⚪ Todos"}
-          </button>
+            {apenasUsoIndevido ? "Apenas Uso Indevido" : "Todos"}
+          </Button>
         </div>
         {(busca || apenasUsoIndevido) && (
           <p className="text-sm text-zinc-400">
             {sessoesFiltradas.length} sessão(ões) encontrada(s)
           </p>
         )}
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lista de Sessões */}
@@ -205,24 +214,10 @@ export default function AdminChatPage() {
                   </div>
                   <div className="text-xs text-zinc-400">{s.user.email}</div>
                   <div className="mt-2 flex gap-2 flex-wrap">
-                    {temIndevido && (
-                      <span className="rounded px-2 py-1 text-xs font-semibold bg-red-500/20 text-red-300">
-                        Uso Indevido
-                      </span>
-                    )}
-                    {s.humanRequested && (
-                      <span className="rounded px-2 py-1 text-xs font-semibold bg-orange-500/20 text-orange-300">
-                        Solicitação Humana
-                      </span>
-                    )}
-                    {s.adminAccepted && (
-                      <span className="rounded px-2 py-1 text-xs font-semibold bg-green-500/20 text-green-300">
-                        Aceito
-                      </span>
-                    )}
-                    <span className="rounded px-2 py-1 text-xs font-semibold bg-blue-500/20 text-blue-300">
-                      {s.messages.length} msgs
-                    </span>
+                    {temIndevido && <Badge intent="error">Uso Indevido</Badge>}
+                    {s.humanRequested && <Badge intent="pending">Solicitação Humana</Badge>}
+                    {s.adminAccepted && <Badge intent="success">Aceito</Badge>}
+                    <Badge intent="info">{s.messages.length} msgs</Badge>
                   </div>
                 </div>
               );
@@ -234,19 +229,16 @@ export default function AdminChatPage() {
         <div className="lg:col-span-2 space-y-4">
           {sessaoAtual ? (
             <>
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
+              <Card>
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-zinc-100">{sessaoAtual.user.nomeArtistico}</h3>
                     <p className="text-sm text-zinc-400">{sessaoAtual.user.email}</p>
                   </div>
                   {sessaoAtual.humanRequested && !sessaoAtual.adminAccepted && (
-                    <button
-                      onClick={() => aceitarSolicitacao(sessaoAtual.id)}
-                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                    >
+                    <Button variant="success" size="md" onClick={() => aceitarSolicitacao(sessaoAtual.id)}>
                       Aceitar Solicitação
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -274,28 +266,23 @@ export default function AdminChatPage() {
                 {/* Input de Mensagem */}
                 {sessaoAtual.adminAccepted && (
                   <div className="flex gap-2">
-                    <input
+                    <Input
                       type="text"
                       value={novaMensagem}
                       onChange={(e) => setNovaMensagem(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && enviarMensagem()}
-                      className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
+                      className="flex-1"
                       placeholder="Digite sua mensagem..."
                     />
-                    <button
-                      onClick={enviarMensagem}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
-                    >
+                    <Button variant="primary" size="md" onClick={enviarMensagem}>
                       Enviar
-                    </button>
+                    </Button>
                   </div>
                 )}
-              </div>
+              </Card>
             </>
           ) : (
-            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-12 text-center text-zinc-400">
-              Selecione uma sessão de chat para começar
-            </div>
+            <EmptyState icon="chat" title="Selecione uma sessão de chat para começar" />
           )}
         </div>
       </div>

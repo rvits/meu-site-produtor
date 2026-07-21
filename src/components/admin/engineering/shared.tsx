@@ -1,6 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  Card as DsCard,
+  Badge as DsBadge,
+  EmptyState as DsEmptyState,
+  type Intent,
+} from "@/components/design-system";
 
 export function Card({
   title,
@@ -14,15 +20,26 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-zinc-700/80 bg-zinc-800/40 p-4 sm:p-5 ${className}`}>
+    <DsCard className={className}>
       <header className="mb-4">
         <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
         {subtitle && <p className="mt-1 text-xs text-zinc-400">{subtitle}</p>}
       </header>
       {children}
-    </section>
+    </DsCard>
   );
 }
+
+const TONE_TO_INTENT: Record<
+  "success" | "warning" | "danger" | "info" | "neutral",
+  Intent
+> = {
+  success: "success",
+  warning: "warning",
+  danger: "error",
+  info: "info",
+  neutral: "neutral",
+};
 
 export function Badge({
   children,
@@ -31,18 +48,7 @@ export function Badge({
   children: ReactNode;
   tone?: "success" | "warning" | "danger" | "info" | "neutral";
 }) {
-  const tones = {
-    success: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    warning: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-    danger: "bg-red-500/20 text-red-300 border-red-500/40",
-    info: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-    neutral: "bg-zinc-700/50 text-zinc-300 border-zinc-600",
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>
-      {children}
-    </span>
-  );
+  return <DsBadge intent={TONE_TO_INTENT[tone]}>{children}</DsBadge>;
 }
 
 export function ProgressBar({ value, max = 100, label }: { value: number; max?: number; label?: string }) {
@@ -81,7 +87,7 @@ export function DataTable({
   rows: Array<Array<string | number | ReactNode>>;
 }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-zinc-500">Nenhum dado disponível.</p>;
+    return <DsEmptyState title="Nenhum dado disponível." />;
   }
   return (
     <div className="overflow-x-auto">
@@ -123,11 +129,7 @@ export function HeatBar({ score }: { score: number }) {
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900/30 px-4 py-8 text-center text-sm text-zinc-500">
-      {message}
-    </div>
-  );
+  return <DsEmptyState title={message} />;
 }
 
 export function statusTone(status: string): "success" | "warning" | "danger" | "info" | "neutral" {

@@ -103,7 +103,7 @@ export default function Header() {
               </span>
 
               <Link
-                href="/conta"
+                href="/minha-conta?tab=perfil"
                 className="rounded-full border border-zinc-600 px-2.5 py-1 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex-shrink-0"
               >
                 Perfil
@@ -217,7 +217,7 @@ export default function Header() {
                     Olá, <b>{displayName}</b>
                   </div>
                   <Link
-                    href="/conta"
+                    href="/minha-conta?tab=perfil"
                     onClick={() => setMenuOpen(false)}
                     className="block py-2 px-3 text-zinc-200 hover:text-red-400 hover:bg-zinc-900/50 rounded-lg transition-colors"
                   >

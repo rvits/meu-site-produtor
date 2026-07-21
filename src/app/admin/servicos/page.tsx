@@ -1,6 +1,12 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { ServicosBoard } from "@/app/admin/servicos-ui/ServicosBoard";
+import { BoardSkeleton } from "@/app/admin/servicos-ui/States";
 
-/** HS-02B: página paralela removida — Serviços Gerais = /admin/servicos-aceitos */
-export default function AdminServicosLegacyRedirect() {
-  redirect("/admin/servicos-aceitos");
+/** GO-03A — Serviços Gerais (visão "Todos"). */
+export default function AdminServicosPage() {
+  return (
+    <Suspense fallback={<BoardSkeleton />}>
+      <ServicosBoard variant="gerais" status="todos" />
+    </Suspense>
+  );
 }

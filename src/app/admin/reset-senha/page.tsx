@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import {
+  Button,
+  Callout,
+  Card,
+  Field,
+  Input,
+  PageHeader,
+} from "@/components/design-system";
 
 export default function AdminResetSenhaPage() {
   const [email, setEmail] = useState("");
@@ -78,36 +86,31 @@ export default function AdminResetSenhaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Resetar Senha</h1>
-        <p className="text-zinc-400">Verificar usuários e resetar senhas</p>
-      </div>
+      <PageHeader title="Resetar Senha" subtitle="Verificar usuários e resetar senhas" icon="lock" />
 
-      <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 space-y-4">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-zinc-300">Email do Usuário</label>
+      <Card className="!p-6 space-y-4">
+        <Field label="Email do Usuário">
           <div className="flex gap-2">
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && verificarUsuario()}
-              className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
+              className="flex-1"
               placeholder="email@exemplo.com"
             />
-            <button
+            <Button
+              variant="secondary"
               onClick={verificarUsuario}
-              disabled={carregando}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+              loading={carregando}
             >
               Verificar
-            </button>
+            </Button>
           </div>
-        </div>
+        </Field>
 
         {usuario && (
-          <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-            <h3 className="font-semibold text-green-400 mb-2">Usuário Encontrado:</h3>
+          <Callout intent="success" title="Usuário Encontrado:">
             <div className="text-sm text-zinc-300 space-y-1">
               <div><strong>Nome:</strong> {usuario.nomeArtistico}</div>
               <div><strong>Email:</strong> {usuario.email}</div>
@@ -115,41 +118,33 @@ export default function AdminResetSenhaPage() {
               <div><strong>Bloqueado:</strong> {usuario.blocked ? "Sim" : "Não"}</div>
               <div><strong>Criado em:</strong> {new Date(usuario.createdAt).toLocaleString("pt-BR")}</div>
             </div>
-          </div>
+          </Callout>
         )}
 
         {usuario && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-zinc-300">Nova Senha</label>
-            <input
+          <Field label="Nova Senha">
+            <Input
               type="password"
               value={novaSenha}
               onChange={(e) => setNovaSenha(e.target.value)}
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100"
               placeholder="Digite a nova senha"
             />
-            <button
+            <Button
+              variant="primary"
+              fullWidth
+              className="mt-2"
               onClick={resetarSenha}
-              disabled={carregando || !novaSenha}
-              className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+              disabled={!novaSenha}
+              loading={carregando}
             >
-              {carregando ? "Processando..." : "Resetar Senha"}
-            </button>
-          </div>
+              Resetar Senha
+            </Button>
+          </Field>
         )}
 
-        {erro && (
-          <div className="rounded-lg bg-red-500/20 border border-red-500/50 px-4 py-2 text-sm text-red-400">
-            {erro}
-          </div>
-        )}
-
-        {mensagem && (
-          <div className="rounded-lg bg-green-500/20 border border-green-500/50 px-4 py-2 text-sm text-green-400">
-            {mensagem}
-          </div>
-        )}
-      </div>
+        {erro && <Callout intent="error">{erro}</Callout>}
+        {mensagem && <Callout intent="success">{mensagem}</Callout>}
+      </Card>
     </div>
   );
 }

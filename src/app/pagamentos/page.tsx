@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingBlock } from "@/components/design-system";
 
+/** Rota legada /pagamentos → carrinho. */
 export default function PagamentosPage() {
   const router = useRouter();
 
@@ -11,10 +13,8 @@ export default function PagamentosPage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12 text-zinc-100">
-      <div className="text-center">
-        <p className="text-zinc-400">Redirecionando para o carrinho...</p>
-      </div>
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 py-12">
+      <LoadingBlock label="Redirecionando para o carrinho…" />
     </main>
   );
 }
