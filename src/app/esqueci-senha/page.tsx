@@ -72,6 +72,7 @@ export default function EsqueciSenhaPage() {
     <AuthShell
       title="Esqueci minha senha"
       subtitle="Digite seu email para receber um código de verificação."
+      backgroundImage="/login-bg.png.png"
       footer={
         <p className="text-center text-xs">
           <Link href="/login" className="text-zinc-400 hover:text-red-400 underline underline-offset-2">

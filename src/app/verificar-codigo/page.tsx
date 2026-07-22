@@ -60,7 +60,7 @@ function VerificarCodigoContent() {
 
       // Redirecionar para página de troca de senha
       router.push(`/trocar-senha?email=${encodeURIComponent(email)}&token=${data.token}`);
-    } catch (err) {
+    } catch {
       setCarregando(false);
       setErro("Erro ao verificar código. Tente novamente.");
     }
@@ -75,6 +75,7 @@ function VerificarCodigoContent() {
           de entrada e digite o código abaixo.
         </>
       }
+      backgroundImage="/login-bg.png.png"
       footer={
         <div className="text-center space-y-2">
           <Link
@@ -147,7 +148,7 @@ export default function VerificarCodigoPage() {
   return (
     <Suspense
       fallback={
-        <AuthShell title="Verificação de código">
+        <AuthShell title="Verificação de código" backgroundImage="/login-bg.png.png">
           <LoadingBlock label="Carregando formulário…" />
         </AuthShell>
       }

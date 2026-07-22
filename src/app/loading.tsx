@@ -5,7 +5,7 @@ export default function Loading() {
       <div
         className="fixed inset-0 z-0 bg-zinc-900 bg-no-repeat"
         style={{
-          backgroundImage: "url(/login-bg.png)",
+          backgroundImage: "url(/login-bg.png.png)",
           backgroundSize: "cover",
           backgroundPosition: "center center",
           minWidth: "100%",

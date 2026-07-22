@@ -141,20 +141,43 @@ export function Callout({
   title,
   children,
   className,
+  align = "start",
 }: {
   intent?: Intent;
   icon?: IconName;
   title?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
+  /** `center` empilha ícone + conteúdo e centraliza (ex.: CTA de login no FAQ). */
+  align?: "start" | "center";
 }) {
   const c = intentClasses[intent];
+  const centered = align === "center";
   return (
     <div className={cx("rounded-lg border p-3", c.bg, c.border, className)}>
-      <div className="flex gap-2.5">
-        <Icon name={icon ?? "info"} className={cx("w-4 h-4 mt-0.5 flex-shrink-0", c.text)} />
-        <div className="min-w-0 text-xs leading-relaxed text-zinc-300">
-          {title && <p className={cx("font-semibold mb-0.5 text-sm", c.text)}>{title}</p>}
+      <div
+        className={cx(
+          "flex gap-2.5",
+          centered && "flex-col items-center text-center"
+        )}
+      >
+        <Icon
+          name={icon ?? "info"}
+          className={cx(
+            "w-4 h-4 flex-shrink-0",
+            centered ? "mt-0" : "mt-0.5",
+            c.text
+          )}
+        />
+        <div
+          className={cx(
+            "min-w-0 text-xs leading-relaxed text-zinc-300",
+            centered && "w-full flex flex-col items-center"
+          )}
+        >
+          {title && (
+            <p className={cx("font-semibold mb-0.5 text-sm", c.text)}>{title}</p>
+          )}
           {children}
         </div>
       </div>

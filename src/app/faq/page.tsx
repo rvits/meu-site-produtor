@@ -335,11 +335,12 @@ export default function FAQPage() {
       );
       setUserQuestion("");
       setUserName(user.nomeArtistico || "");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setAskMessage(
-        e?.message ||
-          "Erro ao enviar sua dúvida. Tente novamente em alguns instantes."
+        e instanceof Error
+          ? e.message
+          : "Erro ao enviar sua dúvida. Tente novamente em alguns instantes."
       );
     } finally {
       setAskLoading(false);
@@ -549,13 +550,11 @@ export default function FAQPage() {
             </h2>
 
             {!user ? (
-              <Callout intent="warning" className="text-center">
+              <Callout intent="warning" align="center">
                 <p className="mb-3">Você precisa estar logado para enviar uma pergunta.</p>
-                <div className="flex justify-center">
-                  <LinkButton href="/login" variant="primary" size="md">
-                    Fazer login
-                  </LinkButton>
-                </div>
+                <LinkButton href="/login" variant="primary" size="md">
+                  Fazer login
+                </LinkButton>
               </Callout>
             ) : (
               <form onSubmit={handleAsk} className="space-y-3 text-sm">

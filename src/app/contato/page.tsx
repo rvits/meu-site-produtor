@@ -63,11 +63,8 @@ export default function ContatoPage() {
             Contato
           </h1>
           <p
-            className="text-black text-xs sm:text-sm md:text-base max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto leading-relaxed"
-            style={{
-              textShadow:
-                "0 0 12px rgba(255,255,255,0.95), 0 0 4px rgba(255,255,255,0.85), 0 2px 10px rgba(0,0,0,0.75)",
-            }}
+            className="text-zinc-200 text-xs sm:text-sm md:text-base max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto leading-relaxed"
+            style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.85)" }}
           >
             Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar
             projetos ou tratar de assuntos relacionados aos nossos serviços.

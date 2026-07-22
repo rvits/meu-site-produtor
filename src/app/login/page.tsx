@@ -111,7 +111,7 @@ export default function LoginPage() {
     <AuthShell
       title="Entrar na THouse Rec"
       subtitle="Acesse sua conta para acompanhar agendamentos, planos e serviços."
-      backgroundImage="/login-bg.png"
+      backgroundImage="/login-bg.png.png"
       footer={
         <div className="text-center space-y-3">
           <p className="text-sm text-zinc-400">Não possui uma conta?</p>

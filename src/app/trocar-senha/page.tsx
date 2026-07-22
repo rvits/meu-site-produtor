@@ -73,7 +73,7 @@ function TrocarSenhaContent() {
       setTimeout(() => {
         router.push("/login");
       }, 3000);
-    } catch (err) {
+    } catch {
       setCarregando(false);
       setErro("Erro ao trocar senha. Tente novamente.");
     }
@@ -81,7 +81,7 @@ function TrocarSenhaContent() {
 
   if (sucesso) {
     return (
-      <AuthShell title="Senha alterada com sucesso!">
+      <AuthShell title="Senha alterada com sucesso!" backgroundImage="/login-bg.png.png">
         <div className="text-center space-y-4">
           <span className="inline-flex w-14 h-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
             <Icon name="check-circle" className="w-7 h-7" />
@@ -102,6 +102,7 @@ function TrocarSenhaContent() {
     <AuthShell
       title="Criar nova senha"
       subtitle="Digite sua nova senha abaixo. Certifique-se de escolher uma senha segura."
+      backgroundImage="/login-bg.png.png"
       footer={
         <p className="text-center text-xs">
           <Link href="/login" className="text-zinc-400 hover:text-red-400 underline underline-offset-2">
@@ -179,7 +180,7 @@ export default function TrocarSenhaPage() {
   return (
     <Suspense
       fallback={
-        <AuthShell title="Criar nova senha">
+        <AuthShell title="Criar nova senha" backgroundImage="/login-bg.png.png">
           <LoadingBlock label="Carregando formulário…" />
         </AuthShell>
       }
