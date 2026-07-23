@@ -86,7 +86,7 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Zona 3: Admin + Olá + Perfil + Minha Conta + Sair - compacto */}
+          {/* Zona 3: Admin + Olá + Minha Conta + Sair - compacto */}
           <div className="flex justify-end items-center gap-2 text-xs flex-nowrap flex-shrink-0 ml-auto">
           {isAdmin && (
             <Link
@@ -101,13 +101,6 @@ export default function Header() {
               <span className="text-zinc-300 text-xs whitespace-nowrap" title={user.nomeArtistico}>
                 Olá, <b>{displayName}</b>
               </span>
-
-              <Link
-                href="/minha-conta?tab=perfil"
-                className="rounded-full border border-zinc-600 px-2.5 py-1 hover:bg-zinc-800 transition-colors whitespace-nowrap text-xs flex-shrink-0"
-              >
-                Perfil
-              </Link>
 
               <Link
                 href="/minha-conta"
@@ -216,13 +209,6 @@ export default function Header() {
                   <div className="px-3 py-2 text-zinc-300 text-sm break-words min-w-0" title={user.nomeArtistico}>
                     Olá, <b>{displayName}</b>
                   </div>
-                  <Link
-                    href="/minha-conta?tab=perfil"
-                    onClick={() => setMenuOpen(false)}
-                    className="block py-2 px-3 text-zinc-200 hover:text-red-400 hover:bg-zinc-900/50 rounded-lg transition-colors"
-                  >
-                    Perfil
-                  </Link>
                   <Link
                     href="/minha-conta"
                     onClick={() => setMenuOpen(false)}

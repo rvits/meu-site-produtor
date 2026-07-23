@@ -66,22 +66,6 @@ import type {
   DashStats,
 } from "./types";
 
-const MENU_ITEMS = [
-  { id: "usuarios", title: "Usuários", description: "Informações completas dos usuários", icon: "👥", href: "/admin/usuarios", color: "from-purple-500/20 to-purple-600/20 border-purple-500/30", hoverColor: "hover:from-purple-500/30 hover:to-purple-600/30" },
-  { id: "agendamentos", title: "Agendamentos", description: "Solicitações pendentes, aceitas e recusadas", icon: "📅", href: "/admin/agendamentos/todos", color: "from-blue-500/20 to-blue-600/20 border-blue-500/30", hoverColor: "hover:from-blue-500/30 hover:to-blue-600/30" },
-  { id: "controle-agendamento", title: "Controle de Agendamento", description: "Gerenciar calendário e horários", icon: "🗓️", href: "/admin/controle-agendamento", color: "from-cyan-500/20 to-cyan-600/20 border-cyan-500/30", hoverColor: "hover:from-cyan-500/30 hover:to-cyan-600/30" },
-  { id: "planos", title: "Planos e Cupons", description: "Assinaturas e serviços dos planos", icon: "⭐", href: "/admin/planos", color: "from-yellow-500/20 to-yellow-600/20 border-yellow-500/30", hoverColor: "hover:from-yellow-500/30 hover:to-yellow-600/30" },
-  { id: "faq", title: "FAQ", description: "Gerenciar perguntas e comentários", icon: "❓", href: "/admin/faq", color: "from-teal-500/20 to-teal-600/20 border-teal-500/30", hoverColor: "hover:from-teal-500/30 hover:to-teal-600/30" },
-  { id: "servicos-selecionados", title: "Serviços Selecionados", description: "Fila operacional por status", icon: "📋", href: "/admin/servicos-selecionados/todos", color: "from-pink-500/20 to-pink-600/20 border-pink-500/30", hoverColor: "hover:from-pink-500/30 hover:to-pink-600/30" },
-  { id: "servicos", title: "Serviços Gerais", description: "Todos os serviços por status", icon: "✅", href: "/admin/servicos/todos", color: "from-green-500/20 to-green-600/20 border-green-500/30", hoverColor: "hover:from-green-500/30 hover:to-green-600/30" },
-  { id: "pagamentos", title: "Pagamentos", description: "Transações e reembolsos", icon: "💰", href: "/admin/pagamentos", color: "from-emerald-500/20 to-emerald-600/20 border-emerald-500/30", hoverColor: "hover:from-emerald-500/30 hover:to-emerald-600/30" },
-  { id: "estatisticas", title: "Estatísticas", description: "Estatísticas detalhadas do site", icon: "📊", href: "/admin/estatisticas", color: "from-indigo-500/20 to-indigo-600/20 border-indigo-500/30", hoverColor: "hover:from-indigo-500/30 hover:to-indigo-600/30" },
-  { id: "engenharia", title: "Engenharia", description: "Dashboard Guardian e agentes", icon: "🔬", href: "/admin/engenharia", color: "from-violet-500/20 to-violet-600/20 border-violet-500/30", hoverColor: "hover:from-violet-500/30 hover:to-violet-600/30" },
-  { id: "chats-pendentes", title: "Chats Pendentes", description: "Atendimento humano", icon: "⏳", href: "/admin/chats-pendentes", color: "from-orange-500/20 to-orange-600/20 border-orange-500/30", hoverColor: "hover:from-orange-500/30 hover:to-orange-600/30" },
-  { id: "chats-gerais", title: "Chats Gerais", description: "Todas as conversas", icon: "💬", href: "/admin/chats-gerais", color: "from-blue-500/20 to-blue-600/20 border-blue-500/30", hoverColor: "hover:from-blue-500/30 hover:to-blue-600/30" },
-  { id: "manutencao", title: "Pausa Virtual", description: "Modo de manutenção", icon: "⏸️", href: "/admin/manutencao", color: "from-orange-500/20 to-orange-600/20 border-orange-500/30", hoverColor: "hover:from-orange-500/30 hover:to-orange-600/30" },
-];
-
 function kpiLabel(k: { available: boolean; value?: number; unit?: string }): string {
   if (!k.available || k.value == null) return "Indisponível";
   if (k.unit === "ms") return formatDuration(k.value);
@@ -592,24 +576,6 @@ function ExecutiveDashboardInner() {
           <DashboardTimeline items={timeline} />
         </DashboardWidget>
       </DashboardSection>
-
-      {/* Módulos */}
-      <div className="space-y-4">
-        <h2 className="text-center text-xl font-semibold text-zinc-200">Módulos de Gerenciamento</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
-          {MENU_ITEMS.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={`relative cursor-pointer rounded-xl border-2 p-3 transition-all duration-300 group md:rounded-2xl md:p-6 ${item.color} ${item.hoverColor}`}
-            >
-              <div className="mb-2 text-2xl md:mb-3 md:text-4xl">{item.icon}</div>
-              <h3 className="mb-1 text-sm font-bold text-zinc-100 md:text-lg">{item.title}</h3>
-              <p className="hidden text-xs text-zinc-400 md:block md:text-sm">{item.description}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

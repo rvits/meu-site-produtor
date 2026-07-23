@@ -83,7 +83,7 @@ export default function AdminLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="relative isolate flex min-h-[calc(100vh-var(--header-h,60px))] items-center justify-center bg-zinc-950">
         <LoadingBlock label="Verificando permissões…" />
       </div>
     );
@@ -94,7 +94,9 @@ export default function AdminLayout({
   const crumbs = crumbFor(pathname);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="relative isolate min-h-[calc(100vh-var(--header-h,60px))] text-zinc-100">
+      {/* Cobre o body texturizado sob o padding do header do site — sem faixa ao rolar */}
+      <div className="absolute inset-0 -z-10 bg-zinc-950" aria-hidden />
       <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 py-3 space-y-3">
           <div className="flex items-center justify-between gap-3">

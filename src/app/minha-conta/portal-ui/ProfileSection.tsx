@@ -4,10 +4,12 @@
  * Portal do Cliente — Perfil.
  * Usa exatamente as mesmas APIs da página /conta:
  * GET /api/conta e POST /api/conta/update (mesmas regras de autenticação;
- * alteração de e-mail/senha continua exigindo senha atual no backend).
+ * alteração de e-mail continua exigindo senha atual no backend).
+ * Alteração de senha usa o fluxo oficial /api/esqueci-senha → /verificar-codigo.
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Avatar,
   Button,
@@ -50,12 +52,13 @@ function formatCpf(cpf: string): string {
 
 export function ProfileSection() {
   const toast = useToast();
+  const router = useRouter();
   const [form, setForm] = useState<ContaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const [senha, setSenha] = useState("");
   const [senhaAtual, setSenhaAtual] = useState("");
+  const [enviandoCodigoSenha, setEnviandoCodigoSenha] = useState(false);
   const [emailOriginal, setEmailOriginal] = useState("");
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [dragFoto, setDragFoto] = useState(false);
@@ -135,7 +138,6 @@ export function ProfileSection() {
     setSalvando(true);
     try {
       const payload: Record<string, unknown> = { ...form };
-      if (senha) payload.senha = senha;
       if (senhaAtual) payload.senhaAtual = senhaAtual;
       const r = await fetch("/api/conta/update", {
         method: "POST",
@@ -148,11 +150,41 @@ export function ProfileSection() {
         return;
       }
       toast.success("Perfil atualizado", "Suas alterações foram salvas com sucesso.");
-      setSenha("");
       setSenhaAtual("");
       setEmailOriginal(form.email);
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function iniciarAlteracaoSenha() {
+    if (!form?.email) return;
+    setEnviandoCodigoSenha(true);
+    try {
+      const res = await fetch("/api/esqueci-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          "Não foi possível iniciar",
+          typeof data.error === "string"
+            ? data.error
+            : "Tente novamente em instantes."
+        );
+        return;
+      }
+      toast.success(
+        "Código enviado",
+        "Se existir uma conta vinculada a este e-mail, enviaremos as instruções. Verifique a caixa de entrada e o spam."
+      );
+      router.push(`/verificar-codigo?email=${encodeURIComponent(form.email)}`);
+    } catch {
+      toast.error("Não foi possível iniciar", "Erro de conexão. Tente novamente.");
+    } finally {
+      setEnviandoCodigoSenha(false);
     }
   }
 
@@ -161,7 +193,7 @@ export function ProfileSection() {
     return <ErrorState title="Não foi possível carregar o perfil" description={erro} onRetry={carregar} />;
   }
 
-  const precisaSenhaAtual = Boolean(senha) || form.email !== emailOriginal;
+  const precisaSenhaAtual = form.email !== emailOriginal;
 
   return (
     <Section title="Perfil" icon="user">
@@ -278,7 +310,7 @@ export function ProfileSection() {
                 value={form.sexo || ""}
                 onChange={(e) => setCampo("sexo", e.target.value || null)}
                 options={[
-                  { value: "", label: "Selecione..." },
+                  ...(!form.sexo ? [{ value: "", label: "Selecione..." }] : []),
                   { value: "masculino", label: "Masculino" },
                   { value: "feminino", label: "Feminino" },
                   { value: "prefiro_nao_declarar", label: "Prefiro não declarar" },
@@ -293,7 +325,7 @@ export function ProfileSection() {
                   if (e.target.value !== "outro") setCampo("generoOutro", null);
                 }}
                 options={[
-                  { value: "", label: "Selecione..." },
+                  ...(!form.genero ? [{ value: "", label: "Selecione..." }] : []),
                   { value: "heterossexual", label: "Heterossexual" },
                   { value: "homossexual", label: "Homossexual" },
                   { value: "bissexual", label: "Bissexual" },
@@ -349,20 +381,25 @@ export function ProfileSection() {
         {/* Segurança */}
         <Card className="space-y-3">
           <p className="text-sm font-semibold text-zinc-200">Segurança</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Nova senha" hint="Deixe em branco para manter a senha atual.">
-              <Input
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-            </Field>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                loading={enviandoCodigoSenha}
+                onClick={() => void iniciarAlteracaoSenha()}
+              >
+                Alterar senha
+              </Button>
+              <p className="text-xs text-zinc-500">
+                Enviaremos um código para o e-mail cadastrado e você concluirá a troca na página de verificação.
+              </p>
+            </div>
             {precisaSenhaAtual && (
               <Field
                 label="Senha atual"
-                hint="Obrigatória para alterar e-mail ou senha."
+                hint="Obrigatória para alterar o e-mail."
               >
                 <Input
                   type="password"
@@ -376,7 +413,7 @@ export function ProfileSection() {
           </div>
           {precisaSenhaAtual && (
             <Callout intent="warning">
-              Por segurança, alterações de e-mail ou senha exigem a confirmação da sua senha atual.
+              Por segurança, alterações de e-mail exigem a confirmação da sua senha atual.
             </Callout>
           )}
         </Card>
