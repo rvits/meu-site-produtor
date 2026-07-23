@@ -40,7 +40,7 @@ export default function ContatoPage() {
 
   return (
     <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-3 sm:py-5 text-zinc-100 overflow-x-hidden">
-      {/* Hero Contato — foto original (retrato); cover sem distorção; foco no sujeito */}
+      {/* Hero Contato — foto original; só reposiciona o enquadramento do Victor */}
       <div
         className="contato-hero-bg fixed inset-0 z-0 bg-zinc-900 bg-no-repeat"
         style={{ backgroundImage: "url(/contato-bg.png.jpeg)" }}
@@ -49,22 +49,25 @@ export default function ContatoPage() {
       <style>{`
         .contato-hero-bg {
           background-size: cover;
-          background-position: center 18%;
+          background-position: center 10%;
         }
         @media (max-width: 767px) {
           .contato-hero-bg {
-            background-position: center 22%;
+            background-position: center 15%;
           }
         }
         @media (min-width: 768px) and (max-width: 1023px) {
           .contato-hero-bg {
-            background-position: center 20%;
+            background-position: center 12%;
           }
         }
       `}</style>
       <div className="relative z-10 space-y-8">
-        {/* Área de entrada: no desktop mantém o fundo visível; no mobile começa o conteúdo mais acima */}
-        <section className="hidden sm:block w-full min-h-[55vh]" aria-hidden />
+        {/* Espaço do hero: reduzido para subir título/subtítulo sem esconder o retrato */}
+        <section
+          className="hidden sm:block w-full min-h-[24vh] md:min-h-[30vh] lg:min-h-[32vh]"
+          aria-hidden
+        />
 
         {/* TÍTULO PRINCIPAL */}
         <section className="text-center">
