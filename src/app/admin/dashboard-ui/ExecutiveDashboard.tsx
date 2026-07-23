@@ -51,6 +51,7 @@ import { DashboardToolbar } from "./DashboardToolbar";
 import {
   DashboardAlert,
   DashboardCard,
+  DashboardEmptyState,
   DashboardKPI,
   DashboardSection,
   DashboardWidget,
@@ -255,6 +256,29 @@ function ExecutiveDashboardInner() {
 
   const cardsLoading = paymentsQ.status === "loading" || aptsQ.status === "loading" || servicesQ.status === "loading";
 
+  /** Cenário A: APIs OK, banco operacional vazio após reset — não é bug. */
+  const indicatorsEmpty =
+    paymentsQ.status === "success" &&
+    aptsQ.status === "success" &&
+    servicesQ.status === "success" &&
+    plansQ.status === "success" &&
+    payments.length === 0 &&
+    appointments.length === 0 &&
+    services.length === 0 &&
+    plans.length === 0;
+
+  const chartsHaveData = useMemo(() => {
+    const series = [chartDay, chartWeek, chartMonth, chartCats, chartPlans, chartCancel, chartRefund];
+    return series.some((rows) => rows.some((d) => Number(d.valor || 0) > 0));
+  }, [chartDay, chartWeek, chartMonth, chartCats, chartPlans, chartCancel, chartRefund]);
+
+  const indicatorsHardError =
+    paymentsQ.status === "error" &&
+    aptsQ.status === "error" &&
+    servicesQ.status === "error"
+      ? paymentsQ.error || aptsQ.error || servicesQ.error
+      : null;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -299,10 +323,17 @@ function ExecutiveDashboardInner() {
       <DashboardSection title="Indicadores" subtitle={`Filtro ativo: ${range.label}`}>
         <DashboardWidget
           loading={cardsLoading && !paymentsQ.data && paymentsQ.status === "loading"}
-          error={null}
+          error={indicatorsHardError}
           onRetry={() => setRefreshTick((t) => t + 1)}
           minHeight="min-h-[200px]"
         >
+          {indicatorsEmpty ? (
+            <DashboardEmptyState
+              title="Nenhum dado disponível ainda."
+              description="Os indicadores serão preenchidos automaticamente após os primeiros pagamentos."
+              minHeight="min-h-[200px]"
+            />
+          ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
             <DashboardCard
               href="/admin/pagamentos"
@@ -434,6 +465,7 @@ function ExecutiveDashboardInner() {
               tooltip="Cupons não usados e não expirados"
             />
           </div>
+          )}
         </DashboardWidget>
       </DashboardSection>
 
@@ -477,10 +509,17 @@ function ExecutiveDashboardInner() {
       <DashboardSection title="Gráficos" subtitle="Dados agregados no cliente a partir das listas existentes">
         <DashboardWidget
           loading={paymentsQ.status === "loading" && !paymentsQ.data}
-          error={paymentsQ.error}
+          error={paymentsQ.status === "error" ? paymentsQ.error : null}
           onRetry={paymentsQ.retry}
           minHeight="min-h-[220px]"
         >
+          {!chartsHaveData ? (
+            <DashboardEmptyState
+              title="Sem dados suficientes para gerar gráficos."
+              description="Realize um pagamento ou agendamento para iniciar as métricas."
+              minHeight="min-h-[220px]"
+            />
+          ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             <DashboardChart title="Receita por dia (filtro)" data={chartDay} type="line" currency />
             <DashboardChart title="Receita por semana (8 semanas)" data={chartWeek} type="bar" currency />
@@ -490,6 +529,7 @@ function ExecutiveDashboardInner() {
             <DashboardChart title="Cancelamentos" data={chartCancel} type="bar" />
             <DashboardChart title="Reembolsos" data={chartRefund} type="bar" />
           </div>
+          )}
         </DashboardWidget>
       </DashboardSection>
 
@@ -500,7 +540,7 @@ function ExecutiveDashboardInner() {
       >
         <DashboardWidget
           loading={servicesQ.status === "loading" && !servicesQ.data}
-          error={servicesQ.error}
+          error={servicesQ.status === "error" ? servicesQ.error : null}
           onRetry={servicesQ.retry}
         >
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -557,7 +597,7 @@ function ExecutiveDashboardInner() {
       <DashboardSection title="Calendário operacional" subtitle="Hoje · Amanhã · Esta semana">
         <DashboardWidget
           loading={aptsQ.status === "loading"}
-          error={aptsQ.error}
+          error={aptsQ.status === "error" ? aptsQ.error : null}
           onRetry={aptsQ.retry}
         >
           <DashboardCalendar appointments={appointments} />

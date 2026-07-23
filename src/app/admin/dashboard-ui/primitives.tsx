@@ -33,6 +33,25 @@ export function DashboardSection({
   );
 }
 
+export function DashboardEmptyState({
+  title,
+  description,
+  minHeight = "min-h-[120px]",
+}: {
+  title: string;
+  description?: string;
+  minHeight?: string;
+}) {
+  return (
+    <div
+      className={`${minHeight} flex flex-col items-center justify-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center`}
+    >
+      <p className="text-sm font-medium text-zinc-300">{title}</p>
+      {description && <p className="max-w-md text-xs text-zinc-500">{description}</p>}
+    </div>
+  );
+}
+
 export function DashboardWidget({
   loading,
   error,

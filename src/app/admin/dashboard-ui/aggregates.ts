@@ -140,14 +140,14 @@ export function kpiAvgComplete(): KpiValue {
 
 export function kpiCancelRate(apts: DashAppointment[], range: PeriodRange): KpiValue {
   const inPeriod = apts.filter((a) => inRange(a.createdAt, range));
-  if (inPeriod.length === 0) return { available: false };
+  if (inPeriod.length === 0) return { available: true, value: 0, unit: "pct" };
   const cancelled = inPeriod.filter((a) => a.status === "cancelado").length;
   return { available: true, value: (cancelled / inPeriod.length) * 100, unit: "pct" };
 }
 
 export function kpiRefundRate(payments: DashPayment[], range: PeriodRange): KpiValue {
   const approved = payments.filter((p) => isApproved(p) && inRange(p.createdAt, range));
-  if (approved.length === 0) return { available: false };
+  if (approved.length === 0) return { available: true, value: 0, unit: "pct" };
   const refunded = payments.filter((p) => hasRefund(p) && inRange(p.refundProcessedAt || p.createdAt, range)).length;
   return { available: true, value: (refunded / approved.length) * 100, unit: "pct" };
 }
@@ -155,7 +155,7 @@ export function kpiRefundRate(payments: DashPayment[], range: PeriodRange): KpiV
 /** Conversão de pagamentos = aprovados / total no período. */
 export function kpiPaymentConversion(payments: DashPayment[], range: PeriodRange): KpiValue {
   const total = payments.filter((p) => inRange(p.createdAt, range));
-  if (total.length === 0) return { available: false };
+  if (total.length === 0) return { available: true, value: 0, unit: "pct" };
   const approved = total.filter(isApproved).length;
   return { available: true, value: (approved / total.length) * 100, unit: "pct" };
 }
@@ -163,7 +163,7 @@ export function kpiPaymentConversion(payments: DashPayment[], range: PeriodRange
 /** Conversão de cupons = usados / total no período (por createdAt). */
 export function kpiCouponConversion(coupons: DashCoupon[], range: PeriodRange): KpiValue {
   const total = coupons.filter((c) => inRange(c.createdAt, range));
-  if (total.length === 0) return { available: false };
+  if (total.length === 0) return { available: true, value: 0, unit: "pct" };
   const used = total.filter((c) => c.used).length;
   return { available: true, value: (used / total.length) * 100, unit: "pct" };
 }

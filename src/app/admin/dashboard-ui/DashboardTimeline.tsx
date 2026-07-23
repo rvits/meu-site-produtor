@@ -170,8 +170,10 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
   if (active.length === 0 || (today.length === 0 && tomorrow.length === 0 && week.length === 0)) {
     return (
       <div className="flex min-h-[140px] flex-col items-center justify-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center">
-        <p className="text-sm font-medium text-zinc-300">Nenhum agendamento operacional encontrado.</p>
-        <p className="text-xs text-zinc-500">Quando houver agenda para hoje, amanhã ou esta semana, ela aparece aqui.</p>
+        <p className="text-sm font-medium text-zinc-300">Nenhum agendamento operacional.</p>
+        <p className="text-xs text-zinc-500">
+          Assim que existirem sessões agendadas elas aparecerão aqui.
+        </p>
       </div>
     );
   }
