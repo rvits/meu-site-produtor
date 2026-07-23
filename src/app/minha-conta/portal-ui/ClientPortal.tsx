@@ -12,7 +12,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { isLocalhostClient } from "@/app/lib/app-data-events";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import {
   Avatar,
@@ -67,19 +66,10 @@ export function ClientPortal() {
     faqQuestions: [],
     pagamentos: [],
   });
-  const [showTestCouponTools, setShowTestCouponTools] = useState(false);
 
   const tabParam = searchParams.get("tab");
   const tab: TabKey = isTabKey(tabParam) ? tabParam : "visao-geral";
   const aptFocus = searchParams.get("apt");
-
-  useEffect(() => {
-    if (!user) {
-      setShowTestCouponTools(false);
-      return;
-    }
-    setShowTestCouponTools(isLocalhostClient() || user.role === "ADMIN");
-  }, [user]);
 
   const { refresh: refreshConta } = useDomainRefresh(
     ["minha-conta", "cupons", "planos", "pagamentos"],
@@ -318,7 +308,6 @@ export function ClientPortal() {
           {tab === "cupons" && (
             <CouponsSection
               cupons={data.cupons}
-              showTestCouponTools={showTestCouponTools}
               onChanged={carregarDados}
             />
           )}

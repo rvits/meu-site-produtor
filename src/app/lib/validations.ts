@@ -77,6 +77,23 @@ export const updateContaSchema = z.object({
   pais: z.string().optional(),
   cidade: z.string().optional(),
   bairro: z.string().optional(),
+  estado: z.string().optional(),
+  estilosMusicais: z.string().optional().nullable(),
+  nacionalidade: z.string().optional().nullable(),
+  /** URL pública do avatar (https ou path /uploads/…). Vazio limpa a foto. */
+  foto: z
+    .string()
+    .max(2048)
+    .optional()
+    .nullable()
+    .refine(
+      (v) =>
+        v == null ||
+        v === "" ||
+        v.startsWith("https://") ||
+        v.startsWith("/uploads/"),
+      { message: "URL da foto inválida" }
+    ),
 });
 
 export const checkoutSchema = z.object({

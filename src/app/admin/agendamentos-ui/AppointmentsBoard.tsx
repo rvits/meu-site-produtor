@@ -42,7 +42,6 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
   const [agendamentos, setAgendamentos] = useState<AdminAgendamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [reprocessando, setReprocessando] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [drawerId, setDrawerId] = useState<number | null>(null);
   const [cancelModal, setCancelModal] = useState<{ id: number } | null>(null);
@@ -174,17 +173,17 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
         body: JSON.stringify({ status: novoStatus }),
       });
       if (res.ok) {
-        await carregar();
+        await Promise.all([carregar(), carregarServicos()]);
         notifyAppDataChanged("admin-agendamento-updated");
       } else {
         const data = await res.json().catch(() => ({}));
         notifyError(data.error || `Erro ao ${label} agendamento.`);
-        await carregar();
+        await Promise.all([carregar(), carregarServicos()]);
       }
     } catch (err) {
       console.error(err);
       notifyError(`Erro ao ${label} agendamento.`);
-      await carregar();
+      await Promise.all([carregar(), carregarServicos()]);
     } finally {
       setBusyId(null);
     }
@@ -286,27 +285,6 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
     } catch (err) {
       console.error("Erro ao excluir agendamento", err);
       notifyError("Erro ao excluir agendamento.");
-    }
-  }
-
-  async function reprocessarPagamentoTeste() {
-    setReprocessando(true);
-    try {
-      const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        notifySuccess(
-          `Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns).`,
-          data.hint || "Clique em Atualizar para ver a lista."
-        );
-        await carregar();
-      } else {
-        notifyError(data.error || "Erro ao reprocessar.");
-      }
-    } catch {
-      notifyError("Erro ao reprocessar.");
-    } finally {
-      setReprocessando(false);
     }
   }
 
@@ -417,14 +395,6 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
           >
             {refreshing ? <Spinner className="w-3.5 h-3.5" /> : <Icons.refresh className="w-3.5 h-3.5" />}
             {refreshing ? "Atualizando…" : "Atualizar"}
-          </button>
-          <button
-            type="button"
-            onClick={reprocessarPagamentoTeste}
-            disabled={reprocessando}
-            className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 transition-colors hover:bg-amber-600/50 disabled:opacity-50"
-          >
-            {reprocessando ? "Reprocessando…" : "Reprocessar pagamento teste"}
           </button>
         </div>
       </div>

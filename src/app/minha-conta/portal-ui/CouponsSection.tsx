@@ -3,7 +3,7 @@
 /**
  * Portal do Cliente — Área de Cupons.
  * Mesma classificação, textos de política e ações da página original
- * (copiar, agendar com cupom, renunciar, vincular cupons teste).
+ * (copiar, agendar com cupom, renunciar).
  */
 
 import { useState } from "react";
@@ -31,7 +31,7 @@ import {
   isRefundFamilyCoupon,
   isServiceFamilyCoupon,
 } from "./helpers";
-import { renunciarCupom, vincularCuponsTeste } from "./actions";
+import { renunciarCupom } from "./actions";
 
 function CouponCode({ code, tone }: { code: string; tone: string }) {
   const toast = useToast();
@@ -55,16 +55,13 @@ function CouponCode({ code, tone }: { code: string; tone: string }) {
 
 export function CouponsSection({
   cupons,
-  showTestCouponTools,
   onChanged,
 }: {
   cupons: Cupom[];
-  showTestCouponTools: boolean;
   onChanged: () => Promise<void> | void;
 }) {
   const router = useRouter();
-  const { notifySuccess, notifyError, notify, ask } = useFeedback();
-  const [vinculando, setVinculando] = useState(false);
+  const { notifyError, ask } = useFeedback();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const planoDisp = cupons.filter((c) => c.status === "disponivel" && isPlanFamilyCoupon(c));
@@ -98,39 +95,6 @@ export function CouponsSection({
     }
   }
 
-  async function handleVincularTeste() {
-    setVinculando(true);
-    try {
-      const { data } = await vincularCuponsTeste();
-      if (data.success) {
-        await new Promise((r) => setTimeout(r, 400));
-        await onChanged();
-        setVinculando(false);
-        const qtd = (data.cuponsCount ?? 0) as number;
-        if (qtd > 0) {
-          notifySuccess(
-            data.message ?? "Cupons vinculados.",
-            'Se não aparecerem acima, clique em "Atualizar" no topo da página.'
-          );
-        } else {
-          notify(
-            data.message ??
-              "Vinculado. Se os cupons não aparecerem, clique em Atualizar ou recarregue a página (F5)."
-          );
-        }
-        return;
-      }
-      notifyError(
-        "Não foi possível vincular",
-        data.error || "Faça um pagamento de teste primeiro."
-      );
-    } catch {
-      notifyError("Erro ao vincular cupons de teste");
-    } finally {
-      setVinculando(false);
-    }
-  }
-
   return (
     <Section title="Cupons" icon="ticket">
       <Callout intent="info" title="Como funcionam os cupons">
@@ -149,29 +113,11 @@ export function CouponsSection({
       </Callout>
 
       {cupons.length === 0 ? (
-        <div className="space-y-3">
-          <EmptyState
-            icon="ticket"
-            title="Você não possui cupons"
-            description="Se o admin associou cupons ao seu e-mail, clique em Atualizar no topo da página ou recarregue (F5)."
-          />
-          {showTestCouponTools && (
-            <Callout intent="warning" title="Ferramentas de teste">
-              <p className="mb-2">
-                Pagou R$ 5 de teste (agendamento) e os cupons não aparecem aqui?
-              </p>
-              <Button
-                variant="secondary"
-                disabled={vinculando}
-                loading={vinculando}
-                onClick={handleVincularTeste}
-                className="!bg-amber-600 hover:!bg-amber-500 !text-white !border-transparent"
-              >
-                {vinculando ? "Vinculando..." : "Vincular cupons de teste à minha conta"}
-              </Button>
-            </Callout>
-          )}
-        </div>
+        <EmptyState
+          icon="ticket"
+          title="Você não possui cupons"
+          description="Se o admin associou cupons ao seu e-mail, clique em Atualizar no topo da página ou recarregue (F5)."
+        />
       ) : (
         <div className="space-y-6">
           {planoDisp.length > 0 && (

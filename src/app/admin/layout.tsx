@@ -26,7 +26,6 @@ const MENU = [
   { label: "Serviços Selecionados", href: "/admin/servicos-selecionados" },
   { label: "Serviços Gerais", href: "/admin/servicos" },
   { label: "Pagamentos", href: "/admin/pagamentos" },
-  { label: "Homologação", href: "/admin/homologacao" },
   { label: "Estatísticas", href: "/admin/estatisticas" },
   { label: "Engenharia", href: "/admin/engenharia" },
   { label: "Chats Pendentes", href: "/admin/chats-pendentes" },
@@ -126,7 +125,7 @@ export default function AdminLayout({
           </div>
 
           <nav
-            className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-thin"
+            className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-1.5"
             aria-label="Menu administrativo"
           >
             {MENU.map((item) => {
@@ -137,7 +136,7 @@ export default function AdminLayout({
                   key={item.href}
                   href={item.href}
                   className={cx(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition whitespace-nowrap flex-shrink-0 border",
+                    "rounded-lg px-2.5 py-2 text-[11px] sm:text-xs font-medium transition text-center leading-snug border",
                     ativo
                       ? "bg-red-600 text-white border-red-500 shadow-md shadow-red-900/20"
                       : "text-zinc-400 border-zinc-800 hover:text-zinc-100 hover:bg-zinc-900 hover:border-zinc-700"

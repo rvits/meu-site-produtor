@@ -3,14 +3,13 @@
 /**
  * Portal do Cliente — Área de Plano.
  * Mesmas ações e mensagens da página original: cancelar plano,
- * solicitar reembolso, excluir da lista, processar plano após pagamento.
+ * solicitar reembolso, excluir da lista.
  */
 
 import { useState } from "react";
 import {
   Badge,
   Button,
-  Callout,
   Card,
   EmptyState,
   Icon,
@@ -24,7 +23,6 @@ import type { Cupom, Plano } from "./types";
 import {
   cancelarPlano,
   excluirPlano,
-  processarPlanoAposPagamento,
   solicitarReembolsoPlano,
 } from "./actions";
 import { isPlanFamilyCoupon } from "./helpers";
@@ -39,28 +37,7 @@ export function PlanSection({
   onChanged: () => Promise<void> | void;
 }) {
   const { notifySuccess, notifyError, ask } = useFeedback();
-  const [processando, setProcessando] = useState(false);
-  const [erroProcessar, setErroProcessar] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  async function handleProcessarPlano() {
-    setErroProcessar(null);
-    setProcessando(true);
-    try {
-      const { ok, data } = await processarPlanoAposPagamento();
-      if (ok && data.success) {
-        await onChanged();
-      } else {
-        setErroProcessar(
-          data.message || data.error || "Nenhum pagamento de plano pendente para processar."
-        );
-      }
-    } catch (e: any) {
-      setErroProcessar(e.message || "Erro ao processar. Tente de novo.");
-    } finally {
-      setProcessando(false);
-    }
-  }
 
   async function handleCancelar(plano: Plano) {
     if (
@@ -146,34 +123,20 @@ export function PlanSection({
   return (
     <Section title="Plano" icon="box">
       {planos.length === 0 ? (
-        <div className="space-y-3">
-          <EmptyState
-            icon="box"
-            title="Você não possui planos"
-            description="Assine um plano na página Planos ou faça um pagamento teste."
-            action={
-              <a
-                href="/planos"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
-              >
-                <Icon name="sparkles" className="w-4 h-4" />
-                Conhecer os planos
-              </a>
-            }
-          />
-          <Callout intent="warning" title="Já pagou um plano (incl. plano teste) e não aparece aqui?">
-            <Button
-              variant="secondary"
-              disabled={processando}
-              loading={processando}
-              onClick={handleProcessarPlano}
-              className="!bg-amber-600 hover:!bg-amber-500 !text-white !border-transparent mt-1"
+        <EmptyState
+          icon="box"
+          title="Você não possui planos"
+          description="Assine um plano na página Planos ou faça um pagamento teste."
+          action={
+            <a
+              href="/planos"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors"
             >
-              {processando ? "Processando..." : "Gerar meu plano e cupons a partir do pagamento"}
-            </Button>
-            {erroProcessar && <p className="text-red-400 text-xs mt-2">{erroProcessar}</p>}
-          </Callout>
-        </div>
+              <Icon name="sparkles" className="w-4 h-4" />
+              Conhecer os planos
+            </a>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {planos.map((plano) => {

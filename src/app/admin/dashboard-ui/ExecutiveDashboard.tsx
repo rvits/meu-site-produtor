@@ -8,7 +8,6 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useFeedback } from "@/components/design-system";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import { Icons } from "@/app/admin/servicos-ui/meta";
 import { BoardSkeleton } from "@/app/admin/servicos-ui/States";
@@ -76,7 +75,6 @@ const MENU_ITEMS = [
   { id: "servicos-selecionados", title: "Serviços Selecionados", description: "Fila operacional por status", icon: "📋", href: "/admin/servicos-selecionados/todos", color: "from-pink-500/20 to-pink-600/20 border-pink-500/30", hoverColor: "hover:from-pink-500/30 hover:to-pink-600/30" },
   { id: "servicos", title: "Serviços Gerais", description: "Todos os serviços por status", icon: "✅", href: "/admin/servicos/todos", color: "from-green-500/20 to-green-600/20 border-green-500/30", hoverColor: "hover:from-green-500/30 hover:to-green-600/30" },
   { id: "pagamentos", title: "Pagamentos", description: "Transações e reembolsos", icon: "💰", href: "/admin/pagamentos", color: "from-emerald-500/20 to-emerald-600/20 border-emerald-500/30", hoverColor: "hover:from-emerald-500/30 hover:to-emerald-600/30" },
-  { id: "homologacao", title: "Homologação", description: "SimulationProvider — validar pipeline", icon: "🧪", href: "/admin/homologacao", color: "from-amber-500/20 to-amber-600/20 border-amber-500/30", hoverColor: "hover:from-amber-500/30 hover:to-amber-600/30" },
   { id: "estatisticas", title: "Estatísticas", description: "Estatísticas detalhadas do site", icon: "📊", href: "/admin/estatisticas", color: "from-indigo-500/20 to-indigo-600/20 border-indigo-500/30", hoverColor: "hover:from-indigo-500/30 hover:to-indigo-600/30" },
   { id: "engenharia", title: "Engenharia", description: "Dashboard Guardian e agentes", icon: "🔬", href: "/admin/engenharia", color: "from-violet-500/20 to-violet-600/20 border-violet-500/30", hoverColor: "hover:from-violet-500/30 hover:to-violet-600/30" },
   { id: "chats-pendentes", title: "Chats Pendentes", description: "Atendimento humano", icon: "⏳", href: "/admin/chats-pendentes", color: "from-orange-500/20 to-orange-600/20 border-orange-500/30", hoverColor: "hover:from-orange-500/30 hover:to-orange-600/30" },
@@ -95,7 +93,6 @@ function ExecutiveDashboardInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { notifySuccess, notifyError } = useFeedback();
 
   const periodKey = (searchParams.get("periodo") as PeriodKey) || "mes";
   const customFrom = searchParams.get("from") || "";
@@ -125,7 +122,6 @@ function ExecutiveDashboardInner() {
     [router, pathname, searchParams]
   );
 
-  const [reprocessando, setReprocessando] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
 
   useDomainRefresh("dashboard", () => setRefreshTick((t) => t + 1));
@@ -273,33 +269,7 @@ function ExecutiveDashboardInner() {
   const chartCancel = useMemo(() => cancellationsByDay(appointments, range), [appointments, range]);
   const chartRefund = useMemo(() => refundsByDay(payments, range), [payments, range]);
 
-  async function reprocessarPagamentoTeste() {
-    setReprocessando(true);
-    try {
-      const res = await fetch("/api/admin/reprocessar-pagamento-teste", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        const who = data.forUser
-          ? ` (usuário: ${data.forUser.email || data.forUser.nome || "—"})`
-          : "";
-        notifySuccess(
-          `Reprocessado: ${data.servicesCreated} serviço(s) e ${data.couponsCreated} cupom(ns) criados${who}.`,
-          data.hint || undefined
-        );
-        setRefreshTick((t) => t + 1);
-      } else {
-        notifyError(data.error || "Erro ao reprocessar. Faça um pagamento de teste primeiro.");
-      }
-    } catch {
-      notifyError("Erro ao reprocessar pagamento de teste.");
-    } finally {
-      setReprocessando(false);
-    }
-  }
-
   const cardsLoading = paymentsQ.status === "loading" || aptsQ.status === "loading" || servicesQ.status === "loading";
-  const cardsError =
-    paymentsQ.error || aptsQ.error || servicesQ.error || couponsQ.error || plansQ.error || null;
 
   return (
     <div className="space-y-8">
@@ -330,24 +300,6 @@ function ExecutiveDashboardInner() {
         onCustom={(f, t) => writePeriod("custom", f, t)}
       />
 
-      {/* Ação rápida: reprocessar teste */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-        <div>
-          <h3 className="font-semibold text-zinc-100">Pagamento de teste (R$ 5)</h3>
-          <p className="mt-1 text-sm text-zinc-400">
-            Se agendamento/serviços/cupons não aparecerem, reprocesse o último pagamento de teste.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={reprocessarPagamentoTeste}
-          disabled={reprocessando}
-          className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
-        >
-          {reprocessando ? "Reprocessando…" : "Reprocessar último pagamento de teste"}
-        </button>
-      </div>
-
       {/* Alertas */}
       {alerts.length > 0 && (
         <DashboardSection title="Alertas operacionais" subtitle="Somente o que exige atenção agora">
@@ -362,8 +314,8 @@ function ExecutiveDashboardInner() {
       {/* Cards executivos */}
       <DashboardSection title="Indicadores" subtitle={`Filtro ativo: ${range.label}`}>
         <DashboardWidget
-          loading={cardsLoading && !paymentsQ.data}
-          error={cardsError && !paymentsQ.data ? cardsError : null}
+          loading={cardsLoading && !paymentsQ.data && paymentsQ.status === "loading"}
+          error={null}
           onRetry={() => setRefreshTick((t) => t + 1)}
           minHeight="min-h-[200px]"
         >
@@ -541,7 +493,7 @@ function ExecutiveDashboardInner() {
       <DashboardSection title="Gráficos" subtitle="Dados agregados no cliente a partir das listas existentes">
         <DashboardWidget
           loading={paymentsQ.status === "loading" && !paymentsQ.data}
-          error={paymentsQ.error && !paymentsQ.data ? paymentsQ.error : null}
+          error={null}
           onRetry={paymentsQ.retry}
           minHeight="min-h-[220px]"
         >

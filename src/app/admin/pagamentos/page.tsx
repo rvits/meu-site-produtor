@@ -58,17 +58,14 @@ interface Payment {
   } | null;
 }
 
-type ReprocessTarget = { paymentId: string; kind: "agendamento" | "plano" };
-
 export default function AdminPagamentosPage() {
-  const { notifySuccess, notifyError, askDelete } = useFeedback();
+  const { notifyError, askDelete } = useFeedback();
   const [pagamentos, setPagamentos] = useState<Payment[]>([]);
   const [pagamentosFiltrados, setPagamentosFiltrados] = useState<Payment[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [pagamentoExpandido, setPagamentoExpandido] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
-  const [reprocessando, setReprocessando] = useState<ReprocessTarget | null>(null);
 
   useEffect(() => {
     carregarPagamentos();
@@ -167,40 +164,6 @@ export default function AdminPagamentosPage() {
     }
   }
 
-  async function reprocessarPagamento(paymentId: string, kind: "agendamento" | "plano") {
-    const endpoint =
-      kind === "agendamento"
-        ? "/api/admin/reprocessar-pagamento-teste"
-        : "/api/admin/reprocessar-pagamento-plano-teste";
-
-    setReprocessando({ paymentId, kind });
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        const detalhe =
-          kind === "agendamento"
-            ? `Agendamento: ${data.appointmentId ?? "—"} · Cupons: ${data.couponsCount ?? 0} · Serviços: ${data.servicesCreatedThisRun ?? 0}`
-            : `UserPlan: ${data.userPlanId ?? "—"} · Cupons: ${data.couponsCount ?? 0}`;
-        notifySuccess(
-          data.message || "Reprocessamento concluído.",
-          [detalhe, data.hint || ""].filter(Boolean).join(" · ")
-        );
-        await carregarPagamentos();
-      } else {
-        notifyError(data.error || "Erro ao reprocessar pagamento.");
-      }
-    } catch {
-      notifyError("Erro ao reprocessar pagamento.");
-    } finally {
-      setReprocessando(null);
-    }
-  }
-
   if (loading) {
     return <LoadingBlock label="Carregando pagamentos..." />;
   }
@@ -240,8 +203,6 @@ export default function AdminPagamentosPage() {
             const modoTransacao = p.modoTransacao ?? "real";
             const statusReembolso = p.statusReembolso ?? "nao_reembolsado";
             const labelReembolso = p.label ?? "Sem reembolso";
-            const reprocessandoEste =
-              reprocessando?.paymentId === p.id ? reprocessando.kind : null;
 
             return (
               <div
@@ -467,50 +428,6 @@ export default function AdminPagamentosPage() {
                         </div>
                       </div>
                     </div>
-
-                    {modoTransacao === "teste" && p.type === "agendamento" && p.status === "approved" && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                        <p className="text-sm text-zinc-300 mb-2">
-                          Pagamento simbólico de agendamento: reprocessar efeitos (cupons/serviços) via API
-                          administrativa.
-                        </p>
-                        <button
-                          type="button"
-                          disabled={reprocessandoEste === "agendamento"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            reprocessarPagamento(p.id, "agendamento");
-                          }}
-                          className="rounded-lg border border-amber-500/50 bg-amber-600/30 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-600/50 disabled:opacity-50"
-                        >
-                          {reprocessandoEste === "agendamento"
-                            ? "Reprocessando..."
-                            : "Reprocessar agendamento (teste)"}
-                        </button>
-                      </div>
-                    )}
-
-                    {modoTransacao === "teste" && p.type === "plano" && p.status === "approved" && (
-                      <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3">
-                        <p className="text-sm text-zinc-300 mb-2">
-                          Pagamento simbólico de plano: reprocessar efeitos (UserPlan/cupons) via API
-                          administrativa.
-                        </p>
-                        <button
-                          type="button"
-                          disabled={reprocessandoEste === "plano"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            reprocessarPagamento(p.id, "plano");
-                          }}
-                          className="rounded-lg border border-violet-500/50 bg-violet-600/30 px-4 py-2 text-sm font-medium text-violet-100 hover:bg-violet-600/50 disabled:opacity-50"
-                        >
-                          {reprocessandoEste === "plano"
-                            ? "Reprocessando..."
-                            : "Reprocessar plano (teste)"}
-                        </button>
-                      </div>
-                    )}
 
                     <div>
                       <h4 className="text-sm font-semibold text-red-400 mb-2">Informações do Cliente</h4>

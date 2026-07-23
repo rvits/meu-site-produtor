@@ -33,20 +33,6 @@ export async function excluirPlano(userPlanId: string): Promise<ActionResult> {
   return { ok: res.ok, data };
 }
 
-export function processarPlanoAposPagamento(): Promise<ActionResult> {
-  return fetch("/api/pagamentos/processar-plano-apos-pagamento", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  }).then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }));
-}
-
-export function vincularCuponsTeste(): Promise<ActionResult> {
-  return fetch("/api/meus-dados/vincular-cupons-teste", { method: "POST" }).then(
-    async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) })
-  );
-}
-
 export function renunciarCupom(couponId: string): Promise<ActionResult> {
   return post("/api/cupons/renunciar", { couponId });
 }

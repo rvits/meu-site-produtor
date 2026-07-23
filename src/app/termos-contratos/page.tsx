@@ -497,7 +497,7 @@ export default function TermosContratosPage() {
   };
 
   return (
-    <main className="relative mx-auto max-w-5xl px-4 py-6 text-zinc-100 overflow-x-hidden">
+    <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-10 text-zinc-100 overflow-x-hidden">
       {/* Imagem de fundo da página Termos */}
       <div
         className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
@@ -509,20 +509,20 @@ export default function TermosContratosPage() {
         aria-hidden
       />
       {/* Overlay preto bem leve para facilitar a leitura */}
-      <div className="fixed inset-0 z-0 bg-black/25 pointer-events-none" aria-hidden />
-      <div className="relative z-10 space-y-6">
+      <div className="fixed inset-0 z-0 bg-black/35 pointer-events-none" aria-hidden />
+      <div className="relative z-10 space-y-8">
       {/* TÍTULO GERAL */}
       <PageHeader
-        className="justify-center text-center"
+        className="justify-center text-center max-w-3xl mx-auto"
         title="Termos de Contrato"
         subtitle="Nesta página você encontra todos os documentos legais que regem o uso da plataforma THouse Rec, as sessões de estúdio, os planos mensais, pagamentos, direitos autorais, uso de imagem, conduta no estúdio e armazenamento de arquivos."
       />
 
-      {/* BOTÕES DE DOCUMENTOS - Mobile: 1 por linha, ordenados do maior pro menor; Desktop: wrap como antes */}
-      <Section>
-        <div className="flex flex-col md:flex-row md:flex-wrap gap-2 justify-center items-stretch md:items-center">
+      {/* BOTÕES DE DOCUMENTOS — grid responsivo, todos visíveis sem scroll horizontal */}
+      <Section className="px-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-w-3xl mx-auto">
           {[...DOCS]
-            .sort((a, b) => b.title.length - a.title.length)
+            .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"))
             .map((doc) => {
             const isActive = activeDoc === doc.key;
             return (
@@ -532,7 +532,7 @@ export default function TermosContratosPage() {
                 variant={isActive ? "primary" : "secondary"}
                 size="sm"
                 onClick={() => handleDocClick(doc.key)}
-                className="w-full md:w-auto md:whitespace-nowrap"
+                className="w-full justify-center text-center whitespace-normal leading-snug min-h-[2.75rem]"
               >
                 {doc.title}
               </Button>
@@ -542,15 +542,15 @@ export default function TermosContratosPage() {
       </Section>
 
       {/* TEXTO DO DOCUMENTO SELECIONADO */}
-      <Section>
-        <div className="w-full max-w-5xl mx-auto">
-          <Card id={`doc-${activeDoc}`} className="border-red-500 p-4 md:p-6">
-          <h2 className="mb-4 text-base md:text-lg font-semibold text-center text-zinc-100">
+      <Section className="px-0">
+        <div className="w-full max-w-3xl mx-auto">
+          <Card id={`doc-${activeDoc}`} className="border-red-500/70 bg-black/55 backdrop-blur-md p-5 sm:p-8">
+          <h2 className="mb-6 text-lg md:text-xl font-semibold text-center text-zinc-100 tracking-tight">
             {DOCS.find((d) => d.key === activeDoc)?.title ||
               "Documento selecionado"}
           </h2>
 
-          <div className="chat-scroll max-h-[60vh] space-y-3 overflow-y-auto pr-2 text-xs md:text-sm leading-relaxed text-zinc-200">
+          <div className="space-y-3.5 text-sm md:text-[0.95rem] leading-relaxed text-zinc-200 text-left sm:text-justify">
             {/* 👉 TERMOS DE USO */}
             {activeDoc === "termos" && (
               <>
@@ -1817,18 +1817,18 @@ export default function TermosContratosPage() {
           </div>
 
           {/* RODAPÉ DA CAIXA */}
-          <div className="mt-4 space-y-2 text-xs text-zinc-500">
-            <p className="text-center">
+          <div className="mt-8 pt-6 border-t border-zinc-700/80 space-y-4 text-xs text-zinc-500">
+            <p className="text-center leading-relaxed">
               Você pode salvar este termo em PDF ou imprimir diretamente pelo
               navegador.
             </p>
 
-            <div className="flex items-center justify-between gap-3">
-              <Button type="button" variant="outline" size="xs" onClick={handleGeneratePDF}>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button type="button" variant="outline" size="sm" onClick={handleGeneratePDF}>
                 Gerar PDF deste termo
               </Button>
 
-              <Button type="button" variant="outline" size="xs" onClick={handlePrint}>
+              <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
                 Imprimir
               </Button>
             </div>

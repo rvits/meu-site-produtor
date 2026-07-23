@@ -175,11 +175,11 @@ export default function AdminEstatisticasPage() {
     return <LoadingBlock label="Carregando estatísticas..." />;
   }
 
-  if (erro || !stats) {
+  if (erro) {
     return (
       <ErrorState
         title="Erro ao carregar estatísticas"
-        description={erro || "Dados não disponíveis."}
+        description={erro}
         onRetry={() => {
           setErro(null);
           setLoading(true);
@@ -190,12 +190,45 @@ export default function AdminEstatisticasPage() {
     );
   }
 
+  const safeStats = stats ?? {
+    usuarios: { total: 0, comConta: 0, semConta: 0, porcentagemComConta: 0 },
+    pagamentos: { total: 0, porUsuarios: 0, porNaoUsuarios: 0, valorTotal: 0 },
+    planos: { total: 0, ativos: 0, inativos: 0 },
+    agendamentos: {
+      total: 0,
+      totalAtivos: 0,
+      totalCancelados: 0,
+      hoje: 0,
+      hojeCancelados: 0,
+      estaSemana: 0,
+      estaSemanaCancelados: 0,
+      esteMes: 0,
+      esteMesCancelados: 0,
+    },
+    servicos: {
+      total: 0,
+      pendentes: 0,
+      aceitos: 0,
+      emAndamento: 0,
+      concluidos: 0,
+      cancelados: 0,
+      recusados: 0,
+    },
+    usoDiario: [] as { data: string; usuarios: number }[],
+  };
+
+  const isEmptyPlatform =
+    safeStats.usuarios.total === 0 &&
+    safeStats.pagamentos.total === 0 &&
+    safeStats.agendamentos.total === 0 &&
+    safeStats.servicos.total === 0;
+
   const servicosComFallback = {
-    ...stats.servicos,
-    emAndamento: stats.servicos.emAndamento ?? 0,
-    concluidos: stats.servicos.concluidos ?? 0,
-    cancelados: stats.servicos.cancelados ?? 0,
-    recusados: stats.servicos.recusados ?? 0,
+    ...safeStats.servicos,
+    emAndamento: safeStats.servicos.emAndamento ?? 0,
+    concluidos: safeStats.servicos.concluidos ?? 0,
+    cancelados: safeStats.servicos.cancelados ?? 0,
+    recusados: safeStats.servicos.recusados ?? 0,
   };
 
   return (
@@ -205,6 +238,13 @@ export default function AdminEstatisticasPage() {
         subtitle="Visão geral completa do uso da plataforma"
         icon="star"
       />
+
+      {isEmptyPlatform && (
+        <Callout intent="info" title="Nenhum dado operacional ainda">
+          Indicadores e gráficos aparecerão automaticamente assim que houver
+          usuários, pagamentos, agendamentos ou serviços na plataforma.
+        </Callout>
+      )}
 
       {/* Usuários */}
       <Card className="!p-6">
@@ -216,19 +256,21 @@ export default function AdminEstatisticasPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-red-400">{stats.usuarios.total}</div>
+            <div className="text-3xl font-bold text-red-400">{safeStats.usuarios.total}</div>
             <div className="text-sm text-zinc-400 mt-1">Total de Usuários</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-green-400">{stats.usuarios.comConta}</div>
+            <div className="text-3xl font-bold text-green-400">{safeStats.usuarios.comConta}</div>
             <div className="text-sm text-zinc-400 mt-1">Com Conta</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-yellow-400">{stats.usuarios.semConta}</div>
+            <div className="text-3xl font-bold text-yellow-400">{safeStats.usuarios.semConta}</div>
             <div className="text-sm text-zinc-400 mt-1">Sem Conta</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-blue-400">{stats.usuarios.porcentagemComConta.toFixed(1)}%</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {(safeStats.usuarios.porcentagemComConta ?? 0).toFixed(1)}%
+            </div>
             <div className="text-sm text-zinc-400 mt-1">% com Conta</div>
           </div>
         </div>
@@ -324,19 +366,19 @@ export default function AdminEstatisticasPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-red-400">{stats.pagamentos.total}</div>
+            <div className="text-3xl font-bold text-red-400">{safeStats.pagamentos.total}</div>
             <div className="text-sm text-zinc-400 mt-1">Total de Pagamentos</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-green-400">{stats.pagamentos.porUsuarios}</div>
+            <div className="text-3xl font-bold text-green-400">{safeStats.pagamentos.porUsuarios}</div>
             <div className="text-sm text-zinc-400 mt-1">Por Usuários</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-yellow-400">{stats.pagamentos.porNaoUsuarios}</div>
+            <div className="text-3xl font-bold text-yellow-400">{safeStats.pagamentos.porNaoUsuarios}</div>
             <div className="text-sm text-zinc-400 mt-1">Por Não Usuários</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-blue-400">R$ {stats.pagamentos.valorTotal.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-blue-400">R$ {safeStats.pagamentos.valorTotal.toFixed(2)}</div>
             <div className="text-sm text-zinc-400 mt-1">Valor Total</div>
           </div>
         </div>
@@ -405,15 +447,15 @@ export default function AdminEstatisticasPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-red-400">{stats.planos.total}</div>
+            <div className="text-3xl font-bold text-red-400">{safeStats.planos.total}</div>
             <div className="text-sm text-zinc-400 mt-1">Total de Planos</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-green-400">{stats.planos.ativos}</div>
+            <div className="text-3xl font-bold text-green-400">{safeStats.planos.ativos}</div>
             <div className="text-sm text-zinc-400 mt-1">Planos Ativos</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-yellow-400">{stats.planos.inativos}</div>
+            <div className="text-3xl font-bold text-yellow-400">{safeStats.planos.inativos}</div>
             <div className="text-sm text-zinc-400 mt-1">Planos Inativos</div>
           </div>
         </div>
@@ -474,26 +516,26 @@ export default function AdminEstatisticasPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-3xl font-bold text-red-400">{stats.agendamentos.total}</div>
+            <div className="text-3xl font-bold text-red-400">{safeStats.agendamentos.total}</div>
             <div className="text-sm text-zinc-400 mt-1">Total</div>
             <div className="text-xs text-zinc-500 mt-2 flex gap-2">
-              <span className="text-green-400">{stats.agendamentos.totalAtivos} ativos</span>
-              <span className="text-orange-400">{stats.agendamentos.totalCancelados} cancelados</span>
+              <span className="text-green-400">{safeStats.agendamentos.totalAtivos} ativos</span>
+              <span className="text-orange-400">{safeStats.agendamentos.totalCancelados} cancelados</span>
             </div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-green-400">{stats.agendamentos.hoje}</div>
-            <div className="text-xs text-orange-400 font-medium">{stats.agendamentos.hojeCancelados} cancelados</div>
+            <div className="text-2xl font-bold text-green-400">{safeStats.agendamentos.hoje}</div>
+            <div className="text-xs text-orange-400 font-medium">{safeStats.agendamentos.hojeCancelados} cancelados</div>
             <div className="text-sm text-zinc-400 mt-1">Hoje</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-400">{stats.agendamentos.estaSemana}</div>
-            <div className="text-xs text-orange-400 font-medium">{stats.agendamentos.estaSemanaCancelados} cancelados</div>
+            <div className="text-2xl font-bold text-blue-400">{safeStats.agendamentos.estaSemana}</div>
+            <div className="text-xs text-orange-400 font-medium">{safeStats.agendamentos.estaSemanaCancelados} cancelados</div>
             <div className="text-sm text-zinc-400 mt-1">Esta Semana</div>
           </div>
           <div className="bg-zinc-900/50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-yellow-400">{stats.agendamentos.esteMes}</div>
-            <div className="text-xs text-orange-400 font-medium">{stats.agendamentos.esteMesCancelados} cancelados</div>
+            <div className="text-2xl font-bold text-yellow-400">{safeStats.agendamentos.esteMes}</div>
+            <div className="text-xs text-orange-400 font-medium">{safeStats.agendamentos.esteMesCancelados} cancelados</div>
             <div className="text-sm text-zinc-400 mt-1">Este Mês</div>
           </div>
         </div>

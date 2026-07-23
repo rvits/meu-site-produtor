@@ -55,14 +55,8 @@ export default function AdminPlanosPage() {
   const [buscaCupons, setBuscaCupons] = useState("");
   const [abaAtiva, setAbaAtiva] = useState<"planos" | "cupons">("planos");
   const [loading, setLoading] = useState(true);
-  const [excluindo, setExcluindo] = useState(false);
   const [excluindoCupomId, setExcluindoCupomId] = useState<string | null>(null);
   const [adicionandoAContaAppointmentId, setAdicionandoAContaAppointmentId] = useState<number | null>(null);
-  const [selectedCouponIds, setSelectedCouponIds] = useState<string[]>([]);
-  const [modalAssociarOpen, setModalAssociarOpen] = useState(false);
-  const [associarEmail, setAssociarEmail] = useState("");
-  const [associando, setAssociando] = useState(false);
-  const [associarError, setAssociarError] = useState("");
 
   useEffect(() => {
     carregarPlanos();
@@ -131,50 +125,6 @@ export default function AdminPlanosPage() {
       }
     } catch (err) {
       console.error("Erro ao carregar cupons", err);
-    }
-  }
-
-  async function corrigirCuponsAntigos() {
-    try {
-      const res = await fetch("/api/admin/cupons/corrigir-antigos", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        notifySuccess(data.message);
-        carregarCupons(); // Recarregar cupons após correção
-      } else {
-        const error = await res.json();
-        notifyError(`Erro: ${error.error || "Erro ao corrigir cupons"}`);
-      }
-    } catch (err) {
-      console.error("Erro ao corrigir cupons", err);
-      notifyError("Erro ao corrigir cupons");
-    }
-  }
-
-  async function excluirCanceladosEInativos() {
-    if (
-      !(await askDelete(
-        "Excluir planos cancelados e cupons inativos?",
-        "Exclui permanentemente do banco de dados todos os planos cancelados e os cupons inativos (vinculados a esses planos). Esta ação não pode ser desfeita."
-      ))
-    )
-      return;
-    try {
-      setExcluindo(true);
-      const res = await fetch("/api/admin/planos/excluir-cancelados", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        notifySuccess(data.message || "Excluído com sucesso.");
-        await carregarPlanos();
-        await carregarCupons();
-      } else {
-        notifyError(data.error || "Erro ao excluir.");
-      }
-    } catch (err) {
-      console.error(err);
-      notifyError("Erro ao excluir.");
-    } finally {
-      setExcluindo(false);
     }
   }
 
@@ -283,19 +233,9 @@ export default function AdminPlanosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-100 mb-2">Planos e Cupons</h1>
-          <p className="text-zinc-400">Gerenciar planos assinados e cupons gerados</p>
-        </div>
-        <button
-          onClick={excluirCanceladosEInativos}
-          disabled={excluindo}
-          className="px-4 py-2 bg-red-900/50 border border-red-600 text-red-300 hover:bg-red-900/70 rounded-lg text-sm font-semibold transition disabled:opacity-50"
-          title="Remove do banco de dados planos com status cancelado e cupons vinculados a eles (inativos)"
-        >
-          {excluindo ? "Excluindo..." : "Excluir planos cancelados e cupons inativos do BD"}
-        </button>
+      <div>
+        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Planos e Cupons</h1>
+        <p className="text-zinc-400">Gerenciar planos assinados e cupons gerados</p>
       </div>
 
       {/* Tabs */}
@@ -433,109 +373,21 @@ export default function AdminPlanosPage() {
       {/* Conteúdo da Aba Cupons */}
       {abaAtiva === "cupons" && (
         <>
-          {/* Input de Busca Cupons, Associar ao usuário e Corrigir */}
+          {/* Input de Busca Cupons */}
           <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
-            <div className="flex flex-wrap gap-3 items-center">
-              <input
-                type="text"
-                value={buscaCupons}
-                onChange={(e) => setBuscaCupons(e.target.value)}
-                placeholder="Buscar por nome, email ou código do cupom..."
-                className="flex-1 min-w-[200px] rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
-              />
-              <button
-                onClick={() => setModalAssociarOpen(true)}
-                disabled={selectedCouponIds.length === 0}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title={selectedCouponIds.length === 0 ? "Selecione cupons na tabela" : "Associar cupons selecionados à Minha Conta de um usuário"}
-              >
-                ➕ Associar seleção à Minha Conta ({selectedCouponIds.length})
-              </button>
-              <button
-                onClick={() => {
-                  const naoAssociados = cuponsFiltrados.filter((c) => c.user.email === "N/A").map((c) => c.id);
-                  setSelectedCouponIds(naoAssociados);
-                }}
-                className="rounded-lg bg-amber-600/80 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
-                title="Selecionar cupons que ainda não têm usuário associado"
-              >
-                Selecionar não associados
-              </button>
-              <button
-                onClick={corrigirCuponsAntigos}
-                className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-700 transition-colors"
-              >
-                🔧 Corrigir Cupons Antigos
-              </button>
-            </div>
+            <input
+              type="text"
+              value={buscaCupons}
+              onChange={(e) => setBuscaCupons(e.target.value)}
+              placeholder="Buscar por nome, email ou código do cupom..."
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-red-500 focus:outline-none"
+            />
             {buscaCupons && (
               <p className="text-sm text-zinc-400">
                 {cuponsFiltrados.length} cupom(ns) encontrado(s)
               </p>
             )}
           </div>
-
-          {/* Modal: Associar cupons ao usuário (e-mail) */}
-          {modalAssociarOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-              <div className="rounded-xl border border-zinc-600 bg-zinc-900 p-6 w-full max-w-md shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-100 mb-2">Associar cupons à Minha Conta</h3>
-                <p className="text-sm text-zinc-400 mb-4">
-                  {selectedCouponIds.length} cupom(ns) selecionado(s). Informe o e-mail do usuário que comprou para que os cupons apareçam na Minha Conta dele.
-                </p>
-                <input
-                  type="email"
-                  value={associarEmail}
-                  onChange={(e) => { setAssociarEmail(e.target.value); setAssociarError(""); }}
-                  placeholder="E-mail do usuário"
-                  className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none mb-3"
-                />
-                {associarError && <p className="text-sm text-red-400 mb-2">{associarError}</p>}
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => { setModalAssociarOpen(false); setAssociarEmail(""); setAssociarError(""); }}
-                    className="rounded-lg border border-zinc-600 px-4 py-2 text-zinc-300 hover:bg-zinc-800 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={associando || !associarEmail.trim()}
-                    onClick={async () => {
-                      if (!associarEmail.trim()) return;
-                      setAssociando(true);
-                      setAssociarError("");
-                      try {
-                        const res = await fetch("/api/admin/cupons/associar-usuario", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ userEmail: associarEmail.trim(), couponIds: selectedCouponIds }),
-                        });
-                        const data = await res.json();
-                        if (res.ok) {
-                          setModalAssociarOpen(false);
-                          setAssociarEmail("");
-                          setSelectedCouponIds([]);
-                          await carregarCupons();
-                          notifySuccess(data.message || "Cupons associados.");
-                        } else {
-                          setAssociarError(data.error || "Erro ao associar.");
-                        }
-                      } catch (e) {
-                        setAssociarError("Erro de conexão.");
-                      } finally {
-                        setAssociando(false);
-                      }
-                    }}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {associando ? "Associando…" : "Associar"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {cuponsFiltrados.length === 0 ? (
             <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6 text-center text-zinc-400">
@@ -546,18 +398,6 @@ export default function AdminPlanosPage() {
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900 text-zinc-300">
                   <tr>
-                    <th className="px-2 py-3 text-left w-10">
-                      <input
-                        type="checkbox"
-                        checked={cuponsFiltrados.length > 0 && cuponsFiltrados.every((c) => selectedCouponIds.includes(c.id))}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedCouponIds(cuponsFiltrados.map((c) => c.id));
-                          else setSelectedCouponIds([]);
-                        }}
-                        title="Selecionar todos"
-                        className="rounded border-zinc-500"
-                      />
-                    </th>
                     <th className="px-4 py-3 text-left">Usuário</th>
                     <th className="px-4 py-3 text-left">Código</th>
                     <th className="px-4 py-3 text-left">Tipo</th>
@@ -573,17 +413,6 @@ export default function AdminPlanosPage() {
                 <tbody className="divide-y divide-zinc-700">
                   {cuponsFiltrados.map((c) => (
                     <tr key={c.id}>
-                      <td className="px-2 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedCouponIds.includes(c.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedCouponIds((ids) => [...ids, c.id]);
-                            else setSelectedCouponIds((ids) => ids.filter((id) => id !== c.id));
-                          }}
-                          className="rounded border-zinc-500"
-                        />
-                      </td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-zinc-100">{c.user.nomeArtistico}</div>
                         <div className="text-xs text-zinc-400">{c.user.email}</div>

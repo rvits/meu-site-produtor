@@ -35,6 +35,10 @@ export async function POST(req: Request) {
       pais,
       cidade,
       bairro,
+      estado,
+      estilosMusicais,
+      nacionalidade,
+      foto,
     } = validation.data;
 
     const userData = await prisma.user.findUnique({
@@ -109,6 +113,10 @@ export async function POST(req: Request) {
     if (pais !== undefined) updateData.pais = pais;
     if (cidade !== undefined) updateData.cidade = cidade;
     if (bairro !== undefined) updateData.bairro = bairro;
+    if (estado !== undefined) updateData.estado = estado;
+    if (estilosMusicais !== undefined) updateData.estilosMusicais = estilosMusicais || null;
+    if (nacionalidade !== undefined) updateData.nacionalidade = nacionalidade || null;
+    if (foto !== undefined) updateData.foto = foto && String(foto).trim() ? String(foto).trim() : null;
     if (dataNascimento) {
       updateData.dataNascimento = new Date(dataNascimento);
     }

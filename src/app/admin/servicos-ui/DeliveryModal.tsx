@@ -58,7 +58,63 @@ export function DeliveryModal({
       }
       setUploading(true);
       setProgress(0);
+      setUploaded(null);
+
+      const finish = (url: string) => {
+        setUploaded({
+          url,
+          formato: (ext === "mp3" ? "mp3" : ext === "zip" ? "zip" : "wav") as Formato,
+          fileName: file.name,
+          size: file.size,
+          mime: file.type || (ext === "zip" ? "application/zip" : `audio/${ext}`),
+        });
+        setProgress(100);
+      };
+
+      /** Multipart com XHR: progresso real (ideal até ~4MB no limite de body Vercel). */
+      const uploadMultipart = () =>
+        new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/admin/servicos/upload-entrega");
+          xhr.withCredentials = true;
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable && ev.total > 0) {
+              setProgress(Math.min(99, Math.round((ev.loaded / ev.total) * 100)));
+            } else if (ev.loaded > 0) {
+              setProgress((p) => Math.min(90, Math.max(p, 15)));
+            }
+          };
+          xhr.onload = () => {
+            try {
+              const data = JSON.parse(xhr.responseText || "{}");
+              if (xhr.status >= 200 && xhr.status < 300 && data.deliveryAudioUrl) {
+                resolve(String(data.deliveryAudioUrl));
+              } else {
+                reject(new Error(data.error || `Falha no upload (${xhr.status})`));
+              }
+            } catch {
+              reject(new Error(`Falha no upload (${xhr.status})`));
+            }
+          };
+          xhr.onerror = () => reject(new Error("Falha de rede no upload."));
+          xhr.ontimeout = () => reject(new Error("Tempo esgotado no upload."));
+          xhr.timeout = 10 * 60 * 1000;
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("serviceId", service.id);
+          xhr.send(fd);
+        });
+
       try {
+        // Até 4MB: multipart com progresso confiável. Acima: Blob client (evita 413).
+        const VERCEL_BODY_SAFE = 4 * 1024 * 1024;
+        if (file.size <= VERCEL_BODY_SAFE) {
+          const url = await uploadMultipart();
+          finish(url);
+          return;
+        }
+
+        setProgress(5);
         const safeBase = file.name
           .replace(/\.[^.]+$/, "")
           .replace(/[^a-zA-Z0-9._-]+/g, "_")
@@ -69,15 +125,18 @@ export function DeliveryModal({
           access: "public",
           handleUploadUrl: "/api/admin/servicos/upload-entrega",
           clientPayload: service.id,
-          onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+          multipart: true,
+          onUploadProgress: ({ loaded, total, percentage }) => {
+            if (typeof percentage === "number" && Number.isFinite(percentage)) {
+              setProgress(Math.max(5, Math.min(99, Math.round(percentage))));
+            } else if (total && total > 0) {
+              setProgress(Math.max(5, Math.min(99, Math.round((loaded / total) * 100))));
+            } else if (loaded > 0) {
+              setProgress((p) => Math.min(90, Math.max(p, 20)));
+            }
+          },
         });
-        setUploaded({
-          url: blob.url,
-          formato: (ext === "mp3" ? "mp3" : ext === "zip" ? "zip" : "wav") as Formato,
-          fileName: file.name,
-          size: file.size,
-          mime: file.type || (ext === "zip" ? "application/zip" : `audio/${ext}`),
-        });
+        finish(blob.url);
       } catch (e) {
         const msg = e instanceof Error && e.message ? e.message : "Falha no upload.";
         setError(msg.includes("Formato não permitido") ? msg : `Falha no upload. ${msg}`);

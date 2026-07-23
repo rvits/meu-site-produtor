@@ -7,7 +7,7 @@
  * alteração de e-mail/senha continua exigindo senha atual no backend).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Avatar,
   Button,
@@ -57,6 +57,10 @@ export function ProfileSection() {
   const [senha, setSenha] = useState("");
   const [senhaAtual, setSenhaAtual] = useState("");
   const [emailOriginal, setEmailOriginal] = useState("");
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [dragFoto, setDragFoto] = useState(false);
+  const [showUrlAvancado, setShowUrlAvancado] = useState(false);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void carregar();
@@ -75,8 +79,8 @@ export function ProfileSection() {
       if (!data || !data.id) throw new Error("Dados da conta incompletos");
       setForm(data);
       setEmailOriginal(data.email);
-    } catch (e: any) {
-      setErro(e.message || "Erro ao carregar dados da conta");
+    } catch (e: unknown) {
+      setErro(e instanceof Error ? e.message : "Erro ao carregar dados da conta");
     } finally {
       setLoading(false);
     }
@@ -90,6 +94,40 @@ export function ProfileSection() {
       }
       return { ...prev, [campo]: valor as ContaData[K] };
     });
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!form) return;
+    const okType = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+    if (!okType) {
+      toast.error("Formato inválido", "Use JPG, PNG ou WEBP.");
+      return;
+    }
+    if (file.size <= 0 || file.size > 2 * 1024 * 1024) {
+      toast.error("Arquivo inválido", "Máximo 2MB.");
+      return;
+    }
+    setUploadingFoto(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const r = await fetch("/api/conta/avatar", {
+        method: "POST",
+        body,
+        credentials: "include",
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast.error("Upload falhou", data.error || "Não foi possível enviar a imagem.");
+        return;
+      }
+      setCampo("foto", data.foto || null);
+      toast.success("Avatar atualizado", "Sua foto de perfil foi salva.");
+    } catch {
+      toast.error("Upload falhou", "Erro de conexão ao enviar a imagem.");
+    } finally {
+      setUploadingFoto(false);
+    }
   }
 
   async function salvar() {
@@ -131,18 +169,67 @@ export function ProfileSection() {
         {/* Cabeçalho com avatar */}
         <Card className="flex flex-col sm:flex-row items-center gap-4">
           <Avatar name={form.nomeArtistico} src={form.foto} size="xl" />
-          <div className="flex-1 text-center sm:text-left">
-            <p className="text-lg font-bold text-zinc-100">{form.nomeArtistico}</p>
-            <p className="text-sm text-zinc-500">{form.email}</p>
-          </div>
-          <div className="w-full sm:w-72">
-            <Field label="URL da foto (avatar)">
-              <Input
-                value={form.foto ?? ""}
-                onChange={(e) => setCampo("foto", e.target.value)}
-                placeholder="https://..."
+          <div className="flex-1 text-center sm:text-left space-y-3 w-full">
+            <div>
+              <p className="text-lg font-bold text-zinc-100">{form.nomeArtistico}</p>
+              <p className="text-sm text-zinc-500">{form.email}</p>
+            </div>
+            <div
+              className={`rounded-xl border border-dashed px-4 py-3 transition-colors ${
+                dragFoto ? "border-red-500/60 bg-red-500/5" : "border-zinc-700 bg-zinc-900/40"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragFoto(true);
+              }}
+              onDragLeave={() => setDragFoto(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragFoto(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file && !uploadingFoto) void uploadAvatar(file);
+              }}
+            >
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  loading={uploadingFoto}
+                  onClick={() => fotoInputRef.current?.click()}
+                >
+                  {uploadingFoto ? "Enviando…" : "Selecionar imagem"}
+                </Button>
+                <span className="text-[11px] text-zinc-500">JPG, PNG ou WEBP · até 2MB · ou arraste aqui</span>
+              </div>
+              <input
+                ref={fotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadAvatar(file);
+                  e.target.value = "";
+                }}
               />
-            </Field>
+            </div>
+            <button
+              type="button"
+              className="text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+              onClick={() => setShowUrlAvancado((v) => !v)}
+            >
+              {showUrlAvancado ? "Ocultar URL avançada" : "Usar URL avançada"}
+            </button>
+            {showUrlAvancado && (
+              <Field label="URL da foto (avançado)">
+                <Input
+                  value={form.foto ?? ""}
+                  onChange={(e) => setCampo("foto", e.target.value)}
+                  placeholder="https://... ou /uploads/avatars/..."
+                />
+              </Field>
+            )}
           </div>
         </Card>
 
