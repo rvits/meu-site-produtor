@@ -44,6 +44,22 @@ body {
   padding-top: var(--header-h); /* Espaço para o header fixo (compacto) */
 }
 
+/* Admin / manutenção: sem Header do site → sem padding reservado nem textura do body.
+   `body:has([data-admin-shell])` cobre o SSR do AdminLayout; `.admin-shell` cobre /manutencao. */
+html.admin-shell,
+html:has([data-admin-shell]),
+body.admin-shell,
+body:has([data-admin-shell]) {
+  background-color: #09090b; /* zinc-950 */
+  background-image: none;
+  background-attachment: scroll;
+}
+
+body.admin-shell,
+body:has([data-admin-shell]) {
+  padding-top: 0;
+}
+
 /* =========================
    LINKS
 ========================= */

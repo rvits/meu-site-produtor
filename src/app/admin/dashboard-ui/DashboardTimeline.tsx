@@ -54,7 +54,7 @@ export function buildTimeline(input: {
       id: `apt-${a.id}`,
       at: a.createdAt,
       title: a.status === "cancelado" ? "Cancelamento" : "Agendamento",
-      subtitle: `${a.user.nomeArtistico} · ${serviceTypeLabel(a.tipo)} · #${a.id}`,
+      subtitle: `${a.user?.nomeArtistico || "Cliente"} · ${serviceTypeLabel(a.tipo)} · #${a.id}`,
       status: a.status,
       href: `/admin/agendamentos/todos?highlight=${a.id}`,
       kind: a.status === "cancelado" ? "cancel" : "appointment",
@@ -151,7 +151,7 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
   weekEnd.setHours(23, 59, 59, 999);
 
   const active = appointments.filter(
-    (a) => a.status !== "cancelado" && a.status !== "recusado"
+    (a) => a.status !== "cancelado" && a.status !== "recusado" && a.user?.nomeArtistico
   );
 
   const today = active.filter((a) => {
@@ -166,6 +166,15 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
     const t = new Date(a.data).getTime();
     return t >= todayStart.getTime() && t <= weekEnd.getTime();
   });
+
+  if (active.length === 0 || (today.length === 0 && tomorrow.length === 0 && week.length === 0)) {
+    return (
+      <div className="flex min-h-[140px] flex-col items-center justify-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center">
+        <p className="text-sm font-medium text-zinc-300">Nenhum agendamento operacional encontrado.</p>
+        <p className="text-xs text-zinc-500">Quando houver agenda para hoje, amanhã ou esta semana, ela aparece aqui.</p>
+      </div>
+    );
+  }
 
   const columns = [
     { title: "Hoje", date: dayLabel(todayStart), items: today, href: "/admin/agendamentos/todos" },
@@ -196,7 +205,7 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
                     href={`/admin/agendamentos/todos?highlight=${a.id}`}
                     className="block rounded-lg border border-zinc-800 bg-zinc-800/40 px-2.5 py-2 transition-colors hover:border-zinc-600"
                   >
-                    <p className="truncate text-xs font-medium text-zinc-200">{a.user.nomeArtistico}</p>
+                    <p className="truncate text-xs font-medium text-zinc-200">{a.user?.nomeArtistico}</p>
                     <p className="truncate text-[11px] text-zinc-500">
                       {serviceTypeLabel(a.tipo)} ·{" "}
                       {new Date(a.data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}

@@ -51,113 +51,143 @@ export async function GET() {
       },
     });
 
-    // Buscar todos os pagamentos de agendamento aprovados (para associar inclusive carrinho com appointmentIds)
-    const pagamentosAgendamento = await prisma.payment.findMany({
-      where: {
-        type: "agendamento",
-        status: "approved",
-        OR: [
-          { asaasId: { not: null } },
-          { providerPaymentId: { not: null } },
-          { mercadopagoId: { not: null } },
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    function pagamentoLigaAoAgendamento(
-      p: (typeof pagamentosAgendamento)[0],
-      aptId: number
-    ): boolean {
-      if (p.appointmentId === aptId) return true;
-      if (p.appointmentIds == null) return false;
-      const ids = Array.isArray(p.appointmentIds)
-        ? p.appointmentIds
-        : typeof p.appointmentIds === "string"
-          ? JSON.parse(p.appointmentIds)
-          : [];
-      return Array.isArray(ids) && ids.includes(aptId);
+    // Lista vazia é sucesso — não é erro técnico
+    if (agendamentos.length === 0) {
+      return NextResponse.json({ agendamentos: [] });
     }
 
-    const aptIds = agendamentos.map((a) => a.id);
-    const payIds = pagamentosAgendamento.map((p) => p.id);
-    let todosCuponsRelacionados: Awaited<ReturnType<typeof prisma.coupon.findMany>> = [];
-    if (aptIds.length > 0 || payIds.length > 0) {
-      const OR: { appointmentId?: { in: number[] }; paymentId?: { in: string[] } }[] = [];
-      if (aptIds.length > 0) OR.push({ appointmentId: { in: aptIds } });
-      if (payIds.length > 0) OR.push({ paymentId: { in: payIds } });
-      todosCuponsRelacionados = await prisma.coupon.findMany({
-        where: { OR },
-        orderBy: { createdAt: "asc" },
+    try {
+      // Buscar pagamentos de agendamento aprovados (para associar inclusive carrinho com appointmentIds)
+      const pagamentosAgendamento = await prisma.payment.findMany({
+        where: {
+          type: "agendamento",
+          status: "approved",
+          OR: [
+            { asaasId: { not: null } },
+            { providerPaymentId: { not: null } },
+            { mercadopagoId: { not: null } },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
       });
-    }
 
-    const listaCuponsPorAgendamento = (aptId: number): typeof todosCuponsRelacionados => {
-      const map = new Map<string, (typeof todosCuponsRelacionados)[0]>();
-      for (const c of todosCuponsRelacionados) {
-        if (c.appointmentId === aptId) {
-          map.set(c.id, c);
-          continue;
+      function pagamentoLigaAoAgendamento(
+        p: (typeof pagamentosAgendamento)[0],
+        aptId: number
+      ): boolean {
+        if (p.appointmentId === aptId) return true;
+        if (p.appointmentIds == null) return false;
+        let ids: unknown = p.appointmentIds;
+        if (typeof ids === "string") {
+          try {
+            ids = JSON.parse(ids);
+          } catch {
+            return false;
+          }
         }
-        if (!c.paymentId) continue;
-        const p = pagamentosAgendamento.find((x) => x.id === c.paymentId);
-        if (p && pagamentoLigaAoAgendamento(p, aptId)) {
-          map.set(c.id, c);
-        }
+        return Array.isArray(ids) && ids.some((id) => Number(id) === aptId);
       }
-      return [...map.values()].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-    };
 
-    const agendamentosComPagamento = agendamentos.map((agendamento) => {
-      let pagamento = pagamentosAgendamento.find((p) => p.appointmentId === agendamento.id);
-      if (!pagamento && agendamento.userId) {
-        pagamento = pagamentosAgendamento.find((p) => {
-          if (p.userId !== agendamento.userId) return false;
-          return pagamentoLigaAoAgendamento(p, agendamento.id);
+      const aptIds = agendamentos.map((a) => a.id);
+      const payIds = pagamentosAgendamento.map((p) => p.id);
+      let todosCuponsRelacionados: Awaited<ReturnType<typeof prisma.coupon.findMany>> = [];
+      if (aptIds.length > 0 || payIds.length > 0) {
+        const OR: { appointmentId?: { in: number[] }; paymentId?: { in: string[] } }[] = [];
+        if (aptIds.length > 0) OR.push({ appointmentId: { in: aptIds } });
+        if (payIds.length > 0) OR.push({ paymentId: { in: payIds } });
+        todosCuponsRelacionados = await prisma.coupon.findMany({
+          where: { OR },
+          orderBy: { createdAt: "asc" },
         });
       }
-      const lista = listaCuponsPorAgendamento(agendamento.id);
-      const cupom = pickPrimaryCouponForDisplay(lista);
-      return {
-        ...agendamento,
-        pagamentoConfirmado: pagamento ? {
-          id: pagamento.id,
-          amount: pagamento.amount,
-          status: pagamento.status,
-          paymentMethod: pagamento.paymentMethod,
-          asaasId: pagamento.asaasId,
-          createdAt: pagamento.createdAt,
-        } : null,
-        cupomAssociado: cupom
-          ? {
-              id: cupom.id,
-              code: cupom.code,
-              serviceType: cupom.serviceType,
-              discountType: cupom.discountType,
-              used: cupom.used,
-              couponType: cupom.couponType,
-              paymentId: cupom.paymentId,
-            }
-          : null,
-        cuponsAssociados: lista.map((c) => ({
-          id: c.id,
-          code: c.code,
-          serviceType: c.serviceType,
-          discountType: c.discountType,
-          used: c.used,
-          couponType: c.couponType,
-          paymentId: c.paymentId,
-        })),
-      };
-    });
 
-    return NextResponse.json({ agendamentos: agendamentosComPagamento });
-  } catch (err: any) {
-    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+      const listaCuponsPorAgendamento = (aptId: number): typeof todosCuponsRelacionados => {
+        const map = new Map<string, (typeof todosCuponsRelacionados)[0]>();
+        for (const c of todosCuponsRelacionados) {
+          if (c.appointmentId === aptId) {
+            map.set(c.id, c);
+            continue;
+          }
+          if (!c.paymentId) continue;
+          const p = pagamentosAgendamento.find((x) => x.id === c.paymentId);
+          if (p && pagamentoLigaAoAgendamento(p, aptId)) {
+            map.set(c.id, c);
+          }
+        }
+        return [...map.values()].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      };
+
+      const agendamentosComPagamento = agendamentos.map((agendamento) => {
+        let pagamento = pagamentosAgendamento.find((p) => p.appointmentId === agendamento.id);
+        if (!pagamento && agendamento.userId) {
+          pagamento = pagamentosAgendamento.find((p) => {
+            if (p.userId !== agendamento.userId) return false;
+            return pagamentoLigaAoAgendamento(p, agendamento.id);
+          });
+        }
+        const lista = listaCuponsPorAgendamento(agendamento.id);
+        const cupom = pickPrimaryCouponForDisplay(lista);
+        return {
+          ...agendamento,
+          user: agendamento.user ?? { nomeArtistico: "Cliente", email: "" },
+          pagamentoConfirmado: pagamento
+            ? {
+                id: pagamento.id,
+                amount: pagamento.amount,
+                status: pagamento.status,
+                paymentMethod: pagamento.paymentMethod,
+                asaasId: pagamento.asaasId,
+                createdAt: pagamento.createdAt,
+              }
+            : null,
+          cupomAssociado: cupom
+            ? {
+                id: cupom.id,
+                code: cupom.code,
+                serviceType: cupom.serviceType,
+                discountType: cupom.discountType,
+                used: cupom.used,
+                couponType: cupom.couponType,
+                paymentId: cupom.paymentId,
+              }
+            : null,
+          cuponsAssociados: lista.map((c) => ({
+            id: c.id,
+            code: c.code,
+            serviceType: c.serviceType,
+            discountType: c.discountType,
+            used: c.used,
+            couponType: c.couponType,
+            paymentId: c.paymentId,
+          })),
+        };
+      });
+
+      return NextResponse.json({ agendamentos: agendamentosComPagamento });
+    } catch (enrichErr) {
+      // Enriquecimento (pagamentos/cupons) não deve derrubar o calendário operacional
+      console.error(
+        "[Admin] GET /api/admin/agendamentos: falha no enriquecimento; retornando lista base:",
+        enrichErr
+      );
+      return NextResponse.json({
+        agendamentos: agendamentos.map((a) => ({
+          ...a,
+          user: a.user ?? { nomeArtistico: "Cliente", email: "" },
+          pagamentoConfirmado: null,
+          cupomAssociado: null,
+          cuponsAssociados: [],
+        })),
+      });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message === "Acesso negado" || message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
+    console.error("[Admin] GET /api/admin/agendamentos falhou:", err);
     return NextResponse.json({ error: "Erro ao buscar agendamentos" }, { status: 500 });
   }
 }

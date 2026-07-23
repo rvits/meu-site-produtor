@@ -41,7 +41,7 @@ export interface DashAppointment {
   cancelReason?: string | null;
   refundProcessedAt?: string | null;
   cancelRefundOption?: string | null;
-  user: { nomeArtistico: string; email: string };
+  user: { nomeArtistico: string; email: string } | null;
   pagamentoConfirmado?: { id: string; amount: number; status: string; createdAt: string } | null;
 }
 

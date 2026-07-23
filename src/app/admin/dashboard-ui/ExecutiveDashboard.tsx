@@ -477,7 +477,7 @@ function ExecutiveDashboardInner() {
       <DashboardSection title="Gráficos" subtitle="Dados agregados no cliente a partir das listas existentes">
         <DashboardWidget
           loading={paymentsQ.status === "loading" && !paymentsQ.data}
-          error={null}
+          error={paymentsQ.error}
           onRetry={paymentsQ.retry}
           minHeight="min-h-[220px]"
         >
@@ -500,7 +500,7 @@ function ExecutiveDashboardInner() {
       >
         <DashboardWidget
           loading={servicesQ.status === "loading" && !servicesQ.data}
-          error={null}
+          error={servicesQ.error}
           onRetry={servicesQ.retry}
         >
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -570,7 +570,13 @@ function ExecutiveDashboardInner() {
           loading={
             (paymentsQ.status === "loading" || aptsQ.status === "loading") && timeline.length === 0
           }
-          error={null}
+          error={
+            paymentsQ.status === "error" &&
+            aptsQ.status === "error" &&
+            servicesQ.status === "error"
+              ? paymentsQ.error || aptsQ.error || servicesQ.error
+              : null
+          }
           onRetry={() => setRefreshTick((t) => t + 1)}
         >
           <DashboardTimeline items={timeline} />
