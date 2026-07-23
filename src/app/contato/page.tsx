@@ -40,16 +40,28 @@ export default function ContatoPage() {
 
   return (
     <main className="relative mx-auto max-w-4xl px-4 sm:px-6 py-3 sm:py-5 text-zinc-100 overflow-x-hidden">
-      {/* Imagem de fundo da página Contato */}
+      {/* Hero Contato — foto original (retrato); cover sem distorção; foco no sujeito */}
       <div
-        className="fixed inset-0 z-0 bg-no-repeat bg-zinc-900 page-bg-image"
-        style={{
-          backgroundImage: "url(/contato-bg.png.jpeg)",
-          ["--page-bg-size" as string]: "cover",
-          ["--page-bg-position" as string]: "center center",
-        }}
+        className="contato-hero-bg fixed inset-0 z-0 bg-zinc-900 bg-no-repeat"
+        style={{ backgroundImage: "url(/contato-bg.png.jpeg)" }}
         aria-hidden
       />
+      <style>{`
+        .contato-hero-bg {
+          background-size: cover;
+          background-position: center 18%;
+        }
+        @media (max-width: 767px) {
+          .contato-hero-bg {
+            background-position: center 22%;
+          }
+        }
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .contato-hero-bg {
+            background-position: center 20%;
+          }
+        }
+      `}</style>
       <div className="relative z-10 space-y-8">
         {/* Área de entrada: no desktop mantém o fundo visível; no mobile começa o conteúdo mais acima */}
         <section className="hidden sm:block w-full min-h-[55vh]" aria-hidden />
@@ -63,8 +75,11 @@ export default function ContatoPage() {
             Contato
           </h1>
           <p
-            className="text-zinc-200 text-xs sm:text-sm md:text-base max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto leading-relaxed"
-            style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.85)" }}
+            className="text-black text-xs sm:text-sm md:text-base max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto leading-relaxed"
+            style={{
+              textShadow:
+                "0 0 12px rgba(255,255,255,0.95), 0 0 4px rgba(255,255,255,0.85), 0 2px 10px rgba(0,0,0,0.75)",
+            }}
           >
             Entre em contato conosco para tirar dúvidas, solicitar orçamentos, alinhar
             projetos ou tratar de assuntos relacionados aos nossos serviços.
