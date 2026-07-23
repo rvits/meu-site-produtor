@@ -543,6 +543,13 @@ function ExecutiveDashboardInner() {
           error={servicesQ.status === "error" ? servicesQ.error : null}
           onRetry={servicesQ.retry}
         >
+          {indicatorsEmpty ? (
+            <DashboardEmptyState
+              title="Nenhum KPI disponível ainda."
+              description="Os KPIs serão calculados automaticamente após os primeiros pagamentos e agendamentos."
+              minHeight="min-h-[160px]"
+            />
+          ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             <DashboardKPI
               label="Tempo médio para aceitar"
@@ -590,6 +597,7 @@ function ExecutiveDashboardInner() {
               hint="Usados / emitidos no período"
             />
           </div>
+          )}
         </DashboardWidget>
       </DashboardSection>
 

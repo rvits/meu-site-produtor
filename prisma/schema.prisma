@@ -440,3 +440,15 @@ model SynchronizationEvent {
   @@index([name])
   @@index([entity, entityId])
 }
+
+/// GO-06E — Persistência de runs Homologation (sem filesystem no serverless).
+model HomologationRunRecord {
+  id        String   @id
+  payload   String
+  ok        Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([ok])
+}

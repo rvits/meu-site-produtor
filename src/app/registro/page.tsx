@@ -2,13 +2,17 @@
 
 /**
  * Registro — GO-03F: Design System (AuthShell + Field/Input/Select/Button/Callout).
- * Validações e chamada de registro (useAuth.registro) inalteradas.
+ * GO-06E: capitalização automática, ano de nascimento na faixa de idade, sexo/gênero placeholder.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
-import { validateBirthDateString, BIRTH_DATE_MIN_YEAR, getBirthDateMaxYear } from "../lib/birth-date-validation";
+import {
+  validateBirthDateString,
+  getBirthDateMinYear,
+  getBirthDateMaxYear,
+} from "../lib/birth-date-validation";
 import {
   AuthShell,
   Button,
@@ -17,6 +21,17 @@ import {
   Input,
   Select,
 } from "@/components/design-system";
+
+/** Capitaliza a primeira letra de cada palavra (ex.: joao da silva → Joao Da Silva). */
+function capitalizeWords(value: string): string {
+  return value
+    .split(" ")
+    .map((word) => {
+      if (!word) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
 
 export default function RegistroPage() {
   const { registro } = useAuth();
@@ -46,11 +61,11 @@ export default function RegistroPage() {
   const [estilosMusicais, setEstilosMusicais] = useState("");
   const [nacionalidade, setNacionalidade] = useState("");
 
-  // Calcular idade
   function calcularIdade(data: string): number {
     if (!data) return 0;
     const hoje = new Date();
-    const nascimento = new Date(data);
+    const nascimento = new Date(data + "T12:00:00");
+    if (Number.isNaN(nascimento.getTime())) return 0;
     let idade = hoje.getFullYear() - nascimento.getFullYear();
     const mes = hoje.getMonth() - nascimento.getMonth();
     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
@@ -61,6 +76,8 @@ export default function RegistroPage() {
 
   const idade = calcularIdade(dataNascimento);
   const menorDeIdade = idade > 0 && idade < 18;
+  const minYear = getBirthDateMinYear();
+  const maxYear = getBirthDateMaxYear();
 
   // ===== UI =====
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -70,19 +87,60 @@ export default function RegistroPage() {
   const [carregando, setCarregando] = useState(false);
 
   function formatarCpf(value: string) {
-    // Formatar CPF automaticamente (XXX.XXX.XXX-XX)
     const apenasNumeros = value.replace(/\D/g, "");
     let formatado = apenasNumeros;
     if (apenasNumeros.length > 3) {
       formatado = apenasNumeros.slice(0, 3) + "." + apenasNumeros.slice(3);
     }
     if (apenasNumeros.length > 6) {
-      formatado = apenasNumeros.slice(0, 3) + "." + apenasNumeros.slice(3, 6) + "." + apenasNumeros.slice(6);
+      formatado =
+        apenasNumeros.slice(0, 3) +
+        "." +
+        apenasNumeros.slice(3, 6) +
+        "." +
+        apenasNumeros.slice(6);
     }
     if (apenasNumeros.length > 9) {
-      formatado = apenasNumeros.slice(0, 3) + "." + apenasNumeros.slice(3, 6) + "." + apenasNumeros.slice(6, 9) + "-" + apenasNumeros.slice(9, 11);
+      formatado =
+        apenasNumeros.slice(0, 3) +
+        "." +
+        apenasNumeros.slice(3, 6) +
+        "." +
+        apenasNumeros.slice(6, 9) +
+        "-" +
+        apenasNumeros.slice(9, 11);
     }
     setCpf(formatado);
+  }
+
+  function onBirthDateChange(value: string) {
+    if (!value) {
+      setDataNascimento("");
+      return;
+    }
+    const yearPart = value.slice(0, 4);
+    if (yearPart.length === 4) {
+      const year = Number(yearPart);
+      if (!Number.isFinite(year) || year < minYear || year > maxYear) {
+        setErro(`Ano de nascimento deve estar entre ${minYear} e ${maxYear}.`);
+        setDataNascimento("");
+        return;
+      }
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const check = validateBirthDateString(value);
+      if (!check.valid) {
+        setErro(check.error);
+        setDataNascimento("");
+        return;
+      }
+    }
+    setErro((prev) =>
+      prev.startsWith("Ano de nascimento") || prev.startsWith("Idade") || prev.startsWith("Data de nascimento")
+        ? ""
+        : prev
+    );
+    setDataNascimento(value);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -129,9 +187,9 @@ export default function RegistroPage() {
     setCarregando(true);
 
     const result = await registro({
-      nomeCompleto,
-      nomeArtistico,
-      nomeSocial: nomeSocial || null,
+      nomeCompleto: capitalizeWords(nomeCompleto.trim()),
+      nomeArtistico: capitalizeWords(nomeArtistico.trim()),
+      nomeSocial: nomeSocial ? capitalizeWords(nomeSocial.trim()) : null,
       email,
       senha,
       telefone,
@@ -144,14 +202,21 @@ export default function RegistroPage() {
       sexo,
       genero,
       generoOutro: genero === "outro" ? generoOutro : null,
-      estilosMusicais: estilosMusicais || null,
-      nacionalidade: nacionalidade || null,
+      estilosMusicais: estilosMusicais
+        ? capitalizeWords(estilosMusicais.trim())
+        : null,
+      nacionalidade: nacionalidade
+        ? capitalizeWords(nacionalidade.trim())
+        : null,
     });
 
     setCarregando(false);
 
     if (!result.ok) {
-      setErro(result.error || "Não foi possível registrar. Verifique os dados ou se o email já está em uso.");
+      setErro(
+        result.error ||
+          "Não foi possível registrar. Verifique os dados ou se o email já está em uso."
+      );
       return;
     }
 
@@ -170,6 +235,7 @@ export default function RegistroPage() {
             required
             value={nomeCompleto}
             onChange={(e) => setNomeCompleto(e.target.value)}
+            onBlur={() => setNomeCompleto((v) => capitalizeWords(v.trim()))}
             placeholder="Seu nome completo de registro"
           />
         </Field>
@@ -179,6 +245,7 @@ export default function RegistroPage() {
             required
             value={nomeArtistico}
             onChange={(e) => setNomeArtistico(e.target.value)}
+            onBlur={() => setNomeArtistico((v) => capitalizeWords(v.trim()))}
             placeholder="Tremv, Dizzy, etc."
           />
         </Field>
@@ -187,6 +254,7 @@ export default function RegistroPage() {
           <Input
             value={nomeSocial}
             onChange={(e) => setNomeSocial(e.target.value)}
+            onBlur={() => setNomeSocial((v) => (v ? capitalizeWords(v.trim()) : v))}
             placeholder="Como você gostaria de ser chamado"
           />
         </Field>
@@ -221,7 +289,6 @@ export default function RegistroPage() {
           />
         </Field>
 
-        {/* Localização */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="País">
             <Input required value={pais} onChange={(e) => setPais(e.target.value)} />
@@ -237,25 +304,26 @@ export default function RegistroPage() {
           </Field>
         </div>
 
-        <Field label="Data de nascimento">
+        <Field
+          label="Data de nascimento"
+          hint={`Ano entre ${minYear} e ${maxYear}`}
+        >
           <Input
             type="date"
             required
             value={dataNascimento}
-            onChange={(e) => setDataNascimento(e.target.value)}
-            min={`${BIRTH_DATE_MIN_YEAR}-01-01`}
-            max={`${getBirthDateMaxYear()}-12-31`}
+            onChange={(e) => onBirthDateChange(e.target.value)}
+            min={`${minYear}-01-01`}
+            max={`${maxYear}-12-31`}
           />
         </Field>
 
-        {/* Idade calculada */}
         {idade > 0 && (
           <Callout intent="neutral" icon="info">
             <strong>Idade:</strong> {idade} anos
           </Callout>
         )}
 
-        {/* Mensagem para menores de 18 anos */}
         {menorDeIdade && (
           <Callout intent="warning" title="Autorização necessária">
             <p>
@@ -272,9 +340,11 @@ export default function RegistroPage() {
           <Select
             required
             value={sexo}
-            onChange={(e) => setSexo(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value) setSexo(e.target.value);
+            }}
             options={[
-              { value: "", label: "Selecione…" },
+              ...(!sexo ? [{ value: "", label: "Selecione…" }] : []),
               { value: "masculino", label: "Masculino" },
               { value: "feminino", label: "Feminino" },
               { value: "prefiro_nao_declarar", label: "Prefiro não declarar" },
@@ -288,13 +358,12 @@ export default function RegistroPage() {
             value={genero}
             onChange={(e) => {
               const v = e.target.value;
+              if (!v) return;
               setGenero(v);
-              if (v !== "outro") {
-                setGeneroOutro("");
-              }
+              if (v !== "outro") setGeneroOutro("");
             }}
             options={[
-              { value: "", label: "Selecione…" },
+              ...(!genero ? [{ value: "", label: "Selecione…" }] : []),
               { value: "heterossexual", label: "Heterossexual" },
               { value: "homossexual", label: "Homossexual" },
               { value: "bissexual", label: "Bissexual" },
@@ -306,7 +375,6 @@ export default function RegistroPage() {
           />
         </Field>
 
-        {/* Gênero Outro */}
         {genero === "outro" && (
           <Field label="Especifique seu gênero">
             <Input
@@ -321,6 +389,9 @@ export default function RegistroPage() {
           <Input
             value={estilosMusicais}
             onChange={(e) => setEstilosMusicais(e.target.value)}
+            onBlur={() =>
+              setEstilosMusicais((v) => (v ? capitalizeWords(v.trim()) : v))
+            }
             placeholder="Trap, Boom bap, Drill..."
           />
         </Field>
@@ -329,6 +400,9 @@ export default function RegistroPage() {
           <Input
             value={nacionalidade}
             onChange={(e) => setNacionalidade(e.target.value)}
+            onBlur={() =>
+              setNacionalidade((v) => (v ? capitalizeWords(v.trim()) : v))
+            }
           />
         </Field>
 
@@ -378,7 +452,6 @@ export default function RegistroPage() {
           </div>
         </Field>
 
-        {/* Checkbox de aceite dos termos */}
         <div className="flex items-start gap-2">
           <input
             type="checkbox"
