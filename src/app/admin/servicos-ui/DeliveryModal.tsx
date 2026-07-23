@@ -2,10 +2,10 @@
 
 /**
  * GO-03A — Modal profissional de entrega (PARTE 6).
- * Upload usa exatamente o pipeline certificado no PROMPT 01:
- * navegador → Vercel Blob (token emitido por /api/admin/servicos/upload-entrega).
- * A conclusão continua pelo PATCH /api/admin/servicos (completeService) — sem
- * nenhuma mudança de domínio.
+ * Upload:
+ * - ≤4MB: multipart → API (Blob put ou disco local)
+ * - >4MB: @vercel/blob client PUT (sem multipart — evita travar em ~5%)
+ * Conclusão: PATCH /api/admin/servicos (completeService).
  */
 import { useCallback, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
@@ -106,7 +106,9 @@ export function DeliveryModal({
         });
 
       try {
-        // Até 4MB: multipart com progresso confiável. Acima: Blob client (evita 413).
+        // Até 4MB: multipart com progresso confiável (API grava Blob ou disco local).
+        // Acima: client upload Vercel Blob — PUT simples (sem multipart).
+        // multipart:true + onUploadProgress travava em ~5% (Promise nunca resolvia).
         const VERCEL_BODY_SAFE = 4 * 1024 * 1024;
         if (file.size <= VERCEL_BODY_SAFE) {
           const url = await uploadMultipart();
@@ -121,11 +123,20 @@ export function DeliveryModal({
           .slice(0, 80);
         const rand = crypto.randomUUID().slice(0, 8);
         const pathname = `deliveries/${service.id.slice(0, 8)}_${Date.now()}_${rand}_${safeBase}.${ext}`;
+        const contentType =
+          file.type ||
+          (ext === "zip"
+            ? "application/zip"
+            : ext === "mp3"
+              ? "audio/mpeg"
+              : "audio/wav");
+
         const blob = await upload(pathname, file, {
           access: "public",
           handleUploadUrl: "/api/admin/servicos/upload-entrega",
-          clientPayload: service.id,
-          multipart: true,
+          contentType,
+          // PUT único: progresso via onUploadProgress sem deadlock do multipart+stream
+          multipart: false,
           onUploadProgress: ({ loaded, total, percentage }) => {
             if (typeof percentage === "number" && Number.isFinite(percentage)) {
               setProgress(Math.max(5, Math.min(99, Math.round(percentage))));
@@ -136,6 +147,9 @@ export function DeliveryModal({
             }
           },
         });
+        if (!blob?.url) {
+          throw new Error("Upload Blob concluído sem URL.");
+        }
         finish(blob.url);
       } catch (e) {
         const msg = e instanceof Error && e.message ? e.message : "Falha no upload.";

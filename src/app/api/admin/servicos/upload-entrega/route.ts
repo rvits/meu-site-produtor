@@ -6,12 +6,14 @@
  * - JSON (client upload Vercel Blob): emite token para o navegador enviar o
  *   arquivo direto ao Blob, contornando o limite de 4,5MB de body das
  *   functions Vercel (413 FUNCTION_PAYLOAD_TOO_LARGE).
- * - multipart/form-data (legado/dev): grava via StorageProvider local.
+ * - multipart/form-data: grava em Vercel Blob (put) quando BLOB_READ_WRITE_TOKEN
+ *   existe; senão StorageProvider local (dev).
  */
 import { NextResponse } from "next/server";
 import path from "path";
 import { requireAdmin } from "@/app/lib/auth";
 import { randomUUID } from "crypto";
+import { put } from "@vercel/blob";
 import { getStorageProvider } from "@/app/lib/storage";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
@@ -28,6 +30,12 @@ function formatFromExt(ext: string): "wav" | "mp3" | "zip" {
   return "wav";
 }
 
+function mimeForExt(ext: string): string {
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".zip") return "application/zip";
+  return "audio/wav";
+}
+
 async function handleBlobClientUpload(req: Request) {
   const body = (await req.json()) as HandleUploadBody;
 
@@ -35,27 +43,80 @@ async function handleBlobClientUpload(req: Request) {
   // assinado pela Vercel e validado dentro de handleUpload (sem sessão).
   if (body.type === "blob.generate-client-token") {
     await requireAdmin();
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      throw new Error(
+        "BLOB_READ_WRITE_TOKEN não configurado. Não é possível enviar arquivos grandes."
+      );
+    }
   }
 
-  const result = await handleUpload({
-    request: req,
-    body,
-    onBeforeGenerateToken: async (pathname) => {
-      const ext = path.extname(pathname).toLowerCase();
-      if (!pathname.startsWith(BLOB_PATH_PREFIX) || !ALLOWED_EXT.has(ext)) {
-        throw new Error("Formato não permitido. Use WAV, MP3 ou ZIP.");
-      }
-      return {
-        maximumSizeInBytes: MAX_BYTES,
-        addRandomSuffix: true,
-      };
-    },
-    // Persistência no domínio continua pelo PATCH /api/admin/servicos
-    // (completeService) — nenhuma escrita de banco aqui.
-    onUploadCompleted: async () => {},
-  });
+  try {
+    const result = await handleUpload({
+      request: req,
+      body,
+      onBeforeGenerateToken: async (pathname) => {
+        const ext = path.extname(pathname).toLowerCase();
+        if (!pathname.startsWith(BLOB_PATH_PREFIX) || !ALLOWED_EXT.has(ext)) {
+          throw new Error("Formato não permitido. Use WAV, MP3 ou ZIP.");
+        }
+        return {
+          maximumSizeInBytes: MAX_BYTES,
+          allowedContentTypes: [
+            "audio/wav",
+            "audio/x-wav",
+            "audio/mpeg",
+            "audio/mp3",
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/octet-stream",
+          ],
+          addRandomSuffix: true,
+          tokenPayload: JSON.stringify({ kind: "delivery" }),
+        };
+      },
+      // Persistência no domínio continua pelo PATCH /api/admin/servicos
+      onUploadCompleted: async () => {},
+    });
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Falha no upload Blob";
+    if (message === "Não autenticado" || message === "Acesso negado") {
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
+    console.error("[upload-entrega:blob-client]", err);
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}
+
+async function storeDeliveryFile(params: {
+  storedName: string;
+  bytes: Buffer;
+  contentType: string;
+}): Promise<{ publicPath: string; storedName: string; bytes: number }> {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`deliveries/${params.storedName}`, params.bytes, {
+      access: "public",
+      contentType: params.contentType,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: false,
+    });
+    return {
+      publicPath: blob.url,
+      storedName: params.storedName,
+      bytes: params.bytes.length,
+    };
+  }
+
+  const stored = await getStorageProvider().writeDelivery({
+    storedName: params.storedName,
+    bytes: params.bytes,
+  });
+  return {
+    publicPath: stored.publicPath,
+    storedName: stored.storedName,
+    bytes: stored.bytes,
+  };
 }
 
 export async function POST(req: Request) {
@@ -100,9 +161,10 @@ export async function POST(req: Request) {
     const storedName = `${serviceId.slice(0, 8)}_${Date.now()}_${randomUUID().slice(0, 8)}_${safeBase}${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const stored = await getStorageProvider().writeDelivery({
+    const stored = await storeDeliveryFile({
       storedName,
       bytes: buffer,
+      contentType: file.type || mimeForExt(ext),
     });
     const format = formatFromExt(ext);
 
