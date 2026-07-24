@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, type CSSProperties } from "react";
 import {
   useFeedback,
   LoadingBlock,
@@ -9,11 +9,47 @@ import {
   Button,
   Modal,
 } from "@/components/design-system";
+import {
+  OPERATIONAL_HOURS,
+  type CalendarDayState,
+  type CalendarDayVisual,
+  getCalendarDayState,
+} from "@/app/lib/calendar-day-state";
 
-const HORARIOS_PADRAO = [
-  "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
-  "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00",
-];
+const HORARIOS_PADRAO = [...OPERATIONAL_HOURS];
+
+function visualDayStyle(
+  visual: CalendarDayVisual,
+  past: boolean
+): { className: string; style?: CSSProperties } {
+  if (past) {
+    return { className: "border-red-600 bg-red-600/30 text-red-300 opacity-60" };
+  }
+  switch (visual) {
+    case "ocupado":
+      return { className: "border-red-600 bg-red-600/30 text-red-300 hover:bg-red-600/40" };
+    case "parcial":
+      return {
+        className: "border-yellow-500 bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30",
+      };
+    case "entrega":
+      return {
+        className: "border-purple-500 bg-purple-600/30 text-purple-200 hover:bg-purple-600/40",
+      };
+    case "parcial_entrega":
+      return {
+        className: "border-yellow-500 text-white hover:opacity-90",
+        style: {
+          background:
+            "linear-gradient(135deg, rgba(234,179,8,0.35) 50%, rgba(147,51,234,0.4) 50%)",
+        },
+      };
+    default:
+      return {
+        className: "border-green-600 bg-green-600/20 text-green-300 hover:bg-green-600/30",
+      };
+  }
+}
 
 interface BlockedSlot {
   id: string;
@@ -34,7 +70,7 @@ export default function AdminControleAgendamentoPage() {
   });
 
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  const [dayStates, setDayStates] = useState<Record<string, CalendarDayState>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -71,9 +107,9 @@ export default function AdminControleAgendamentoPage() {
   async function carregarDados() {
     try {
       setLoading(true);
-      const [resSlots, resAgendamentos] = await Promise.all([
+      const [resSlots, resCal] = await Promise.all([
         fetch("/api/admin/blocked-slots"),
-        fetch("/api/admin/agendamentos"),
+        fetch("/api/agendamentos/disponibilidade?" + Date.now()),
       ]);
 
       if (resSlots.ok) {
@@ -81,9 +117,9 @@ export default function AdminControleAgendamentoPage() {
         setBlockedSlots(data.slots || []);
       }
 
-      if (resAgendamentos.ok) {
-        const data = await resAgendamentos.json();
-        setAgendamentos(data.agendamentos || []);
+      if (resCal.ok) {
+        const data = await resCal.json();
+        setDayStates(data.dayStates || {});
       }
     } catch (err) {
       console.error("Erro ao carregar dados", err);
@@ -94,29 +130,17 @@ export default function AdminControleAgendamentoPage() {
 
   const horariosOcupadosPorDia: Record<string, Set<string>> = useMemo(() => {
     const ocupados: Record<string, Set<string>> = {};
-
-    // Agendamentos aceitos/confirmados
-    agendamentos
-      .filter(
-        (a) =>
-          a.status === "aceito" || a.status === "confirmado" || a.status === "em_andamento"
-      )
-      .forEach((a) => {
-        const data = new Date(a.data);
-        const dataStr = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
-        const horaStr = `${String(data.getHours()).padStart(2, "0")}:${String(data.getMinutes()).padStart(2, "0")}`;
-        if (!ocupados[dataStr]) ocupados[dataStr] = new Set();
-        ocupados[dataStr].add(horaStr);
+    for (const [date, state] of Object.entries(dayStates)) {
+      ocupados[date] = new Set(state.occupiedHours || []);
+    }
+    if (Object.keys(ocupados).length === 0) {
+      blockedSlots.forEach((slot) => {
+        if (!ocupados[slot.data]) ocupados[slot.data] = new Set();
+        ocupados[slot.data].add(slot.hora);
       });
-
-    // Horários bloqueados pelo admin
-    blockedSlots.forEach((slot) => {
-      if (!ocupados[slot.data]) ocupados[slot.data] = new Set();
-      ocupados[slot.data].add(slot.hora);
-    });
-
+    }
     return ocupados;
-  }, [agendamentos, blockedSlots]);
+  }, [dayStates, blockedSlots]);
 
   const ultimoDiaDoMes = new Date(
     dataBase.getFullYear(),
@@ -144,14 +168,9 @@ export default function AdminControleAgendamentoPage() {
     }
   }
 
-  // Função para obter status do dia
-  function getDiaStatus(data: string): "livre" | "parcial" | "ocupado" {
-    const ocupados = horariosOcupadosPorDia[data] || new Set<string>();
-    const totalHorarios = HORARIOS_PADRAO.length;
-    
-    if (ocupados.size === 0) return "livre";
-    if (ocupados.size === totalHorarios) return "ocupado";
-    return "parcial";
+  // Estado visual do dia — calculado no backend (GO-H4)
+  function getDiaVisual(data: string): CalendarDayVisual {
+    return getCalendarDayState(dayStates, data).visual;
   }
 
   // Função para normalizar hora (garantir formato HH:00)
@@ -478,21 +497,11 @@ export default function AdminControleAgendamentoPage() {
               return <div key={idx} />;
             }
             
-            const status = getDiaStatus(isoDate);
+            const visual = getDiaVisual(isoDate);
             
             // Verificar se a data já passou
             const diaPassado = isDataPassada(isoDate);
-
-            let corDia = "border-green-600 bg-green-600/20 text-green-300 hover:bg-green-600/30";
-            
-            // VERMELHO: Se o dia já passou, sempre vermelho
-            if (diaPassado) {
-              corDia = "border-red-600 bg-red-600/30 text-red-300 opacity-60";
-            } else if (status === "parcial") {
-              corDia = "border-yellow-500 bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30";
-            } else if (status === "ocupado") {
-              corDia = "border-red-600 bg-red-600/30 text-red-300 hover:bg-red-600/40";
-            }
+            const cell = visualDayStyle(visual, diaPassado);
 
             return (
               <button
@@ -504,11 +513,12 @@ export default function AdminControleAgendamentoPage() {
                   }
                 }}
                 disabled={diaPassado}
+                style={cell.style}
                 className={`rounded-md border p-2 text-center text-sm transition ${
                   diaPassado 
                     ? "cursor-not-allowed opacity-60" 
                     : "cursor-pointer"
-                } ${corDia} ${
+                } ${cell.className} ${
                   selectedDay === isoDate ? "ring-2 ring-red-500 ring-offset-2 ring-offset-zinc-800" : ""
                 }`}
               >
@@ -518,7 +528,7 @@ export default function AdminControleAgendamentoPage() {
           })}
         </div>
 
-        <div className="mt-6 flex gap-4 text-sm text-zinc-400">
+        <div className="mt-6 flex flex-wrap gap-4 text-sm text-zinc-400">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-600/20 border border-green-600"></div>
             <span>Dia livre</span>
@@ -530,6 +540,20 @@ export default function AdminControleAgendamentoPage() {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-red-600/30 border border-red-600"></div>
             <span>Dia completo</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-purple-600/30 border border-purple-500"></div>
+            <span>Entrega de Produção</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-4 h-4 rounded border border-yellow-500"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(234,179,8,0.5) 50%, rgba(147,51,234,0.55) 50%)",
+              }}
+            ></div>
+            <span>Presencial + Entrega</span>
           </div>
         </div>
       </Card>

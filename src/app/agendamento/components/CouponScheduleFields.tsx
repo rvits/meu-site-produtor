@@ -1,63 +1,36 @@
 "use client";
 
 /**
- * Campos de data/hora reutilizados pelo agendamento por cupom (e alinhados ao comum).
- * Presencial: calendário (input date) + horários.
- * Produção: só data + mensagem de entrega desejada.
+ * Agendamento por cupom — mesmo SchedulingCalendar do fluxo comum (GO-H4).
  */
-import {
-  PRODUCTION_DELIVERY_DATE_MESSAGE,
-  SCHEDULE_HORARIOS,
-  minScheduleDateIso,
-  serviceNeedsStudioHours,
-} from "@/app/agendamento/scheduling-shared";
-import { Button, Callout, Field, Input } from "@/components/design-system";
+import { SchedulingCalendar } from "@/app/agendamento/components/SchedulingCalendar";
 
 export function CouponScheduleFields({
   serviceType,
+  serviceName,
   dataSelecionada,
   horaSelecionada,
   onDataChange,
   onHoraChange,
 }: {
   serviceType: string | null | undefined;
+  serviceName?: string | null;
   dataSelecionada: string;
   horaSelecionada: string;
   onDataChange: (value: string) => void;
   onHoraChange: (value: string) => void;
 }) {
-  const precisaHora = serviceNeedsStudioHours(serviceType);
-  const minDate = minScheduleDateIso(0);
-
   return (
-    <div className="space-y-4">
-      {!precisaHora && (
-        <Callout intent="info">{PRODUCTION_DELIVERY_DATE_MESSAGE}</Callout>
-      )}
-      <Field label={precisaHora ? "Data da sessão" : "Data de entrega desejada"}>
-        <Input
-          type="date"
-          min={minDate}
-          value={dataSelecionada}
-          onChange={(e) => onDataChange(e.target.value)}
-        />
-      </Field>
-      {precisaHora && (
-        <Field label="Horário">
-          <div className="grid grid-cols-3 gap-2">
-            {SCHEDULE_HORARIOS.map((h) => (
-              <Button
-                key={h}
-                type="button"
-                onClick={() => onHoraChange(h)}
-                variant={horaSelecionada === h ? "primary" : "outline"}
-              >
-                {h}
-              </Button>
-            ))}
-          </div>
-        </Field>
-      )}
+    <div className="overflow-hidden rounded-xl border border-red-500/80">
+      <SchedulingCalendar
+        serviceType={serviceType}
+        serviceName={serviceName}
+        dataSelecionada={dataSelecionada || null}
+        horaSelecionada={horaSelecionada || null}
+        onDataChange={(v) => onDataChange(v || "")}
+        onHoraChange={(v) => onHoraChange(v || "")}
+        title="Agendamento virtual"
+      />
     </div>
   );
 }

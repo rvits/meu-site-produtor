@@ -12,7 +12,7 @@ import {
   exigeAgendamentoSomenteData,
   PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "../lib/agendamento-payment-rules";
-import { PRODUCTION_DELIVERY_DATE_MESSAGE } from "./scheduling-shared";
+import { SchedulingCalendar } from "./components/SchedulingCalendar";
 import {
   Button,
   EmptyState,
@@ -56,7 +56,7 @@ const BEATS_PACOTES: Servico[] = [
   { id: "beat_mix_master", nome: "Beat + Mix + Master", preco: 320 },
   {
     id: "producao_completa",
-    nome: "Produção Completa (4h + beat + mix + master)",
+    nome: "Produção Completa (2h Sessão + 2h Captação + Beat + Mix + Master)",
     preco: 450,
   },
 ];
@@ -882,7 +882,7 @@ function AgendamentoContent() {
                           Produção Completa
                         </p>
                         <p className="text-xs text-zinc-300">
-                          (4h + beat + mix + master)
+                          (2h Sessão + 2h Captação + Beat + Mix + Master)
                         </p>
                       </>
                     ) : (
@@ -971,229 +971,20 @@ function AgendamentoContent() {
 
       {/* =========================================================
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
-          GO-H3: compra unitária — presencial com horários; produção só data.
+          GO-H4: mesmo SchedulingCalendar do fluxo por cupom.
       ========================================================== */}
       {precisaAgenda ? (
       <section className="mb-16 flex justify-center px-4 mt-16">
         <div className="relative w-full max-w-4xl border border-red-500" style={{ borderWidth: "1px" }}>
-          <div
-            className="relative space-y-6 p-6 md:p-8"
-            style={{
-              background: "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 8%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, rgba(0,0,0,0.75) 92%, rgba(0,0,0,0) 100%)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-            }}
-          >
-            <h2 className="text-center text-3xl font-semibold text-red-400" style={{ textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}>
-              Agendamento virtual
-            </h2>
-
-            {somenteDataProducao ? (
-              <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-                {PRODUCTION_DELIVERY_DATE_MESSAGE}
-              </p>
-            ) : (
-            <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
-              Escolha o dia e o horário da sua sessão.  
-              <br />
-              <span className="text-green-400 font-semibold">Verde</span>: todos os horários livres ·{" "}
-              <span className="text-yellow-400 font-semibold">Amarelo</span>: alguns horários ocupados ·{" "}
-              <span className="text-red-400 font-semibold">Vermelho</span>: agenda cheia
-            </p>
-            )}
-
-            <div className={`grid gap-6 ${precisaHora ? "md:grid-cols-[1.2fr,1fr]" : ""}`}>
-            {/* ===================== CALENDÁRIO ===================== */}
-            <div>
-              <div className="mb-3 flex items-center justify-between text-base font-semibold text-zinc-200">
-                <button
-                  type="button"
-                  onClick={handleMesAnterior}
-                  disabled={!podeIrMesAnterior()}
-                  className={`rounded-full border border-zinc-700 px-3 py-1 transition ${
-                    podeIrMesAnterior()
-                      ? "hover:border-red-500 cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  }`}
-                >
-                  ◀
-                </button>
-
-                <span>
-                  {dataBase.toLocaleDateString("pt-BR", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={handleProximoMes}
-                  className="rounded-full border border-zinc-700 px-3 py-1 hover:border-red-500"
-                >
-                  ▶
-                </button>
-              </div>
-
-              <div className="grid grid-cols-7 gap-1 text-[10px] text-zinc-400">
-                {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-                  <div key={i} className="py-1 text-center">
-                    {d}
-                  </div>
-                ))}
-
-                {dias.map((dia, idx) => {
-                  if (!dia) return <div key={idx} />;
-
-                  const isoDate = `${dataBase.getFullYear()}-${String(
-                    dataBase.getMonth() + 1
-                  ).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-                  
-                  // Verificar se a data é válida (>= 1 de janeiro)
-                  const dataDia = new Date(dataBase.getFullYear(), dataBase.getMonth(), dia);
-                  if (dataDia < DATA_MINIMA) {
-                    return <div key={idx} />;
-                  }
-
-                  const ocupados =
-                    horariosOcupadosPorDia[isoDate] || new Set<string>();
-
-                  // Contar quantos horários padrão estão ocupados
-                  const horariosOcupadosCount = HORARIOS_PADRAO.filter((h) =>
-                    ocupados.has(h)
-                  ).length;
-
-                  const totalHorarios = HORARIOS_PADRAO.length;
-                  
-                  // Verificar se a data já passou
-                  const diaPassado = isDataPassada(isoDate);
-                  
-                  // Debug: apenas para o dia específico mencionado pelo usuário
-                  if (isoDate === "2026-01-01" || isoDate === "2026-01-02") {
-                    console.log(`[DEBUG] ${isoDate}:`, {
-                      ocupados: Array.from(ocupados),
-                      horariosOcupadosCount,
-                      totalHorarios,
-                      diaPassado,
-                      blockedSlots: blockedSlots.filter(s => s.data === isoDate),
-                      agendamentos: agendamentos.filter(a => {
-                        const aDate = new Date(a.data);
-                        const aStr = `${aDate.getFullYear()}-${String(aDate.getMonth() + 1).padStart(2, "0")}-${String(aDate.getDate()).padStart(2, "0")}`;
-                        return aStr === isoDate;
-                      }),
-                    });
-                  }
-                  
-                  let corDia = "border-green-600 bg-green-600/20 text-green-300";
-
-                  // VERMELHO: Se o dia já passou, sempre vermelho
-                  if (diaPassado) {
-                    corDia = "border-red-600 bg-red-600/30 text-red-300 opacity-60";
-                  }
-                  // Vermelho: todos os horários ocupados/bloqueados
-                  else if (horariosOcupadosCount >= totalHorarios) {
-                    corDia = "border-red-600 bg-red-600/30 text-red-300";
-                  }
-                  // Amarelo: alguns horários ocupados (mas não todos)
-                  else if (horariosOcupadosCount > 0) {
-                    corDia = "border-yellow-500 bg-yellow-500/20 text-yellow-300";
-                  }
-                  // Verde: todos os horários livres (já está definido acima)
-
-                  const selecionado = dataSelecionada === isoDate;
-
-                  return (
-                    <button
-                      key={isoDate}
-                      type="button"
-                      onClick={() => {
-                        // Não permitir selecionar dias passados
-                        if (diaPassado) return;
-                        
-                        if (selecionado) {
-                          setDataSelecionada(null);
-                          setHoraSelecionada(null);
-                        } else {
-                          setDataSelecionada(isoDate);
-                          setHoraSelecionada(null);
-                        }
-                      }}
-                      disabled={diaPassado}
-                      className={[
-                        "rounded-md border px-1 py-1 text-center text-xs transition",
-                        diaPassado
-                          ? "cursor-not-allowed opacity-60"
-                          : selecionado
-                          ? "border-white bg-white/10 text-white"
-                          : corDia,
-                      ].join(" ")}
-                    >
-                      {dia}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ===================== HORÁRIOS (presencial) ===================== */}
-            {precisaHora ? (
-            <div className="space-y-3 text-xs">
-              <p className="font-semibold text-zinc-200">
-                Horários do dia{" "}
-                {dataSelecionada
-                  ? new Date(
-                      `${dataSelecionada}T12:00:00`
-                    ).toLocaleDateString("pt-BR")
-                  : "(selecione um dia)"}
-              </p>
-
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {HORARIOS_PADRAO.map((h) => {
-                  const ocupados =
-                    horariosOcupadosPorDia[dataSelecionada || ""] ||
-                    new Set<string>();
-
-                  const estaOcupado = ocupados.has(h);
-                  const selecionado = horaSelecionada === h;
-                  
-                  // Verificar se o horário já passou (se a data selecionada já passou ou se é hoje e o horário já passou)
-                  const horarioPassado = dataSelecionada 
-                    ? (isDataPassada(dataSelecionada) || isHorarioPassado(dataSelecionada, h))
-                    : false;
-
-                  return (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => {
-                        // Não permitir selecionar horários ocupados ou passados
-                        if (estaOcupado || horarioPassado) return;
-                        
-                        if (selecionado) {
-                          setHoraSelecionada(null);
-                        } else {
-                          setHoraSelecionada(h);
-                        }
-                      }}
-                      disabled={estaOcupado || horarioPassado}
-                      className={[
-                        "rounded-lg border px-3 py-2 font-medium transition",
-                        estaOcupado || horarioPassado
-                          ? "cursor-not-allowed border-red-700 bg-red-900/60 text-red-200 opacity-60"
-                          : selecionado
-                          ? "border-white bg-white/10 text-white"
-                          : "border-green-700 bg-green-900/20 hover:border-green-500",
-                      ].join(" ")}
-                    >
-                      {h}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            ) : null}
-          </div>
-          </div>
+          <SchedulingCalendar
+            serviceType={(linhasCheckout.servicos[0] || linhasCheckout.beats[0])?.id}
+            serviceName={(linhasCheckout.servicos[0] || linhasCheckout.beats[0])?.nome}
+            showHours={precisaHora}
+            dataSelecionada={dataSelecionada}
+            horaSelecionada={horaSelecionada}
+            onDataChange={setDataSelecionada}
+            onHoraChange={setHoraSelecionada}
+          />
           
           {/* LINHA INFERIOR COM FADE */}
           <div 
@@ -1208,9 +999,9 @@ function AgendamentoContent() {
       ) : (
         <section className="mb-8 flex justify-center px-4 mt-10">
           <div className="w-full max-w-4xl rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 text-center text-sm text-zinc-300">
-            Compra com mais de um serviço: após o pagamento você receberá um cupom de agendamento
-            para cada serviço. Cada cupom abre somente o agendamento daquele serviço (sem crédito
-            financeiro).
+            Compra com mais de um serviço ou pacote composto: após o pagamento você receberá
+            um cupom de agendamento para cada unidade de serviço. Cada cupom abre somente o
+            agendamento daquele serviço (sem crédito financeiro).
           </div>
         </section>
       )}

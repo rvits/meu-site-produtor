@@ -27,7 +27,7 @@ const BEATS_PACOTES = [
   { id: "beat_mix_master", nome: "Beat + Mix + Master", preco: 280 },
   {
     id: "producao_completa",
-    nome: "Produção Completa (4h + beat + mix + master)",
+    nome: "Produção Completa (2h Sessão + 2h Captação + Beat + Mix + Master)",
     preco: 400,
   },
 ];

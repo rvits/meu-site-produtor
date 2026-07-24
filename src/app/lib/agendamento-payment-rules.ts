@@ -1,4 +1,8 @@
-import { isSchedulableServiceType } from "@/app/lib/service-catalog";
+import {
+  isMultiCouponAgendamentoPackageId,
+  isSchedulableServiceType,
+} from "@/app/lib/service-catalog";
+import { PRODUCTION_DELIVERY_HOUR } from "@/app/lib/calendar-day-state";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
@@ -48,8 +52,7 @@ export function countAgendamentoItemLines(
 }
 
 /**
- * GO-H3: exatamente 1 linha com quantidade 1 (qualquer serviço/pacote do catálogo).
- * Pacotes compostos contam como um único serviço de compra.
+ * Exatamente 1 linha com quantidade 1 (qualquer serviço/pacote do catálogo).
  */
 export function isSingleUnitAgendamentoPurchase(
   services: ItemLine[] = [],
@@ -60,53 +63,59 @@ export function isSingleUnitAgendamentoPurchase(
   return Math.max(1, Number(active[0].quantidade) || 1) === 1;
 }
 
-/** @deprecated GO-H3: pacote isolado agenda direto — não gera cupons. Mantido false. */
+/**
+ * GO-H4: pacote composto unitário → só cupons atômicos (nunca agenda direto).
+ */
 export function isSingleMultiCouponPackageSelection(
-  ..._unused: ItemLine[][]
+  services: ItemLine[] = [],
+  beats: ItemLine[] = []
 ): boolean {
-  void _unused;
-  return false;
+  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
+  const active = getActiveAgendamentoLines(services, beats)[0];
+  return isMultiCouponAgendamentoPackageId(active?.id, active?.nome);
 }
 
 /**
- * GO-H3: compra unitária sempre abre agendamento no checkout (calendário).
- * Multi-serviço → cupons (sem agenda no pagamento).
+ * GO-H4: agenda no checkout só serviço atômico unitário
+ * (Sessão, Captação, Beat, Mixagem, Masterização, Sonoplastia…).
+ * Pacotes compostos nunca abrem calendário no pagamento.
  */
 export function exigeAgendamentoNoCheckout(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  return isSingleUnitAgendamentoPurchase(services, beats);
+  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
+  if (isSingleMultiCouponPackageSelection(services, beats)) return false;
+  return true;
 }
 
 /**
- * GO-H3: horário de estúdio só para Sessão/Captação unitária (presencial).
+ * Horário de estúdio só para Sessão/Captação unitária (presencial).
  */
 export function exigeAgendamentoHora(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
+  if (!exigeAgendamentoNoCheckout(services, beats)) return false;
   const active = getActiveAgendamentoLines(services, beats);
   return isSchedulableServiceType(active[0].id, active[0].nome);
 }
 
 /**
- * GO-H3: produção unitária — só data de entrega desejada (sem horários).
+ * Produção unitária atômica — só data de entrega desejada (sem horários).
  */
 export function exigeAgendamentoSomenteData(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
   return (
-    isSingleUnitAgendamentoPurchase(services, beats) &&
+    exigeAgendamentoNoCheckout(services, beats) &&
     !exigeAgendamentoHora(services, beats)
   );
 }
 
 /**
  * Compat: true quando a compra unitária exige data **e** hora (presencial).
- * Produção unitária usa `exigeAgendamentoSomenteData` / `exigeAgendamentoNoCheckout`.
  */
 export function exigeAgendamentoDataHora(
   services: ItemLine[] = [],
@@ -116,20 +125,21 @@ export function exigeAgendamentoDataHora(
 }
 
 /**
- * GO-H3: cupons de agendamento somente com mais de um serviço (linhas/qty).
- * Compra unitária nunca emite cupom de agendamento.
+ * GO-H4: cupons quando multi-serviço OU pacote composto (mesmo unitário).
+ * Serviço atômico unitário nunca emite cupom de agendamento.
  */
 export function isCouponsOnlyAgendamentoPayment(
   _metadata: Record<string, unknown>,
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  return countAgendamentoItemLines(services, beats) > 1;
+  if (countAgendamentoItemLines(services, beats) > 1) return true;
+  return isSingleMultiCouponPackageSelection(services, beats);
 }
 
 /**
- * Compra unitária com data no metadata (hora obrigatória só se presencial).
- * Produção pode omitir hora — effects usam 12:00.
+ * Compra unitária atômica com data no metadata (hora obrigatória só se presencial).
+ * Produção pode omitir hora — effects usam PRODUCTION_SCHEDULE_DEFAULT_HOUR.
  */
 export function isSingleScheduledAgendamentoPayment(
   metadata: Record<string, unknown>,
@@ -137,11 +147,13 @@ export function isSingleScheduledAgendamentoPayment(
   beats: ItemLine[] = []
 ): boolean {
   if (isCouponsOnlyAgendamentoPayment(metadata, services, beats)) return false;
-  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
+  if (!exigeAgendamentoNoCheckout(services, beats)) return false;
   if (!metadata.data) return false;
   if (exigeAgendamentoHora(services, beats) && !metadata.hora) return false;
   return true;
 }
 
-/** Horário padrão para serviços de produção (apenas data de entrega). */
-export const PRODUCTION_SCHEDULE_DEFAULT_HOUR = "12:00";
+/**
+ * Horário padrão para serviços de produção = último horário operacional (prazo de entrega).
+ */
+export const PRODUCTION_SCHEDULE_DEFAULT_HOUR = PRODUCTION_DELIVERY_HOUR;

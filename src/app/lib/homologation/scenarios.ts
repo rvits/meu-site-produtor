@@ -7,6 +7,7 @@ import type { HomologationRunInput } from "@/app/lib/homologation/types";
 import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
 import { listCouponServiceTypesForAgendamentoItems } from "@/app/lib/agendamento-payment-coupons";
 import {
+  isCouponsOnlyAgendamentoPayment,
   isSingleUnitAgendamentoPurchase,
   PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "@/app/lib/agendamento-payment-rules";
@@ -59,9 +60,11 @@ function tomorrowIsoDate(): string {
 type Line = { id: string; nome: string; quantidade: number };
 
 function expectedCouponsFor(servicos: Line[], beats: Line[]): number {
-  // GO-H3: compra unitária → 0 cupons (agenda direto).
-  if (isSingleUnitAgendamentoPurchase(servicos, beats)) return 0;
-  return listCouponServiceTypesForAgendamentoItems(servicos, beats).length;
+  // GO-H4: pacote composto ou multi → cupons; atômico unitário → 0.
+  if (isCouponsOnlyAgendamentoPayment({}, servicos, beats)) {
+    return listCouponServiceTypesForAgendamentoItems(servicos, beats).length;
+  }
+  return 0;
 }
 
 function agendamentoScenario(
@@ -72,11 +75,13 @@ function agendamentoScenario(
   beats: Line[] = [],
   opts?: { withSlot?: boolean }
 ): HomologationScenarioDef {
-  const singleUnit = isSingleUnitAgendamentoPurchase(servicos, beats);
+  const singleAtomic =
+    isSingleUnitAgendamentoPurchase(servicos, beats) &&
+    !isCouponsOnlyAgendamentoPayment({}, servicos, beats);
   const expected = expectedCouponsFor(servicos, beats);
-  const needsSlot = singleUnit || opts?.withSlot === true;
+  const needsSlot = singleAtomic || opts?.withSlot === true;
   const presencial =
-    singleUnit &&
+    singleAtomic &&
     isSchedulableServiceType((servicos[0] || beats[0])?.id);
   return {
     id,
@@ -125,21 +130,21 @@ export const HOMOLOGATION_SCENARIOS: HomologationScenarioDef[] = [
   agendamentoScenario(
     "beat2",
     "2 Beats",
-    "Pacote 2 Beats unitário → Appointment do pacote (sem split em cupons).",
+    "Pacote 2 Beats → 2 cupons Beat (GO-H4, sem agenda no checkout).",
     [],
     [{ id: "beat2", nome: "2 Beats", quantidade: 1 }]
   ),
   agendamentoScenario(
     "beat3",
     "3 Beats",
-    "Pacote 3 Beats unitário → Appointment do pacote.",
+    "Pacote 3 Beats → 3 cupons Beat.",
     [],
     [{ id: "beat3", nome: "3 Beats", quantidade: 1 }]
   ),
   agendamentoScenario(
     "beat4",
     "4 Beats",
-    "Pacote 4 Beats unitário → Appointment do pacote.",
+    "Pacote 4 Beats → 4 cupons Beat.",
     [],
     [{ id: "beat4", nome: "4 Beats", quantidade: 1 }]
   ),
@@ -158,7 +163,7 @@ export const HOMOLOGATION_SCENARIOS: HomologationScenarioDef[] = [
   agendamentoScenario(
     "mix_master",
     "Mix + Master",
-    "Pacote Mix + Master unitário → Appointment direto (sem split em cupons).",
+    "Pacote Mix + Master → cupons mix + master (GO-H4).",
     [{ id: "mix_master", nome: "Mix + Master", quantidade: 1 }]
   ),
   agendamentoScenario(
@@ -170,14 +175,14 @@ export const HOMOLOGATION_SCENARIOS: HomologationScenarioDef[] = [
   agendamentoScenario(
     "producao_completa",
     "Produção Completa",
-    "Produção Completa unitária → Appointment direto.",
+    "Pacote → 2 sessão + 2 captação + beat + mix + master (7 cupons).",
     [],
     [{ id: "producao_completa", nome: "Produção Completa", quantidade: 1 }]
   ),
   agendamentoScenario(
     "beat_mix_master",
     "Beat + Mix + Master",
-    "Pacote Beat + Mix + Master unitário → Appointment direto.",
+    "Pacote → cupons beat + mix + master.",
     [],
     [{ id: "beat_mix_master", nome: "Beat + Mix + Master", quantidade: 1 }]
   ),

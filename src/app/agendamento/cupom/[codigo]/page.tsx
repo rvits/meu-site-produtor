@@ -204,6 +204,7 @@ export default function AgendamentoCupomPage() {
         <Card className="space-y-4">
           <CouponScheduleFields
             serviceType={coupon.serviceType}
+            serviceName={coupon.catalogItem.nome}
             dataSelecionada={dataSelecionada}
             horaSelecionada={horaSelecionada}
             onDataChange={setDataSelecionada}

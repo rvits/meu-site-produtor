@@ -31,7 +31,7 @@ export const QUICK_ANSWERS: QuickAnswer[] = [
 • 3 Beats: R$ 350,00
 • 4 Beats: R$ 400,00
 • Beat + Mix + Master: R$ 280,00
-• Produção Completa (4h + beat + mix + master): R$ 400,00
+• Produção Completa (2h Sessão + 2h Captação + Beat + Mix + Master): R$ 450,00
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -129,7 +129,7 @@ Confira todos os detalhes na página de Planos!`,
 🎵 BEATS E PRODUÇÃO
 
 • Beats personalizados - Instrumentais exclusivos
-• Produção completa - 4h + beat + mix + master
+• Produção completa - 2h Sessão + 2h Captação + Beat + Mix + Master
 • Beat + Mix + Master - Pacote completo de produção
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

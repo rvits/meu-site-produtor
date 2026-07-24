@@ -1,25 +1,19 @@
 /**
  * Constantes e textos compartilhados entre /agendamento e /agendamento/cupom/[codigo].
- * GO-H3: mesmo vocabulário visual e regras de presencial vs produção.
  */
 import { isSchedulableServiceType } from "@/app/lib/service-catalog";
+import {
+  OPERATIONAL_HOURS,
+  PRODUCTION_DELIVERY_HOUR,
+} from "@/app/lib/calendar-day-state";
 
-export const SCHEDULE_HORARIOS = [
-  "10:00",
-  "11:00",
-  "12:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-] as const;
+export const SCHEDULE_HORARIOS = OPERATIONAL_HOURS;
+
+export { OPERATIONAL_HOURS, PRODUCTION_DELIVERY_HOUR };
 
 /** Texto obrigatório acima do calendário para serviços de produção (sem horários). */
 export const PRODUCTION_DELIVERY_DATE_MESSAGE =
-  "Selecione a data em que deseja receber o material final. Essa data representa a entrega desejada. Após o envio da solicitação, a equipe analisará a disponibilidade e confirmará ou ajustará essa data conforme a capacidade de produção.";
+  "Selecione a data em que deseja receber o material final. Esta data representa a entrega desejada. Após o envio da solicitação, a equipe analisará a disponibilidade e confirmará ou ajustará essa data conforme a capacidade de produção.";
 
 export function serviceNeedsStudioHours(
   serviceType?: string | null,
