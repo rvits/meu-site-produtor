@@ -4,7 +4,7 @@
  */
 import { prisma } from "@/app/lib/prisma";
 import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse } from "@/app/lib/sendEmail";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import {
   createServicesForAppointmentIfMissing,
   type AgendamentoItemLine,
@@ -91,8 +91,7 @@ export async function processCarrinhoPaymentEffects(params: {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const conflito = await prisma.appointment.findFirst({
       where: {
-        ...appointmentOperationalFilter,
-        status: { not: "cancelado" },
+        ...appointmentCalendarOccupancyFilter,
         AND: [
           { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
           { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },

@@ -125,8 +125,9 @@ export function exigeAgendamentoDataHora(
 }
 
 /**
- * GO-H4: cupons quando multi-serviço OU pacote composto (mesmo unitário).
- * Serviço atômico unitário nunca emite cupom de agendamento.
+ * GO-H4.3: cupons quando multi-serviço OU pacote composto (mesmo unitário).
+ * Serviço atômico unitário (Sessão, Captação, Beat, Mix, Master, Sonoplastia)
+ * nunca emite cupom — agenda no calendário comum.
  */
 export function isCouponsOnlyAgendamentoPayment(
   _metadata: Record<string, unknown>,

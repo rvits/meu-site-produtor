@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import {
   CALENDAR_LEGEND,
   OPERATIONAL_HOURS,
@@ -9,7 +9,8 @@ import {
 } from "@/app/lib/calendar-day-state";
 
 /**
- * API pública de disponibilidade + estado do calendário (GO-H4).
+ * API pública de disponibilidade + estado do calendário (GO-H4 / GO-H4.3).
+ * Só agendamentos Aceitos+ ocupam horários/cores. Pendente = solicitação.
  * Frontend apenas renderiza `dayStates` / `occupiedHours`.
  */
 export async function GET() {
@@ -17,14 +18,14 @@ export async function GET() {
     const [agendamentos, blocked] = await Promise.all([
       prisma.appointment.findMany({
         where: {
-          ...appointmentOperationalFilter,
-          status: { not: "cancelado" },
+          ...appointmentCalendarOccupancyFilter,
           data: { gte: new Date(new Date().getFullYear(), 0, 1) },
         },
         select: {
           data: true,
           duracaoMinutos: true,
           tipo: true,
+          status: true,
         },
         orderBy: { data: "asc" },
       }),
@@ -38,6 +39,7 @@ export async function GET() {
       data: a.data instanceof Date ? a.data.toISOString() : a.data,
       duracaoMinutos: a.duracaoMinutos || 60,
       tipo: a.tipo || null,
+      status: a.status,
     }));
 
     const blockedSlots = blocked.map((s) => ({

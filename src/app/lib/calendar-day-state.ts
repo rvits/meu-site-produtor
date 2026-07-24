@@ -1,8 +1,10 @@
 /**
- * GO-H4 — Estado operacional do calendário (fonte única).
+ * GO-H4 / GO-H4.3 — Estado operacional do calendário (fonte única).
  * Backend calcula; frontend apenas renderiza `visual` / horas ocupadas.
+ * Pendente nunca ocupa: filtrar no caller ou passar `status` em cada appointment.
  */
 import { isSchedulableServiceType } from "@/app/lib/service-catalog";
+import { appointmentReservesCalendar } from "@/app/lib/domain/statuses";
 
 /** Horários operacionais presenciais do estúdio. */
 export const OPERATIONAL_HOURS = [
@@ -56,6 +58,8 @@ export type CalendarAppointmentInput = {
   data: string | Date;
   duracaoMinutos?: number | null;
   tipo?: string | null;
+  /** Se informado, só status que reservam calendário (GO-H4.3) entram na ocupação. */
+  status?: string | null;
 };
 
 export type CalendarBlockedSlotInput = {
@@ -145,6 +149,9 @@ export function computeCalendarDayStates(params: {
   }
 
   for (const apt of params.appointments || []) {
+    if (apt.status != null && !appointmentReservesCalendar(apt.status)) {
+      continue;
+    }
     const date = toIsoDateLocal(apt.data);
     if (isProductionDeliveryAppointment(apt.tipo)) {
       productionDays.add(date);

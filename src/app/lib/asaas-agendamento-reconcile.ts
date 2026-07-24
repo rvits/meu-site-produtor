@@ -1,6 +1,6 @@
 import { prisma } from "@/app/lib/prisma";
 import { createServicesForAppointmentIfMissing } from "@/app/lib/asaas-agendamento-payment-effects";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
@@ -244,8 +244,7 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
       const dataHoraISO = new Date(`${item.data}T${item.hora}:00`);
       const conflito = await prisma.appointment.findFirst({
         where: {
-          ...appointmentOperationalFilter,
-          status: { not: "cancelado" },
+          ...appointmentCalendarOccupancyFilter,
           ...(aptIds.length > 0 ? { id: { notIn: aptIds } } : {}),
           AND: [
             { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },

@@ -1,6 +1,7 @@
 /**
- * GO-H4 — Composição oficial dos pacotes (fonte única).
- * Toda geração de cupons de agendamento deve usar esta configuração.
+ * GO-H4 / GO-H4.3 — Composição oficial dos pacotes (fonte única do domínio).
+ * Obrigatória para: checkout, cupons, Asaas, SimulationProvider, Homologação,
+ * reembolsos, planos, agendamentos, dashboard e administração.
  * Nunca gerar cupom genérico do pacote.
  */
 

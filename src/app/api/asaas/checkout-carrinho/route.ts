@@ -5,7 +5,7 @@ import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
@@ -132,8 +132,7 @@ export async function POST(req: Request) {
       const duracao = item.duracaoMinutos ?? 60;
       const conflito = await prisma.appointment.findFirst({
         where: {
-          ...appointmentOperationalFilter,
-          status: { not: "cancelado" },
+          ...appointmentCalendarOccupancyFilter,
           AND: [
             { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
             { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },

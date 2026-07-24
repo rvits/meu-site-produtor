@@ -7,6 +7,8 @@ import { prisma } from "@/app/lib/prisma";
 import { canCancelAppointment } from "@/app/lib/domain/domain-service";
 import { transition } from "@/app/lib/domain/state-machine/transition";
 import type { TransitionActor } from "@/app/lib/domain/state-machine/types";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
+import { isSchedulableServiceType } from "@/app/lib/service-catalog";
 
 export type WorkflowOk<T> = { ok: true; alreadyProcessed?: boolean; data: T };
 export type WorkflowFail = { ok: false; error: string; httpStatus: number; code?: string };
@@ -46,6 +48,39 @@ export async function approveAppointment(
     agendamento: NonNullable<Awaited<ReturnType<typeof loadAppointment>>>;
   }>
 > {
+  const before = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: { id: true, data: true, duracaoMinutos: true, tipo: true, status: true },
+  });
+  if (!before) return fail("Agendamento não encontrado", 404, "NOT_FOUND");
+
+  // GO-H4.3: reserva operacional só no Aceitar — conflita com slots já reservados.
+  if (
+    before.status === "pendente" &&
+    isSchedulableServiceType(before.tipo)
+  ) {
+    const duracao = before.duracaoMinutos || 60;
+    const dataHoraISO = new Date(before.data);
+    const conflito = await prisma.appointment.findFirst({
+      where: {
+        id: { not: appointmentId },
+        ...appointmentCalendarOccupancyFilter,
+        AND: [
+          { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
+          { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (conflito) {
+      return fail(
+        "Este horário já está reservado por outro agendamento aceito. Remarque ou recuse esta solicitação.",
+        409,
+        "CONFLICT"
+      );
+    }
+  }
+
   const result = await transition({
     entity: "appointment",
     id: appointmentId,
@@ -177,7 +212,7 @@ export async function revertAppointmentCancellation(
   const conflito = await prisma.appointment.findFirst({
     where: {
       id: { not: appointmentId },
-      status: { in: ["aceito", "confirmado", "em_andamento"] },
+      ...appointmentCalendarOccupancyFilter,
       AND: [
         { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
         { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },

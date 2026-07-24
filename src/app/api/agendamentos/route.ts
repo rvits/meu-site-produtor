@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { agendamentoSchema } from "@/app/lib/validations";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 export const runtime = "nodejs";
@@ -35,10 +36,10 @@ export async function POST(req: Request) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
     const dataFim = new Date(dataHoraISO.getTime() + (duracaoMinutos * 60000));
 
-    // 🔍 Verificar conflitos de agendamento. select só id para não depender de colunas cancelReason/etc
+    // GO-H4.3: só conflita com reservas aceitas (pendente não ocupa)
     const conflito = await prisma.appointment.findFirst({
       where: {
-        status: { not: "cancelado" },
+        ...appointmentCalendarOccupancyFilter,
         AND: [
           { data: { lt: dataFim } },
           {

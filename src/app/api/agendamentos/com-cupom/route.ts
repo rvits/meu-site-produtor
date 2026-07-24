@@ -15,6 +15,7 @@ import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-
 import { validateCouponAndGetTotal } from "@/app/lib/validate-coupon-checkout";
 import { canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 
 const agendamentoComCupomSchema = z.object({
   data: z.string(),
@@ -261,7 +262,7 @@ export async function POST(req: Request) {
         async (tx) => {
           const conflito = await tx.appointment.findFirst({
             where: {
-              status: { not: "cancelado" },
+              ...appointmentCalendarOccupancyFilter,
               AND: [
                 { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
                 { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },
@@ -269,7 +270,7 @@ export async function POST(req: Request) {
             },
             select: { id: true },
           });
-          // GO-H3: conflito de estúdio só para Sessão/Captação (presencial).
+          // Conflito de estúdio só para Sessão/Captação; pendente não reserva (GO-H4.3).
           const tipoNorm = normalizeServiceTypeId(
             String(tipo || couponRow.serviceType || "sessao")
           );

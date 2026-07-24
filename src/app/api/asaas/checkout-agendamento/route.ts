@@ -12,8 +12,8 @@ import {
   exigeAgendamentoSomenteData,
   PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "@/app/lib/agendamento-payment-rules";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import { getAsaasApiKey } from "@/app/lib/env";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
 import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
@@ -176,8 +176,7 @@ export async function POST(req: Request) {
       const dataHoraISO = new Date(`${data}T${horaEfetiva}:00`);
       const conflito = await prisma.appointment.findFirst({
         where: {
-          ...appointmentOperationalFilter,
-          status: { not: "cancelado" },
+          ...appointmentCalendarOccupancyFilter,
           AND: [
             { data: { lt: new Date(dataHoraISO.getTime() + duracao * 60000) } },
             { data: { gte: new Date(dataHoraISO.getTime() - duracao * 60000) } },

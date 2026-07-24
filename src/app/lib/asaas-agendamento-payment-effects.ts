@@ -15,7 +15,7 @@ import {
   isSingleScheduledAgendamentoPayment,
 } from "@/app/lib/agendamento-payment-rules";
 import { sendPaymentConfirmationEmailToUser, sendPaymentNotificationToTHouse } from "@/app/lib/sendEmail";
-import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
+import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 
 export type AgendamentoItemLine = { id?: string; nome?: string; quantidade?: number };
 
@@ -336,8 +336,7 @@ export async function processAgendamentoPaymentEffects(params: {
     if (needsHour) {
       const conflito = await prisma.appointment.findFirst({
         where: {
-          ...appointmentOperationalFilter,
-          status: { not: "cancelado" },
+          ...appointmentCalendarOccupancyFilter,
           AND: [
             { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
             { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },

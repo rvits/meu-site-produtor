@@ -54,6 +54,26 @@ export const APPOINTMENT_STATUSES_BLOCKING_COUPON_REUSE: ReadonlySet<string> = n
   "em_andamento",
 ]);
 
+/**
+ * GO-H4.3 — Status que reservam o calendário operacional.
+ * Pendente / aguardando aprovação NÃO ocupam horários, cores nem disponibilidade.
+ * A reserva só ocorre após o admin Aceitar.
+ */
+export const APPOINTMENT_STATUSES_RESERVING_CALENDAR = [
+  "aceito",
+  "confirmado",
+  "em_andamento",
+  "concluido",
+] as const;
+
+export const APPOINTMENT_STATUSES_RESERVING_CALENDAR_SET: ReadonlySet<string> = new Set(
+  APPOINTMENT_STATUSES_RESERVING_CALENDAR
+);
+
+export function appointmentReservesCalendar(status?: string | null): boolean {
+  return APPOINTMENT_STATUSES_RESERVING_CALENDAR_SET.has(String(status || ""));
+}
+
 export function isServiceStatus(value: string): value is ServiceStatus {
   return (SERVICE_STATUSES as readonly string[]).includes(value);
 }

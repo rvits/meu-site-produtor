@@ -4,6 +4,7 @@
  * GO-03C — Timeline de atividade recente + calendário operacional.
  */
 import Link from "next/link";
+import { appointmentReservesCalendar } from "@/app/lib/domain/statuses";
 import { Icons, formatDateTime, serviceTypeLabel } from "@/app/admin/servicos-ui/meta";
 import { StatusBadge } from "@/app/admin/servicos-ui/Badges";
 import type { DashAppointment, DashCoupon, DashPayment, DashService } from "./types";
@@ -151,7 +152,7 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
   weekEnd.setHours(23, 59, 59, 999);
 
   const active = appointments.filter(
-    (a) => a.status !== "cancelado" && a.status !== "recusado" && a.user?.nomeArtistico
+    (a) => a.user?.nomeArtistico && appointmentReservesCalendar(a.status)
   );
 
   const today = active.filter((a) => {
