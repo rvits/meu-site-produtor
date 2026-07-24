@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * GO-H6 — Laboratório Operacional de Homologação.
- * Porta de entrada alternativa para o mesmo domínio (SimulationProvider).
+ * GO-H6/H7 — Homologação: Laboratório (Simulation) + Pedido real (HOMOLOGATION).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -79,6 +78,56 @@ type Run = {
 
 type QtyMap = Partial<Record<CanonicalServiceId, number>>;
 
+type RealOrderFlow = {
+  pedidoCriado: boolean;
+  pagamentoConfirmado: boolean;
+  ordensCriadas: boolean;
+  cuponsCriados: boolean;
+  agendamentoCriado: boolean;
+  aceitoPeloAdmin: boolean;
+  servicosSelecionados: boolean;
+  upload: boolean;
+  entrega: boolean;
+  downloadPronto: boolean;
+  concluido: boolean;
+};
+
+type RealOrder = {
+  origin: string;
+  providerPaymentId: string;
+  paymentDbId: string;
+  paymentStatus: string;
+  amount: number;
+  appointmentIds: number[];
+  serviceIds: string[];
+  couponCodes: string[];
+  couponTypes: string[];
+  orderCount: number;
+  serviceOrders: ServiceOrderSummary[];
+  appointments: Array<{ id: number; status: string; tipo: string; data: string }>;
+  services: Array<{
+    id: string;
+    status: string;
+    tipo: string;
+    deliveryAudioUrl: string | null;
+  }>;
+  flow: RealOrderFlow;
+};
+
+const FLOW_LABELS: Array<{ key: keyof RealOrderFlow; label: string }> = [
+  { key: "pedidoCriado", label: "Pedido criado" },
+  { key: "pagamentoConfirmado", label: "Pagamento confirmado" },
+  { key: "ordensCriadas", label: "Ordens criadas" },
+  { key: "cuponsCriados", label: "Cupons criados" },
+  { key: "agendamentoCriado", label: "Agendamento criado" },
+  { key: "aceitoPeloAdmin", label: "Aceito pelo Admin" },
+  { key: "servicosSelecionados", label: "Serviços Selecionados" },
+  { key: "upload", label: "Upload" },
+  { key: "entrega", label: "Entrega" },
+  { key: "downloadPronto", label: "Download" },
+  { key: "concluido", label: "Concluído" },
+];
+
 const CATALOG_IDS = Object.keys(CHECKOUT_CATALOG) as CanonicalServiceId[];
 
 function emptyQty(): QtyMap {
@@ -124,15 +173,32 @@ export default function HomologacaoAdminPage() {
   const [runRefund, setRunRefund] = useState(false);
   const [labPhase, setLabPhase] = useState<string>("reserved");
   const [labMsg, setLabMsg] = useState<string | null>(null);
+  const [realOrder, setRealOrder] = useState<RealOrder | null>(null);
+  const [orderMsg, setOrderMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const runsRes = await fetch("/api/admin/homologation/runs", { cache: "no-store" });
+      const [runsRes, orderListRes] = await Promise.all([
+        fetch("/api/admin/homologation/runs", { cache: "no-store" }),
+        fetch("/api/admin/homologation/order", { cache: "no-store" }),
+      ]);
       const runsData = await runsRes.json();
       if (runsRes.ok) {
         setLatest(runsData.latest || null);
         setRuns(runsData.runs || []);
+      }
+      if (orderListRes.ok) {
+        const orderData = await orderListRes.json();
+        const first = orderData.recent?.[0];
+        if (first?.id) {
+          const detailRes = await fetch(
+            `/api/admin/homologation/order?paymentId=${encodeURIComponent(first.id)}`,
+            { cache: "no-store" }
+          );
+          const detail = await detailRes.json();
+          if (detailRes.ok && detail.order) setRealOrder(detail.order);
+        }
       }
     } finally {
       setLoading(false);
@@ -281,7 +347,7 @@ export default function HomologacaoAdminPage() {
   async function cleanup() {
     if (
       !window.confirm(
-        "Remover todos os pedidos/ordens/cupons/agendamentos de Homologação?\nDados reais (Asaas) não serão afetados."
+        "Remover artefatos do Laboratório (SimulationProvider)?\nPedidos de Homologação e Asaas não serão afetados."
       )
     ) {
       return;
@@ -296,8 +362,90 @@ export default function HomologacaoAdminPage() {
         return;
       }
       setLatest(null);
-      setMessage(`Limpeza OK: ${JSON.stringify(dataRes.result)}`);
+      setMessage(`Limpeza Lab OK: ${JSON.stringify(dataRes.result)}`);
       await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createRealOrder() {
+    setBusy(true);
+    setOrderMsg(null);
+    try {
+      const lines = qtyToLines(qty);
+      if (lines.servicos.length + lines.beats.length === 0) {
+        setOrderMsg("Selecione ao menos um produto.");
+        return;
+      }
+      const immediate = purchaseOpensImmediateSchedule(lines.servicos, lines.beats);
+      const presencial = immediate && exigeAgendamentoHora(lines.servicos, lines.beats);
+      const body: Record<string, unknown> = {
+        servicos: lines.servicos,
+        beats: lines.beats,
+        observacoes: "Pedido de Homologação (QA operacional)",
+      };
+      if (immediate) {
+        body.data = data || tomorrowIso();
+        body.hora = presencial ? hora || "14:00" : PRODUCTION_SCHEDULE_DEFAULT_HOUR;
+        body.duracaoMinutos = 60;
+      }
+      const res = await fetch("/api/admin/homologation/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const dataRes = await res.json();
+      if (!res.ok) {
+        setOrderMsg(dataRes.error || "Falha ao criar Pedido de Homologação.");
+        return;
+      }
+      setRealOrder(dataRes.order);
+      setLastQty(qty);
+      setOrderMsg(
+        `Pedido criado · ${dataRes.order.paymentDbId} · ${dataRes.order.orderCount} Ordem(ns) · origin=HOMOLOGATION`
+      );
+    } catch (e) {
+      setOrderMsg(e instanceof Error ? e.message : "Erro inesperado.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshRealOrder() {
+    if (!realOrder?.paymentDbId) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/homologation/order?paymentId=${encodeURIComponent(realOrder.paymentDbId)}`,
+        { cache: "no-store" }
+      );
+      const dataRes = await res.json();
+      if (res.ok && dataRes.order) setRealOrder(dataRes.order);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cleanupRealOrders() {
+    if (
+      !window.confirm(
+        "Remover exclusivamente Pedidos de Homologação (origin=HOMOLOGATION)?\nAsaas e Laboratório (Simulation) não serão afetados."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setOrderMsg(null);
+    try {
+      const res = await fetch("/api/admin/homologation/order-cleanup", { method: "POST" });
+      const dataRes = await res.json();
+      if (!res.ok) {
+        setOrderMsg(dataRes.error || "Falha na limpeza de Pedidos.");
+        return;
+      }
+      setRealOrder(null);
+      setOrderMsg(`Limpeza Pedidos OK: ${JSON.stringify(dataRes.result)}`);
     } finally {
       setBusy(false);
     }
@@ -358,17 +506,17 @@ export default function HomologacaoAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Homologação — Laboratório Operacional"
+        title="Homologação — Laboratório + Pedido Real"
         subtitle={
           <>
-            Mesmo fluxo do checkout, mesmas regras de negócio. Origem:{" "}
-            <code className="text-zinc-300">SimulationProvider</code> / Homologação — sem Asaas.
+            Dois modos: <code className="text-zinc-300">SimulationProvider</code> (lab descartável) e{" "}
+            <code className="text-zinc-300">origin=HOMOLOGATION</code> (pedido operacional real, sem Asaas).
           </>
         }
         icon="sparkles"
       />
 
-      <Callout intent="info" title="Presets rápidos">
+      <Callout intent="info" title="Presets rápidos (compartilhados)">
         <div className="flex flex-wrap gap-2 mt-2">
           {LAB_PRESETS.map((p) => (
             <Button
@@ -512,7 +660,7 @@ export default function HomologacaoAdminPage() {
                 onClick={() => void simulatePayment()}
                 className="!bg-amber-600 hover:!bg-amber-500"
               >
-                Simular Pagamento
+                Simular Pagamento (Lab)
               </Button>
               <Button
                 variant="outline"
@@ -530,10 +678,47 @@ export default function HomologacaoAdminPage() {
                 onClick={() => void cleanup()}
                 className="!border-red-800 !text-red-300"
               >
-                Limpar Homologação
+                Limpar Homologação (Lab)
               </Button>
             </div>
             {message && <p className="text-sm text-amber-100 mt-3">{message}</p>}
+
+            <div className="mt-6 border-t border-zinc-800 pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-emerald-300">
+                Pedido de Homologação (fluxo real)
+              </h3>
+              <p className="text-xs text-zinc-500">
+                Confirma pagamento internamente e executa o mesmo{" "}
+                <code className="text-zinc-400">processPaymentWebhook</code> do Asaas. Cupons SERVICE,
+                valor de catálogo, origin=HOMOLOGATION.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  loading={busy}
+                  onClick={() => void createRealOrder()}
+                  className="!bg-emerald-700 hover:!bg-emerald-600"
+                >
+                  Criar Pedido de Homologação
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void cleanupRealOrders()}
+                  className="!border-emerald-900 !text-emerald-300"
+                >
+                  Limpar Pedidos de Homologação
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy || !realOrder}
+                  onClick={() => void refreshRealOrder()}
+                >
+                  Atualizar Fluxo Real
+                </Button>
+              </div>
+              {orderMsg && <p className="text-sm text-emerald-100">{orderMsg}</p>}
+            </div>
           </Section>
         </Card>
 
@@ -662,6 +847,81 @@ export default function HomologacaoAdminPage() {
           </Section>
         </Card>
       </div>
+
+      {realOrder && (
+        <Card>
+          <Section title="Fluxo Real (banco)">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <Badge intent="success">origin=HOMOLOGATION</Badge>
+              <span className="text-xs text-zinc-500">{realOrder.paymentDbId}</span>
+              <span className="text-xs text-zinc-400">
+                R$ {Number(realOrder.amount).toFixed(2)} · {realOrder.paymentStatus}
+              </span>
+            </div>
+            <ol className="space-y-2 border-l border-emerald-900 pl-3 text-sm">
+              {FLOW_LABELS.map((step) => {
+                const ok = realOrder.flow[step.key];
+                return (
+                  <li key={step.key} className="flex gap-2 items-center">
+                    <span className={ok ? "text-emerald-400" : "text-zinc-600"}>
+                      {ok ? "✓" : "○"}
+                    </span>
+                    <span className={ok ? "text-zinc-200" : "text-zinc-500"}>{step.label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            <div className="mt-4 text-xs text-zinc-400 space-y-1">
+              <div>
+                {realOrder.orderCount} Ordem(ns):{" "}
+                {realOrder.serviceOrders.map((o) => o.serviceType).join(", ") || "—"}
+              </div>
+              <div>
+                Cupons ({realOrder.couponTypes.join(", ") || "—"}):{" "}
+                {realOrder.couponCodes.join(", ") || "—"}
+              </div>
+              <div>
+                Agendamentos: {realOrder.appointmentIds.join(", ") || "—"}
+                {realOrder.appointments.length > 0 &&
+                  ` · status=${realOrder.appointments.map((a) => a.status).join(",")}`}
+              </div>
+              <div>
+                Serviços:{" "}
+                {realOrder.services.map((s) => `${s.tipo}:${s.status}`).join(", ") || "—"}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <Link href="/admin/pagamentos" className="text-emerald-400 hover:underline">
+                Pagamentos
+              </Link>
+              <Link href="/admin/agendamentos" className="text-emerald-400 hover:underline">
+                Agendamentos
+              </Link>
+              <Link href="/admin/servicos" className="text-emerald-400 hover:underline">
+                Serviços
+              </Link>
+              <Link
+                href="/admin/servicos-selecionados"
+                className="text-emerald-400 hover:underline"
+              >
+                Serviços Selecionados
+              </Link>
+              <Link href="/admin" className="text-emerald-400 hover:underline">
+                Dashboard
+              </Link>
+              <Link
+                href="/admin/controle-agendamento"
+                className="text-emerald-400 hover:underline"
+              >
+                Controle Operacional
+              </Link>
+              <Link href="/minha-conta" className="text-emerald-400 hover:underline">
+                Minha Conta
+              </Link>
+            </div>
+          </Section>
+        </Card>
+      )}
 
       {latest && (
         <Card>
