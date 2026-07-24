@@ -7,6 +7,7 @@ export type HomologationCheckKey =
   | "appointmentCreated"
   | "servicesCreated"
   | "couponsCreated"
+  | "serviceOrdersCreated"
   | "refundRequested"
   | "refundResolved"
   | "workflowUpdated"
@@ -28,6 +29,16 @@ export type HomologationTimelineEvent = {
   data?: unknown;
 };
 
+export type HomologationServiceOrderSummary = {
+  id: string;
+  serviceType: string;
+  commercialSource: string | null;
+  phase: string;
+  couponId: string | null;
+  appointmentId: number | null;
+  sequenceIndex: number;
+};
+
 export type HomologationRunInput = {
   userId: string;
   userEmail: string;
@@ -46,6 +57,10 @@ export type HomologationRunInput = {
   runRefund?: boolean;
   refundOutcome?: RefundLifecycleStatus;
   expectedServiceCoupons?: number | null;
+  /** GO-H6: seleção livre (laboratório) — ignora scenarioId se true com itens. */
+  freeLab?: boolean;
+  /** GO-H6: resultado do pagamento simulado (default approved). */
+  paymentOutcome?: "approved" | "pending" | "refused";
 };
 
 export type HomologationRun = {
@@ -60,6 +75,8 @@ export type HomologationRun = {
   appointmentIds?: number[];
   serviceIds?: string[];
   couponCodes?: string[];
+  serviceOrders?: HomologationServiceOrderSummary[];
+  orderCount?: number;
   refund?: {
     status: RefundLifecycleStatus;
     reason?: string;

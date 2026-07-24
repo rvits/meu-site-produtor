@@ -41,6 +41,13 @@ export async function POST(req: Request) {
       refundOutcome,
       expectedServiceCoupons:
         typeof body.expectedServiceCoupons === "number" ? body.expectedServiceCoupons : undefined,
+      freeLab: Boolean(body.freeLab),
+      paymentOutcome:
+        body.paymentOutcome === "pending" || body.paymentOutcome === "refused"
+          ? body.paymentOutcome
+          : body.paymentOutcome === "approved"
+            ? "approved"
+            : undefined,
     });
 
     return NextResponse.json({ run, scenarios: HOMOLOGATION_SCENARIOS.map((s) => s.id) });
@@ -69,6 +76,7 @@ export async function GET() {
         refundOutcome: s.refundOutcome ?? null,
         expectedServiceCoupons: s.expectedServiceCoupons ?? null,
       })),
+      presets: (await import("@/app/lib/homologation/presets")).LAB_PRESETS,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

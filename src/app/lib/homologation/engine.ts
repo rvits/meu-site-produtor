@@ -41,6 +41,7 @@ function emptyChecks(): HomologationCheck[] {
     { key: "appointmentCreated", label: "Appointment Created", ok: false },
     { key: "servicesCreated", label: "Services Created", ok: false },
     { key: "couponsCreated", label: "Coupons Created", ok: false },
+    { key: "serviceOrdersCreated", label: "Service Orders Created", ok: false },
     { key: "refundRequested", label: "Refund Requested", ok: false },
     { key: "refundResolved", label: "Refund Approved / Failed / Pending / Timeout", ok: false },
     { key: "workflowUpdated", label: "Workflow Updated", ok: false },
@@ -74,7 +75,13 @@ function refundCheckOk(
 export async function runHomologationSimulation(
   rawInput: HomologationRunInput
 ): Promise<HomologationRun> {
-  const scenario = getHomologationScenario(rawInput.scenarioId);
+  // GO-H6: seleção livre do laboratório tem prioridade sobre scenarioId.
+  const freeLab =
+    Boolean(rawInput.freeLab) ||
+    ((rawInput.servicos?.length || 0) + (rawInput.beats?.length || 0) > 0 &&
+      !rawInput.scenarioId);
+
+  const scenario = freeLab ? undefined : getHomologationScenario(rawInput.scenarioId);
   const input: HomologationRunInput = scenario
     ? {
         ...scenario.buildInput({
@@ -86,7 +93,12 @@ export async function runHomologationSimulation(
           rawInput.expectedServiceCoupons ?? scenario.expectedServiceCoupons ?? null,
         refundOutcome: rawInput.refundOutcome ?? scenario.refundOutcome,
       }
-    : rawInput;
+    : {
+        ...rawInput,
+        observacoes:
+          rawInput.observacoes ||
+          `[Homologação] SimulationProvider · laboratório operacional`,
+      };
 
   const runId = `homo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const timeline: HomologationTimelineEvent[] = [];
@@ -131,6 +143,7 @@ export async function runHomologationSimulation(
       mark(checks, "webhookExecuted", true, "N/A");
       mark(checks, "appointmentCreated", true, "N/A");
       mark(checks, "servicesCreated", true, "N/A");
+      mark(checks, "serviceOrdersCreated", true, "N/A — cupom desconto");
       mark(checks, "refundRequested", true, "não solicitado");
       mark(checks, "refundResolved", true, "não solicitado");
       mark(checks, "workflowUpdated", true, "createDomainCoupon DISCOUNT");
@@ -161,11 +174,12 @@ export async function runHomologationSimulation(
         isTestPayment: true,
         isTest: true,
         provider: "SIMULATION",
+        origem: "Homologação",
         homologationRunId: runId,
         billingDay: new Date().getDate(),
         paymentMethod: "pix",
       };
-      description = `Plano ${planId} - simulação homologação`;
+      description = `Plano ${planId} - Homologação (SimulationProvider)`;
     } else {
       const servicos = input.servicos || [{ id: "sessao", nome: "Sessão", quantidade: 1 }];
       const beats = input.beats || [];
@@ -198,9 +212,10 @@ export async function runHomologationSimulation(
         symbolicAgendamento: true,
         isTestPayment: true,
         provider: "SIMULATION",
+        origem: "Homologação",
         homologationRunId: runId,
       };
-      description = "Agendamento THouse Rec - simulação homologação";
+      description = "Agendamento THouse Rec - Homologação (SimulationProvider)";
     }
 
     const expiresAt = new Date();
@@ -236,6 +251,47 @@ export async function runHomologationSimulation(
     run.providerPaymentId = created.providerPaymentId;
     mark(checks, "paymentCreated", true, created.providerPaymentId);
     pushTimeline(timeline, "createPayment", true, created.providerPaymentId, created);
+
+    const paymentOutcome = input.paymentOutcome || "approved";
+
+    if (paymentOutcome === "pending") {
+      mark(checks, "webhookExecuted", true, "pagamento PENDING — confirmação não disparada (lab)");
+      pushTimeline(timeline, "paymentOutcome", true, "pending");
+      mark(checks, "appointmentCreated", true, "aguardando confirmação");
+      mark(checks, "servicesCreated", true, "aguardando confirmação");
+      mark(checks, "couponsCreated", true, "aguardando confirmação");
+      mark(checks, "serviceOrdersCreated", true, "aguardando confirmação");
+      mark(checks, "refundRequested", true, "não solicitado");
+      mark(checks, "refundResolved", true, "não solicitado");
+      mark(checks, "workflowUpdated", true, "PENDING — sem efeitos de domínio ainda");
+      mark(checks, "minhaContaUpdated", true, "PENDING");
+      mark(checks, "dashboardUpdated", true, "PENDING");
+      run.ok = true;
+      pushTimeline(timeline, "finish", true, "PASS (pending payment)");
+      run.finishedAt = new Date().toISOString();
+      await saveHomologationRun(run);
+      return run;
+    }
+
+    if (paymentOutcome === "refused") {
+      const cancelled = await provider.cancelPayment(created.providerPaymentId);
+      mark(checks, "webhookExecuted", true, `pagamento recusado/cancelado (${cancelled.status})`);
+      pushTimeline(timeline, "paymentOutcome", true, "refused", cancelled);
+      mark(checks, "appointmentCreated", true, "não gerado — pagamento recusado");
+      mark(checks, "servicesCreated", true, "não gerado — pagamento recusado");
+      mark(checks, "couponsCreated", true, "não gerado — pagamento recusado");
+      mark(checks, "serviceOrdersCreated", true, "não gerado — pagamento recusado");
+      mark(checks, "refundRequested", true, "não solicitado");
+      mark(checks, "refundResolved", true, "não solicitado");
+      mark(checks, "workflowUpdated", true, `status=${cancelled.status}`);
+      mark(checks, "minhaContaUpdated", true, "sem efeitos (recusa)");
+      mark(checks, "dashboardUpdated", true, "sem efeitos (recusa)");
+      run.ok = true;
+      pushTimeline(timeline, "finish", true, "PASS (refused payment)");
+      run.finishedAt = new Date().toISOString();
+      await saveHomologationRun(run);
+      return run;
+    }
 
     const webhook = await provider.confirmPayment(created.providerPaymentId);
     mark(
@@ -357,6 +413,37 @@ export async function runHomologationSimulation(
 
     mark(checks, "couponsCreated", couponsOk, couponDetail);
     pushTimeline(timeline, "coupons", couponsOk, couponDetail);
+
+    const serviceOrders = await prisma.serviceOrder.findMany({
+      where: { paymentId: payment.id },
+      orderBy: { sequenceIndex: "asc" },
+    });
+    run.serviceOrders = serviceOrders.map((o) => ({
+      id: o.id,
+      serviceType: o.serviceType,
+      commercialSource: o.commercialSource,
+      phase: o.phase,
+      couponId: o.couponId,
+      appointmentId: o.appointmentId,
+      sequenceIndex: o.sequenceIndex,
+    }));
+    run.orderCount = serviceOrders.length;
+    mark(
+      checks,
+      "serviceOrdersCreated",
+      serviceOrders.length > 0 || tipo === "plano" || aptIds.length > 0,
+      serviceOrders.length > 0
+        ? `${serviceOrders.length} Ordem(ns): ${serviceOrders.map((o) => o.serviceType).join(", ")}`
+        : aptIds.length > 0
+          ? "Ordem imediata via appointment (pode sincronizar depois)"
+          : "sem Ordens nesta etapa"
+    );
+    pushTimeline(
+      timeline,
+      "serviceOrders",
+      (run.serviceOrders?.length || 0) > 0 || aptIds.length > 0,
+      `count=${run.orderCount || 0}`
+    );
 
     // Cenário remarcação: cancel + criar REBOOK
     if (input.scenarioKind === "cupom_remarcacao") {
