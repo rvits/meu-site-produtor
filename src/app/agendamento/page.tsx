@@ -6,7 +6,13 @@ import { useAuth } from "../context/AuthContext";
 import DuvidasBox from "../components/DuvidasBox";
 import { useIntelligentRefresh } from "../hooks/useIntelligentRefresh";
 import { useDomainRefresh } from "../hooks/useDomainRefresh";
-import { exigeAgendamentoDataHora } from "../lib/agendamento-payment-rules";
+import {
+  exigeAgendamentoHora,
+  exigeAgendamentoNoCheckout,
+  exigeAgendamentoSomenteData,
+  PRODUCTION_SCHEDULE_DEFAULT_HOUR,
+} from "../lib/agendamento-payment-rules";
+import { PRODUCTION_DELIVERY_DATE_MESSAGE } from "./scheduling-shared";
 import {
   Button,
   EmptyState,
@@ -451,11 +457,24 @@ function AgendamentoContent() {
     return { servicos, beats };
   }, [quantidadesServicos, quantidadesBeats]);
 
-  /** OP-01: agenda só para Sessão/Captação isolada. */
+  /** GO-H3: compra unitária abre agenda; multi → cupons. */
   const precisaAgenda = useMemo(
-    () => exigeAgendamentoDataHora(linhasCheckout.servicos, linhasCheckout.beats),
+    () => exigeAgendamentoNoCheckout(linhasCheckout.servicos, linhasCheckout.beats),
     [linhasCheckout]
   );
+  const precisaHora = useMemo(
+    () => exigeAgendamentoHora(linhasCheckout.servicos, linhasCheckout.beats),
+    [linhasCheckout]
+  );
+  const somenteDataProducao = useMemo(
+    () => exigeAgendamentoSomenteData(linhasCheckout.servicos, linhasCheckout.beats),
+    [linhasCheckout]
+  );
+  const horaEfetiva = useMemo(() => {
+    if (!precisaAgenda || !dataSelecionada) return null;
+    if (precisaHora) return horaSelecionada;
+    return PRODUCTION_SCHEDULE_DEFAULT_HOUR;
+  }, [precisaAgenda, precisaHora, dataSelecionada, horaSelecionada]);
 
   // Calcular desconto do cupom e total com desconto
   const descontoCupom = useMemo(() => {
@@ -489,10 +508,10 @@ function AgendamentoContent() {
 
     if (precisaAgenda) {
       if (!dataSelecionada) {
-        notify("O dia não foi selecionado");
+        notify(somenteDataProducao ? "Selecione a data de entrega desejada" : "O dia não foi selecionado");
         return;
       }
-      if (!horaSelecionada) {
+      if (precisaHora && !horaSelecionada) {
         notify("A hora não foi selecionada");
         return;
       }
@@ -544,7 +563,7 @@ function AgendamentoContent() {
         servicos,
         beats,
         data: dataSelecionada,
-        hora: horaSelecionada,
+        hora: horaEfetiva,
       });
       try {
         const res = await fetch("/api/agendamentos/com-cupom", {
@@ -552,7 +571,7 @@ function AgendamentoContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             data: dataSelecionada,
-            hora: horaSelecionada,
+            hora: horaEfetiva,
             duracaoMinutos,
             tipo: "sessao",
             servicos,
@@ -594,7 +613,7 @@ function AgendamentoContent() {
     const item = {
       cartId: Date.now(),
       data: dataSelecionada,
-      hora: horaSelecionada,
+      hora: horaEfetiva,
       duracaoMinutos,
       tipo: "sessao",
       servicos,
@@ -648,10 +667,10 @@ function AgendamentoContent() {
     }
     if (precisaAgenda) {
       if (!dataSelecionada) {
-        notify("O dia não foi selecionado");
+        notify(somenteDataProducao ? "Selecione a data de entrega desejada" : "O dia não foi selecionado");
         return;
       }
-      if (!horaSelecionada) {
+      if (precisaHora && !horaSelecionada) {
         notify("A hora não foi selecionada");
         return;
       }
@@ -687,7 +706,7 @@ function AgendamentoContent() {
     const item = {
       cartId: Date.now(),
       data: dataSelecionada,
-      hora: horaSelecionada,
+      hora: horaEfetiva,
       duracaoMinutos,
       tipo: "sessao",
       servicos,
@@ -952,7 +971,7 @@ function AgendamentoContent() {
 
       {/* =========================================================
           AGENDAMENTO VIRTUAL (CALENDÁRIO + HORÁRIOS)
-          OP-01: só Sessão/Captação isolada pedem agenda.
+          GO-H3: compra unitária — presencial com horários; produção só data.
       ========================================================== */}
       {precisaAgenda ? (
       <section className="mb-16 flex justify-center px-4 mt-16">
@@ -969,6 +988,11 @@ function AgendamentoContent() {
               Agendamento virtual
             </h2>
 
+            {somenteDataProducao ? (
+              <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
+                {PRODUCTION_DELIVERY_DATE_MESSAGE}
+              </p>
+            ) : (
             <p className="text-center text-sm leading-relaxed text-white md:text-base" style={{ textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)" }}>
               Escolha o dia e o horário da sua sessão.  
               <br />
@@ -976,8 +1000,9 @@ function AgendamentoContent() {
               <span className="text-yellow-400 font-semibold">Amarelo</span>: alguns horários ocupados ·{" "}
               <span className="text-red-400 font-semibold">Vermelho</span>: agenda cheia
             </p>
+            )}
 
-            <div className="grid gap-6 md:grid-cols-[1.2fr,1fr]">
+            <div className={`grid gap-6 ${precisaHora ? "md:grid-cols-[1.2fr,1fr]" : ""}`}>
             {/* ===================== CALENDÁRIO ===================== */}
             <div>
               <div className="mb-3 flex items-center justify-between text-base font-semibold text-zinc-200">
@@ -1110,7 +1135,8 @@ function AgendamentoContent() {
               </div>
             </div>
 
-            {/* ===================== HORÁRIOS ===================== */}
+            {/* ===================== HORÁRIOS (presencial) ===================== */}
+            {precisaHora ? (
             <div className="space-y-3 text-xs">
               <p className="font-semibold text-zinc-200">
                 Horários do dia{" "}
@@ -1165,6 +1191,7 @@ function AgendamentoContent() {
                 })}
               </div>
             </div>
+            ) : null}
           </div>
           </div>
           
@@ -1181,8 +1208,9 @@ function AgendamentoContent() {
       ) : (
         <section className="mb-8 flex justify-center px-4 mt-10">
           <div className="w-full max-w-4xl rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 text-center text-sm text-zinc-300">
-            Serviços como Beat, Mixagem, Master e Sonoplastia seguem fluxo individual por cupom —
-            a data de agenda é escolhida depois, no resgate de cada cupom (Sessão/Captação).
+            Compra com mais de um serviço: após o pagamento você receberá um cupom de agendamento
+            para cada serviço. Cada cupom abre somente o agendamento daquele serviço (sem crédito
+            financeiro).
           </div>
         </section>
       )}
@@ -1919,10 +1947,14 @@ function AgendamentoContent() {
                     // Validações
                     if (precisaAgenda) {
                       if (!dataSelecionada) {
-                        notify("Por favor, selecione uma data.");
+                        notify(
+                          somenteDataProducao
+                            ? "Selecione a data de entrega desejada."
+                            : "Por favor, selecione uma data."
+                        );
                         return;
                       }
-                      if (!horaSelecionada) {
+                      if (precisaHora && !horaSelecionada) {
                         notify("Por favor, selecione um horário.");
                         return;
                       }
@@ -1950,8 +1982,9 @@ function AgendamentoContent() {
                       return;
                     }
 
-                    if (precisaAgenda && dataSelecionada && horaSelecionada) {
-                      const dataHoraISO = new Date(`${dataSelecionada}T${horaSelecionada}:00`);
+                    if (precisaAgenda && dataSelecionada && (precisaHora ? horaSelecionada : true)) {
+                      const h = precisaHora ? horaSelecionada! : PRODUCTION_SCHEDULE_DEFAULT_HOUR;
+                      const dataHoraISO = new Date(`${dataSelecionada}T${h}:00`);
                       if (dataHoraISO < new Date()) {
                         notify("Não é possível agendar para uma data/hora que já passou.");
                         return;
@@ -1969,7 +2002,12 @@ function AgendamentoContent() {
                         body: JSON.stringify({
                           tipo: "agendamento",
                           ...(precisaAgenda
-                            ? { data: dataSelecionada, hora: horaSelecionada }
+                            ? {
+                                data: dataSelecionada,
+                                hora: precisaHora
+                                  ? horaSelecionada
+                                  : PRODUCTION_SCHEDULE_DEFAULT_HOUR,
+                              }
                             : {}),
                           observacoes: comentarios,
                           duracaoMinutos: duracaoTeste,

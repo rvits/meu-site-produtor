@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { isSchedulableServiceType } from "@/app/lib/service-catalog";
+import { CouponScheduleFields } from "@/app/agendamento/components/CouponScheduleFields";
+import { PRODUCTION_SCHEDULE_DEFAULT_HOUR } from "@/app/lib/agendamento-payment-rules";
+import { serviceNeedsStudioHours } from "@/app/agendamento/scheduling-shared";
 import {
   Button,
   Callout,
   Card,
   Field,
-  Input,
   LinkButton,
   LoadingBlock,
   PageHeader,
@@ -27,8 +28,6 @@ type CouponPayload = {
   status: string;
   catalogItem: { id: string; nome: string; preco: number; category: "service" | "beat" } | null;
 };
-
-const HORARIOS = ["10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 
 export default function AgendamentoCupomPage() {
   const params = useParams();
@@ -89,26 +88,25 @@ export default function AgendamentoCupomPage() {
     void load();
   }, [authLoading, user, load, router, codigo]);
 
-  const precisaAgenda = useMemo(() => {
-    if (!coupon?.serviceType) return true;
-    return isSchedulableServiceType(coupon.serviceType);
-  }, [coupon]);
-
-  const minDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + (precisaAgenda ? 0 : 0));
-    return d.toISOString().slice(0, 10);
-  }, [precisaAgenda]);
+  const precisaHora = useMemo(
+    () => serviceNeedsStudioHours(coupon?.serviceType),
+    [coupon]
+  );
 
   async function confirmar() {
     if (!coupon?.catalogItem || !coupon.serviceType) {
       notifyError("Cupom sem serviço vinculado.");
       return;
     }
-    if (!dataSelecionada || !horaSelecionada) {
-      notify(precisaAgenda ? "Selecione data e horário." : "Informe a data e horário de referência.");
+    if (!dataSelecionada) {
+      notify(precisaHora ? "Selecione data e horário." : "Selecione a data de entrega desejada.");
       return;
     }
+    if (precisaHora && !horaSelecionada) {
+      notify("Selecione o horário.");
+      return;
+    }
+    const hora = precisaHora ? horaSelecionada : PRODUCTION_SCHEDULE_DEFAULT_HOUR;
     const item = {
       id: coupon.catalogItem.id,
       nome: coupon.catalogItem.nome,
@@ -117,7 +115,7 @@ export default function AgendamentoCupomPage() {
     };
     const body = {
       data: dataSelecionada,
-      hora: horaSelecionada,
+      hora,
       duracaoMinutos: 60,
       tipo: coupon.serviceType,
       observacoes: observacoes || `Resgate cupom ${coupon.code}`,
@@ -197,34 +195,20 @@ export default function AgendamentoCupomPage() {
             Código <span className="font-mono text-zinc-200">{coupon.code}</span> · {coupon.typeLabel}
           </p>
           <p className="text-sm text-zinc-500 mt-2">
-            Serviço travado. Não é possível adicionar outros itens nem passar pelo Asaas.
+            Este cupom está vinculado permanentemente a este serviço. Não pode ser usado em outro
+            tipo de agendamento nem convertido em crédito.
           </p>
           {error && <Callout intent="warning">{error}</Callout>}
         </div>
 
         <Card className="space-y-4">
-          <Field label={precisaAgenda ? "Data da sessão" : "Data de referência"}>
-            <Input
-              type="date"
-              min={minDate}
-              value={dataSelecionada}
-              onChange={(e) => setDataSelecionada(e.target.value)}
-            />
-          </Field>
-          <Field label="Horário">
-            <div className="grid grid-cols-3 gap-2">
-              {HORARIOS.map((h) => (
-                <Button
-                  key={h}
-                  type="button"
-                  onClick={() => setHoraSelecionada(h)}
-                  variant={horaSelecionada === h ? "primary" : "outline"}
-                >
-                  {h}
-                </Button>
-              ))}
-            </div>
-          </Field>
+          <CouponScheduleFields
+            serviceType={coupon.serviceType}
+            dataSelecionada={dataSelecionada}
+            horaSelecionada={horaSelecionada}
+            onDataChange={setDataSelecionada}
+            onHoraChange={setHoraSelecionada}
+          />
           <Field label="Observações (opcional)">
             <Textarea
               value={observacoes}

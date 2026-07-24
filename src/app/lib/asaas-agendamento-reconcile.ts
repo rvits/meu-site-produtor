@@ -275,6 +275,16 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
   const { services, beats } = parseItems(metadata);
 
   if (pay.appointmentId == null) {
+    const { isCouponsOnlyAgendamentoPayment } = await import(
+      "@/app/lib/agendamento-payment-rules"
+    );
+    if (!isCouponsOnlyAgendamentoPayment(metadata, services, beats)) {
+      console.log(
+        "[Reconcile] Pagamento sem agendamento e não é multi-serviço — não emite cupons (GO-H3):",
+        pay.id
+      );
+      return;
+    }
     const couponCount = await prisma.coupon.count({ where: { paymentId: pay.id } });
     if (couponCount === 0) {
       try {
@@ -288,7 +298,7 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
           beats: Array.isArray(beats) ? beats : [],
           isTestPayment: isSymbolicAgendamentoCouponStyle(metadata),
         });
-        console.log("[Reconcile] Cupons recriados (pagamento sem agendamento):", pay.id);
+        console.log("[Reconcile] Cupons recriados (pagamento multi-serviço sem agendamento):", pay.id);
       } catch (e) {
         console.error("[Reconcile] Falha ao garantir cupons sem agendamento:", e);
       }
@@ -303,27 +313,8 @@ export async function reconcileAgendamentoPaymentArtifacts(params: {
   });
   if (!appointment) return;
 
-  const couponCount = await prisma.coupon.count({
-    where: { paymentId: pay.id },
-  });
-  if (couponCount === 0) {
-    try {
-      const { createCouponsForAgendamentoItems, isSymbolicAgendamentoCouponStyle } = await import(
-        "@/app/lib/agendamento-payment-coupons"
-      );
-      await createCouponsForAgendamentoItems({
-        userId: pay.userId,
-        paymentId: pay.id,
-        appointmentId: null,
-        services: Array.isArray(services) ? services : [],
-        beats: Array.isArray(beats) ? beats : [],
-        isTestPayment: isSymbolicAgendamentoCouponStyle(metadata),
-      });
-      console.log("[Reconcile] Cupons recriados para paymentId:", pay.id);
-    } catch (e) {
-      console.error("[Reconcile] Falha ao garantir cupons:", e);
-    }
-  }
+  // GO-H3: se já existe agendamento, nunca emitir cupons de pagamento neste reconcile.
+  console.log("[Reconcile] Agendamento presente — pulando emissão de cupons:", pay.id);
 
   const svcCount = await prisma.service.count({
     where: { appointmentId },

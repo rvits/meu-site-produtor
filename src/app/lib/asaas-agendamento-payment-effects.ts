@@ -9,6 +9,8 @@ import {
   isSymbolicAgendamentoCouponStyle,
 } from "@/app/lib/agendamento-payment-coupons";
 import {
+  PRODUCTION_SCHEDULE_DEFAULT_HOUR,
+  exigeAgendamentoHora,
   isCouponsOnlyAgendamentoPayment,
   isSingleScheduledAgendamentoPayment,
 } from "@/app/lib/agendamento-payment-rules";
@@ -302,7 +304,11 @@ export async function processAgendamentoPaymentEffects(params: {
 
   const appointmentIdMeta = metadata.appointmentId;
   const data = metadata.data as string | undefined;
-  const hora = metadata.hora as string | undefined;
+  const horaRaw = metadata.hora as string | undefined;
+  const needsHour = exigeAgendamentoHora(services, beats);
+  const hora =
+    horaRaw?.trim() ||
+    (data && !needsHour ? PRODUCTION_SCHEDULE_DEFAULT_HOUR : undefined);
 
   if (!agendamentoFinalId && appointmentIdMeta) {
     const agendamento = await prisma.appointment.findUnique({
@@ -326,18 +332,33 @@ export async function processAgendamentoPaymentEffects(params: {
     isSingleScheduledAgendamentoPayment(metadata, services, beats)
   ) {
     const dataHoraISO = new Date(`${data}T${hora}:00`);
-    const conflito = await prisma.appointment.findFirst({
-      where: {
-        ...appointmentOperationalFilter,
-        status: { not: "cancelado" },
-        AND: [
-          { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
-          { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (!conflito) {
+    // Conflito de estúdio só para presencial (Sessão/Captação).
+    if (needsHour) {
+      const conflito = await prisma.appointment.findFirst({
+        where: {
+          ...appointmentOperationalFilter,
+          status: { not: "cancelado" },
+          AND: [
+            { data: { lt: new Date(dataHoraISO.getTime() + duracaoMinutos * 60000) } },
+            { data: { gte: new Date(dataHoraISO.getTime() - duracaoMinutos * 60000) } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (conflito) {
+        const msg = "Conflito de horário: agendamento não criado";
+        console.warn("[AgendamentoEffects]", msg);
+        return {
+          agendamentoFinalId: null,
+          paymentLinked: false,
+          couponsCount: 0,
+          servicesCreatedThisRun: 0,
+          emailsSent: false,
+          skippedReason: msg,
+        };
+      }
+    }
+    {
       const novoAgendamento = await prisma.appointment.create({
         data: {
           userId,
@@ -361,17 +382,6 @@ export async function processAgendamentoPaymentEffects(params: {
       } catch (e) {
         console.error("[AgendamentoEffects] sync AppointmentReserved falhou (non-fatal):", e);
       }
-    } else {
-      const msg = "Conflito de horário: agendamento não criado";
-      console.warn("[AgendamentoEffects]", msg);
-      return {
-        agendamentoFinalId: null,
-        paymentLinked: false,
-        couponsCount: 0,
-        servicesCreatedThisRun: 0,
-        emailsSent: false,
-        skippedReason: msg,
-      };
     }
   }
 
@@ -383,7 +393,7 @@ export async function processAgendamentoPaymentEffects(params: {
       servicesCreatedThisRun: 0,
       emailsSent: false,
       skippedReason:
-        "Pagamento sem agendamento único com data/hora. Use cupons em Minha Conta ou confira o metadata.",
+        "Pagamento sem agendamento unitário com data. Compras múltiplas usam cupons em Minha Conta.",
     };
   }
 

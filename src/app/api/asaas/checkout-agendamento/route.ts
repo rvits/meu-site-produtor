@@ -7,7 +7,10 @@ import { prisma } from "@/app/lib/prisma";
 import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 import {
   countAgendamentoItemLines,
-  exigeAgendamentoDataHora,
+  exigeAgendamentoHora,
+  exigeAgendamentoNoCheckout,
+  exigeAgendamentoSomenteData,
+  PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "@/app/lib/agendamento-payment-rules";
 import { getAsaasApiKey } from "@/app/lib/env";
 import { appointmentOperationalFilter } from "@/app/lib/appointment-operational-filter";
@@ -57,7 +60,7 @@ const agendamentoCheckoutSchema = z
         message: "Selecione ao menos um serviço ou pacote.",
       });
     }
-    if (!exigeAgendamentoDataHora(payload.servicos, payload.beats)) return;
+    if (!exigeAgendamentoNoCheckout(payload.servicos, payload.beats)) return;
     if (!payload.data?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -65,7 +68,7 @@ const agendamentoCheckoutSchema = z
         path: ["data"],
       });
     }
-    if (!payload.hora?.trim()) {
+    if (exigeAgendamentoHora(payload.servicos, payload.beats) && !payload.hora?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Selecione o horário do agendamento.",
@@ -162,11 +165,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const requerDataHora = exigeAgendamentoDataHora(servicos || [], beats || []);
+    const requerHora = exigeAgendamentoHora(servicos || [], beats || []);
+    const requerAgenda = exigeAgendamentoNoCheckout(servicos || [], beats || []);
+    const somenteData = exigeAgendamentoSomenteData(servicos || [], beats || []);
     const duracao = duracaoMinutos || 60;
+    const horaEfetiva =
+      hora?.trim() || (somenteData && data?.trim() ? PRODUCTION_SCHEDULE_DEFAULT_HOUR : undefined);
 
-    if (requerDataHora && data?.trim() && hora?.trim()) {
-      const dataHoraISO = new Date(`${data}T${hora}:00`);
+    if (requerHora && data?.trim() && horaEfetiva) {
+      const dataHoraISO = new Date(`${data}T${horaEfetiva}:00`);
       const conflito = await prisma.appointment.findFirst({
         where: {
           ...appointmentOperationalFilter,
@@ -205,8 +212,11 @@ export async function POST(req: Request) {
       });
     }
     
-    const agendaLabel =
-      data?.trim() && hora?.trim() ? `${data} ${hora}` : "cupons (agendar depois)";
+    const agendaLabel = requerAgenda
+      ? data?.trim() && horaEfetiva
+        ? `${data} ${requerHora ? horaEfetiva : "(entrega desejada)"}`
+        : "agendar"
+      : "cupons (agendar depois)";
     const descricao = `Agendamento THouse Rec - ${agendaLabel}${descricaoItens.length > 0 ? ` - ${descricaoItens.join(", ")}` : ""}`;
 
     const valorCobradoAsaas = symbolicAgendamento ? SYMBOLIC_AGENDAMENTO_BRL : Number(total.toFixed(2));
@@ -224,7 +234,7 @@ export async function POST(req: Request) {
 
     console.log("[Asaas] Criando checkout para agendamento:", {
       data,
-      hora,
+      hora: horaEfetiva,
       totalCatalogo: total,
       valorCobradoAsaas,
       symbolicAgendamento: !!symbolicAgendamento,
@@ -235,7 +245,7 @@ export async function POST(req: Request) {
     const metadataCompleto: Record<string, unknown> = {
       tipo: "agendamento",
       userId: user.id,
-      ...(data?.trim() && hora?.trim() ? { data, hora } : {}),
+      ...(data?.trim() && horaEfetiva ? { data, hora: horaEfetiva } : {}),
       duracaoMinutos: duracaoMinutos || 60,
       tipoAgendamento: tipo || "sessao",
       observacoes: observacoes || "",

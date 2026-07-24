@@ -269,7 +269,13 @@ export async function POST(req: Request) {
             },
             select: { id: true },
           });
-          if (conflito) {
+          // GO-H3: conflito de estúdio só para Sessão/Captação (presencial).
+          const tipoNorm = normalizeServiceTypeId(
+            String(tipo || couponRow.serviceType || "sessao")
+          );
+          const isPresencial =
+            tipoNorm === "sessao" || tipoNorm === "captacao";
+          if (isPresencial && conflito) {
             const err = new Error("SLOT_CONFLICT");
             (err as { code?: string }).code = "SLOT_CONFLICT";
             throw err;

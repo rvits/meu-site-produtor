@@ -14,8 +14,10 @@ import {
 } from "@/app/lib/asaas-agendamento-payment-effects";
 import {
   countAgendamentoItemLines,
-  exigeAgendamentoDataHora,
+  exigeAgendamentoHora,
+  exigeAgendamentoNoCheckout,
   isCouponsOnlyAgendamentoPayment,
+  PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "@/app/lib/agendamento-payment-rules";
 import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 import {
@@ -50,7 +52,7 @@ const simulacaoSchema = z
         message: "Selecione ao menos um serviço ou pacote na simulação.",
       });
     }
-    if (!exigeAgendamentoDataHora(payload.servicos, payload.beats)) return;
+    if (!exigeAgendamentoNoCheckout(payload.servicos, payload.beats)) return;
     if (!payload.data?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -58,7 +60,7 @@ const simulacaoSchema = z
         path: ["data"],
       });
     }
-    if (!payload.hora?.trim()) {
+    if (exigeAgendamentoHora(payload.servicos, payload.beats) && !payload.hora?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Informe o horário do agendamento para um único item.",
@@ -77,11 +79,18 @@ function buildMetadataFromSimulacao(
   userId: string,
   simulacao: z.infer<typeof simulacaoSchema>
 ): Record<string, unknown> {
+  const needsCheckout = exigeAgendamentoNoCheckout(simulacao.servicos, simulacao.beats);
+  const needsHour = exigeAgendamentoHora(simulacao.servicos, simulacao.beats);
+  const hora =
+    simulacao.hora?.trim() ||
+    (needsCheckout && simulacao.data?.trim() && !needsHour
+      ? PRODUCTION_SCHEDULE_DEFAULT_HOUR
+      : undefined);
   return {
     tipo: "agendamento",
     userId,
-    ...(simulacao.data?.trim() && simulacao.hora?.trim()
-      ? { data: simulacao.data, hora: simulacao.hora }
+    ...(simulacao.data?.trim() && hora
+      ? { data: simulacao.data, hora }
       : {}),
     duracaoMinutos: simulacao.duracaoMinutos ?? 60,
     tipoAgendamento: simulacao.tipo ?? "sessao",
@@ -183,7 +192,6 @@ export async function POST(req: Request) {
     if (
       !fluxoSomenteCupons &&
       !metadata.data &&
-      !metadata.hora &&
       !metadata.appointmentId &&
       !pagamento.appointmentId
     ) {
@@ -191,7 +199,7 @@ export async function POST(req: Request) {
         {
           success: false,
           error:
-            "Metadata sem data/hora nem appointmentId. Para um único serviço com horário, informe data e hora; para vários serviços ou teste simbólico, basta selecionar os itens.",
+            "Metadata sem data nem appointmentId. Compra unitária exige data (e horário se Sessão/Captação); multi-serviço gera cupons.",
         },
         { status: 400 }
       );
