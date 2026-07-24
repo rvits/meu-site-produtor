@@ -6,14 +6,18 @@ import { APPOINTMENT_STATUSES_RESERVING_CALENDAR } from "@/app/lib/domain/status
 
 /** Exclui arquivados do pool operacional (disponibilidade, conflito de horário). */
 export const appointmentOperationalFilter = {
-  adminArchivedAt: null,
-} as const;
+  adminArchivedAt: null as null,
+};
 
 /**
  * GO-H4.3 — Agendamentos que ocupam o calendário / bloqueiam slot.
  * Somente após Aceitar (e status operacionais derivados). Pendente não reserva.
+ * Tipado de forma mutável para compatibilidade com Prisma `AppointmentWhereInput`.
  */
-export const appointmentCalendarOccupancyFilter = {
-  ...appointmentOperationalFilter,
-  status: { in: [...APPOINTMENT_STATUSES_RESERVING_CALENDAR] as string[] },
+export const appointmentCalendarOccupancyFilter: {
+  adminArchivedAt: null;
+  status: { in: string[] };
+} = {
+  adminArchivedAt: null,
+  status: { in: [...APPOINTMENT_STATUSES_RESERVING_CALENDAR] },
 };
