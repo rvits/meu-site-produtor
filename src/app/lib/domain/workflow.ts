@@ -89,6 +89,17 @@ export async function approveAppointment(
     reason: "approveAppointment",
   });
   if (!result.ok) return fail(result.error, result.httpStatus, result.code);
+  try {
+    const { syncServiceOrderPhaseFromAppointment } = await import(
+      "@/app/lib/service-orders/persist"
+    );
+    await syncServiceOrderPhaseFromAppointment({
+      appointmentId,
+      appointmentStatus: statusLabel === "confirmado" ? "confirmado" : "aceito",
+    });
+  } catch (e) {
+    console.error("[workflow] sync ServiceOrder phase on approve (non-fatal):", e);
+  }
   const agendamento = await loadAppointment(appointmentId);
   if (!agendamento) return fail("Agendamento não encontrado após aceite", 500);
   return ok({ agendamento }, result.alreadyProcessed);
@@ -111,6 +122,17 @@ export async function rejectAppointment(
     actor: actor || { type: "admin" },
   });
   if (!result.ok) return fail(result.error, result.httpStatus, result.code);
+  try {
+    const { syncServiceOrderPhaseFromAppointment } = await import(
+      "@/app/lib/service-orders/persist"
+    );
+    await syncServiceOrderPhaseFromAppointment({
+      appointmentId,
+      appointmentStatus: "recusado",
+    });
+  } catch (e) {
+    console.error("[workflow] sync ServiceOrder phase on reject (non-fatal):", e);
+  }
   const agendamento = await loadAppointment(appointmentId);
   if (!agendamento) return fail("Agendamento não encontrado após recusa", 500);
   return ok({ agendamento }, result.alreadyProcessed);

@@ -999,9 +999,9 @@ function AgendamentoContent() {
       ) : (
         <section className="mb-8 flex justify-center px-4 mt-10">
           <div className="w-full max-w-4xl rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 text-center text-sm text-zinc-300">
-            Compra com mais de um serviço ou pacote composto: após o pagamento você receberá
-            um cupom de agendamento para cada unidade de serviço. Cada cupom abre somente o
-            agendamento daquele serviço (sem crédito financeiro).
+            Compra com 2 ou mais Ordens de Serviço: após o pagamento você receberá um cupom
+            de agendamento para cada Ordem. Cada cupom abre somente o calendário daquele serviço
+            (sem crédito financeiro).
           </div>
         </section>
       )}

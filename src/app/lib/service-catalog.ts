@@ -1,9 +1,9 @@
 import {
-  getOfficialPackageComposition,
-  isOfficialPackageId,
-  OFFICIAL_PACKAGE_COMPOSITION,
-  PACKAGE_CATALOG_LABELS,
-} from "@/app/lib/package-composition";
+  getCommercialProductComposition,
+  isCommercialCompositeProductId,
+  COMMERCIAL_PRODUCT_COMPOSITION,
+  COMMERCIAL_PRODUCT_LABELS,
+} from "@/app/lib/service-orders/composition";
 
 /** IDs que exigem data/hora de estúdio (agenda presencial). */
 export const SCHEDULABLE_SERVICE_IDS = new Set<string>(["sessao", "captacao"]);
@@ -41,39 +41,39 @@ export const CHECKOUT_CATALOG: Record<CanonicalServiceId, CheckoutCatalogItem> =
   master: { id: "master", nome: "Masterização", preco: 80, category: "service" },
   mix_master: {
     id: "mix_master",
-    nome: PACKAGE_CATALOG_LABELS.mix_master ?? "Mix + Master",
+    nome: COMMERCIAL_PRODUCT_LABELS.mix_master ?? "Mix + Master",
     preco: 170,
     category: "service",
   },
   beat1: { id: "beat1", nome: "1 Beat", preco: 150, category: "beat" },
   beat2: {
     id: "beat2",
-    nome: PACKAGE_CATALOG_LABELS.beat2 ?? "2 Beats",
+    nome: COMMERCIAL_PRODUCT_LABELS.beat2 ?? "2 Beats",
     preco: 250,
     category: "beat",
   },
   beat3: {
     id: "beat3",
-    nome: PACKAGE_CATALOG_LABELS.beat3 ?? "3 Beats",
+    nome: COMMERCIAL_PRODUCT_LABELS.beat3 ?? "3 Beats",
     preco: 350,
     category: "beat",
   },
   beat4: {
     id: "beat4",
-    nome: PACKAGE_CATALOG_LABELS.beat4 ?? "4 Beats",
+    nome: COMMERCIAL_PRODUCT_LABELS.beat4 ?? "4 Beats",
     preco: 400,
     category: "beat",
   },
   beat_mix_master: {
     id: "beat_mix_master",
-    nome: PACKAGE_CATALOG_LABELS.beat_mix_master ?? "Beat + Mix + Master",
+    nome: COMMERCIAL_PRODUCT_LABELS.beat_mix_master ?? "Beat + Mix + Master",
     preco: 320,
     category: "beat",
   },
   producao_completa: {
     id: "producao_completa",
     nome:
-      PACKAGE_CATALOG_LABELS.producao_completa ??
+      COMMERCIAL_PRODUCT_LABELS.producao_completa ??
       "Produção Completa (2h Sessão + 2h Captação + Beat + Mix + Master)",
     preco: 450,
     category: "beat",
@@ -135,7 +135,7 @@ export function isSchedulableServiceType(rawId?: string | null, rawName?: string
   return SCHEDULABLE_SERVICE_IDS.has(id);
 }
 
-const PACKAGE_LABEL_ALIASES: Record<string, string> = {
+const PRODUCT_LABEL_ALIASES: Record<string, string> = {
   "1_beat": "beat1",
   "2_beats": "beat2",
   "3_beats": "beat3",
@@ -149,8 +149,8 @@ const PACKAGE_LABEL_ALIASES: Record<string, string> = {
 };
 
 /**
- * Expande uma linha do agendamento nos tipos de cupom que ela deve liberar.
- * Pacotes compostos usam OFFICIAL_PACKAGE_COMPOSITION; itens simples mantêm o próprio id.
+ * Expande uma linha do agendamento nos tipos atômicos (Ordens de Serviço / cupons).
+ * GO-H5: produtos compostos usam COMMERCIAL_PRODUCT_COMPOSITION.
  */
 export function resolveAgendamentoItemCatalogId(
   rawId?: string | null,
@@ -159,20 +159,21 @@ export function resolveAgendamentoItemCatalogId(
   const candidates = [String(rawId || "").trim(), String(rawName || "").trim()].filter(Boolean);
   for (const candidate of candidates) {
     const normalized = normalizeServiceTypeId(candidate);
-    if (isOfficialPackageId(normalized)) return normalized;
+    if (isCommercialCompositeProductId(normalized)) return normalized;
     if ((CANONICAL_SERVICE_IDS as readonly string[]).includes(normalized)) return normalized;
-    const fromLabel = PACKAGE_LABEL_ALIASES[normalized];
+    const fromLabel = PRODUCT_LABEL_ALIASES[normalized];
     if (fromLabel) return fromLabel;
   }
   return normalizeServiceTypeId(String(rawId || rawName || "sessao"));
 }
 
+/** @deprecated GO-H5: use isCommercialCompositeProductId / countServiceOrders. */
 export function isMultiCouponAgendamentoPackageId(
   rawId?: string | null,
   rawName?: string | null
 ): boolean {
   const id = resolveAgendamentoItemCatalogId(rawId, rawName);
-  return isOfficialPackageId(id);
+  return isCommercialCompositeProductId(id);
 }
 
 export function expandAgendamentoItemToCouponTypes(
@@ -182,15 +183,15 @@ export function expandAgendamentoItemToCouponTypes(
 ): string[] {
   const id = resolveAgendamentoItemCatalogId(rawId, rawName);
   const qty = Math.max(1, Number(quantidade) || 1);
-  const perUnit = getOfficialPackageComposition(id) ?? [id];
+  const perUnit = getCommercialProductComposition(id) ?? [normalizeServiceTypeId(id)];
   const out: string[] = [];
   for (let u = 0; u < qty; u++) {
     for (const serviceType of perUnit) {
-      out.push(serviceType);
+      out.push(normalizeServiceTypeId(serviceType));
     }
   }
   return out;
 }
 
-/** Reexport para consumidores que leem a composição oficial junto do catálogo. */
-export { OFFICIAL_PACKAGE_COMPOSITION };
+/** Reexport composição comercial (compat + GO-H5). */
+export { COMMERCIAL_PRODUCT_COMPOSITION, COMMERCIAL_PRODUCT_COMPOSITION as OFFICIAL_PACKAGE_COMPOSITION };

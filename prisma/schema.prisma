@@ -42,6 +42,7 @@ model User {
   userPlans       UserPlan[]
   subscriptions   Subscription[]
   services        Service[]
+  serviceOrders   ServiceOrder[]
   chatSessions    ChatSession[]
   adminChats      ChatSession[]  @relation("AdminChat")
   faqQuestions    UserQuestion[]
@@ -102,6 +103,7 @@ model Appointment {
   createdAt             DateTime  @default(now())
 
   services Service[]
+  serviceOrders ServiceOrder[]
 
   @@index([userId])
   @@index([data])
@@ -185,6 +187,7 @@ model Payment {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   coupons           Coupon[] // Cupons gerados por este pagamento (ex.: teste sem agendamento prévio)
+  serviceOrders     ServiceOrder[]
 
   @@index([userId])
   @@index([status])
@@ -389,6 +392,38 @@ model Coupon {
   @@index([paymentId])
   @@index([assignedUserId])
   @@index([serviceId])
+  serviceOrder ServiceOrder?
+}
+
+/// GO-H5 — Ordem de Serviço (entidade operacional central).
+/// Produto comercial → decomposição → Ordens → agendamento / cupom → execução → entrega.
+model ServiceOrder {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Tipo atômico: sessao, captacao, mix, master, beat1…
+  serviceType      String
+  /// Produto comercial de origem (mix_master, producao_completa, sessao…)
+  commercialSource String?
+  /// awaiting_schedule | solicitation | reserved | execution | delivery | completed | cancelled
+  phase            String   @default("awaiting_schedule")
+  paymentId        String?
+  payment          Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  couponId         String?  @unique
+  coupon           Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  appointmentId    Int?
+  appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  dependsOnOrderId String?
+  sequenceIndex    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([paymentId])
+  @@index([serviceType])
+  @@index([phase])
+  @@index([appointmentId])
+  @@index([commercialSource])
 }
 
 /// HS-03B — Histórico oficial de transições da State Machine (StudioOS-ready).

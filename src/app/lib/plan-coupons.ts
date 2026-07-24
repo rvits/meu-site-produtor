@@ -1,5 +1,7 @@
 import { prisma } from "@/app/lib/prisma";
 import { createDomainCoupon } from "@/app/lib/domain/coupon-domain";
+import { expandLineToAtomicServiceTypes } from "@/app/lib/service-orders/expand";
+import { createServiceOrdersWithCoupons } from "@/app/lib/service-orders/persist";
 
 type PlanServiceDef = {
   type: string;
@@ -38,7 +40,8 @@ const planServices: Record<string, PlanServiceDef[]> = {
 };
 
 /**
- * Gera cupons do plano via factory de domínio (OP-02A).
+ * Gera cupons do plano via factory de domínio (OP-02A / GO-H5).
+ * Produtos compostos (ex. mix_master) viram Ordens atômicas.
  * Idempotente por paymentId.
  */
 export async function generatePlanServiceCoupons(params: {
@@ -82,19 +85,38 @@ export async function generatePlanServiceCoupons(params: {
     }
 
     const coupons = [];
+    const serviceLines: { id: string; quantidade: number }[] = [];
+
     for (const service of services) {
-      for (let i = 0; i < service.quantity; i++) {
-        const isPercentCoupon =
-          service.type === "percent_servicos" || service.type === "percent_beats";
+      const isPercentCoupon =
+        service.type === "percent_servicos" || service.type === "percent_beats";
+
+      if (isPercentCoupon) {
+        for (let i = 0; i < service.quantity; i++) {
+          const coupon = await createDomainCoupon(tx, {
+            canonicalType: isTestPayment ? "TEST" : "DISCOUNT",
+            discountType: "percent",
+            discountValue: service.discountValue ?? 10,
+            serviceType: service.type,
+            userPlanId: userPlan.id,
+            paymentId: paymentId ?? null,
+            assignedUserId: userId,
+            expiresAt,
+          });
+          coupons.push(coupon);
+        }
+        continue;
+      }
+
+      // GO-H5: expandir produto comercial → Ordens atômicas
+      const atomics = expandLineToAtomicServiceTypes(service.type, service.quantity);
+      serviceLines.push({ id: service.type, quantidade: service.quantity });
+      for (const serviceType of atomics) {
         const coupon = await createDomainCoupon(tx, {
-          canonicalType: isTestPayment
-            ? "TEST"
-            : isPercentCoupon
-              ? "DISCOUNT"
-              : "PLAN",
-          discountType: isPercentCoupon ? "percent" : "service",
-          discountValue: isPercentCoupon ? (service.discountValue ?? 10) : 0,
-          serviceType: service.type,
+          canonicalType: isTestPayment ? "TEST" : "PLAN",
+          discountType: "service",
+          discountValue: 0,
+          serviceType,
           userPlanId: userPlan.id,
           paymentId: paymentId ?? null,
           assignedUserId: userId,
@@ -102,6 +124,17 @@ export async function generatePlanServiceCoupons(params: {
         });
         coupons.push(coupon);
       }
+    }
+
+    if (paymentId && serviceLines.length > 0) {
+      await createServiceOrdersWithCoupons({
+        db: tx,
+        userId,
+        paymentId,
+        services: serviceLines,
+        beats: [],
+        coupons: coupons.filter((c) => c.discountType === "service"),
+      });
     }
 
     return coupons;

@@ -447,6 +447,18 @@ export async function POST(req: Request) {
 
     console.log(`[API] Agendamento criado com cupom ${cupomCode}: ${appointment.id} (status: pendente)`);
 
+    try {
+      const { linkServiceOrderCouponToAppointment } = await import(
+        "@/app/lib/service-orders/persist"
+      );
+      await linkServiceOrderCouponToAppointment({
+        couponId: couponRow.id,
+        appointmentId: appointment.id,
+      });
+    } catch (e) {
+      console.error("[API] link ServiceOrder←cupom falhou (non-fatal):", e);
+    }
+
     return NextResponse.json({
       success: true,
       appointment: {

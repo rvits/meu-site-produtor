@@ -371,6 +371,23 @@ export async function processAgendamentoPaymentEffects(params: {
       agendamentoFinalId = novoAgendamento.id;
       log("Agendamento criado", agendamentoFinalId);
       try {
+        const { createServiceOrderForImmediateAppointment } = await import(
+          "@/app/lib/service-orders/persist"
+        );
+        const { expandPurchaseToServiceOrders } = await import("@/app/lib/service-orders");
+        const primary = expandPurchaseToServiceOrders(services, beats)[0];
+        await createServiceOrderForImmediateAppointment({
+          userId,
+          paymentId: paymentDbId,
+          appointmentId: novoAgendamento.id,
+          serviceType: primary?.serviceType || String(tipoAgendamento),
+          commercialSource: primary?.commercialSource || String(tipoAgendamento),
+          appointmentStatus: "pendente",
+        });
+      } catch (e) {
+        console.error("[AgendamentoEffects] ServiceOrder imediata falhou (non-fatal):", e);
+      }
+      try {
         const { emitAppointmentReserved } = await import("@/app/lib/synchronization/lifecycle");
         await emitAppointmentReserved({
           appointmentId: novoAgendamento.id,

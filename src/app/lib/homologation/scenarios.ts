@@ -8,10 +8,10 @@ import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
 import { listCouponServiceTypesForAgendamentoItems } from "@/app/lib/agendamento-payment-coupons";
 import {
   isCouponsOnlyAgendamentoPayment,
-  isSingleUnitAgendamentoPurchase,
   PRODUCTION_SCHEDULE_DEFAULT_HOUR,
+  exigeAgendamentoNoCheckout,
+  exigeAgendamentoHora,
 } from "@/app/lib/agendamento-payment-rules";
-import { isSchedulableServiceType } from "@/app/lib/service-catalog";
 
 export type HomologationScenarioId =
   | "sessao"
@@ -60,7 +60,7 @@ function tomorrowIsoDate(): string {
 type Line = { id: string; nome: string; quantidade: number };
 
 function expectedCouponsFor(servicos: Line[], beats: Line[]): number {
-  // GO-H4: pacote composto ou multi → cupons; atômico unitário → 0.
+  // GO-H5: 2+ Ordens → cupons; 1 Ordem → 0.
   if (isCouponsOnlyAgendamentoPayment({}, servicos, beats)) {
     return listCouponServiceTypesForAgendamentoItems(servicos, beats).length;
   }
@@ -75,14 +75,10 @@ function agendamentoScenario(
   beats: Line[] = [],
   opts?: { withSlot?: boolean }
 ): HomologationScenarioDef {
-  const singleAtomic =
-    isSingleUnitAgendamentoPurchase(servicos, beats) &&
-    !isCouponsOnlyAgendamentoPayment({}, servicos, beats);
+  const opensSchedule = exigeAgendamentoNoCheckout(servicos, beats);
   const expected = expectedCouponsFor(servicos, beats);
-  const needsSlot = singleAtomic || opts?.withSlot === true;
-  const presencial =
-    singleAtomic &&
-    isSchedulableServiceType((servicos[0] || beats[0])?.id);
+  const needsSlot = opensSchedule || opts?.withSlot === true;
+  const presencial = opensSchedule && exigeAgendamentoHora(servicos, beats);
   return {
     id,
     label,

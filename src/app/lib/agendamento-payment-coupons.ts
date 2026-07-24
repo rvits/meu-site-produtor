@@ -1,55 +1,32 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
-import {
-  expandAgendamentoItemToCouponTypes,
-  normalizeServiceTypeId,
-} from "@/app/lib/service-catalog";
+import { expandPurchaseToServiceOrders } from "@/app/lib/service-orders";
 import type { Coupon } from "@prisma/client";
 import {
   isSymbolicAgendamentoCouponStyle,
   SYMBOLIC_AGENDAMENTO_BRL,
 } from "@/app/lib/symbolic-payment";
 import { createDomainCoupon } from "@/app/lib/domain/coupon-domain";
+import { createServiceOrdersWithCoupons } from "@/app/lib/service-orders/persist";
 
 export { SYMBOLIC_AGENDAMENTO_BRL, isSymbolicAgendamentoCouponStyle };
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
+/** GO-H5: tipos atômicos = Ordens de Serviço a emitir como cupons. */
 export function listCouponServiceTypesForAgendamentoItems(
   services: ItemLine[],
   beats: ItemLine[]
 ): string[] {
-  const arrS = Array.isArray(services) ? services : [];
-  const arrB = Array.isArray(beats) ? beats : [];
-  const serviceTypesToCreate: string[] = [];
-
-  for (const svc of arrS) {
-    serviceTypesToCreate.push(
-      ...expandAgendamentoItemToCouponTypes(
-        String(svc.id || svc.nome || "sessao"),
-        svc.quantidade,
-        svc.nome
-      )
-    );
-  }
-  for (const b of arrB) {
-    serviceTypesToCreate.push(
-      ...expandAgendamentoItemToCouponTypes(
-        String(b.id || b.nome || "beat1"),
-        b.quantidade,
-        b.nome
-      )
-    );
-  }
-  if (serviceTypesToCreate.length === 0) {
+  const types = expandPurchaseToServiceOrders(services, beats).map((o) => o.serviceType);
+  if (types.length === 0) {
     throw new Error("Nenhum serviço no pagamento para gerar cupons");
   }
-
-  return serviceTypesToCreate.map((type) => normalizeServiceTypeId(type));
+  return types;
 }
 
 /**
- * Cria um cupom por tipo atômico liberado pelo pagamento.
+ * Cria um cupom + Ordem de Serviço por tipo atômico liberado pelo pagamento.
  * Pipeline único (real = simbólico). Idempotente por paymentId.
  */
 export async function createCouponsForAgendamentoItems(params: {
@@ -74,6 +51,14 @@ export async function createCouponsForAgendamentoItems(params: {
           orderBy: { createdAt: "asc" },
         });
         if (jaExistentes.length > 0) {
+          await createServiceOrdersWithCoupons({
+            db: tx,
+            userId,
+            paymentId,
+            services,
+            beats,
+            coupons: jaExistentes,
+          });
           return jaExistentes;
         }
 
@@ -90,6 +75,16 @@ export async function createCouponsForAgendamentoItems(params: {
           });
           coupons.push(c);
         }
+
+        await createServiceOrdersWithCoupons({
+          db: tx,
+          userId,
+          paymentId,
+          services,
+          beats,
+          coupons,
+        });
+
         return coupons;
       },
       {

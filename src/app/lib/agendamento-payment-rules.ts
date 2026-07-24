@@ -1,8 +1,13 @@
 import {
-  isMultiCouponAgendamentoPackageId,
   isSchedulableServiceType,
 } from "@/app/lib/service-catalog";
 import { PRODUCTION_DELIVERY_HOUR } from "@/app/lib/calendar-day-state";
+import {
+  countServiceOrders,
+  expandPurchaseToServiceOrders,
+  purchaseEmitsServiceOrderCoupons,
+  purchaseOpensImmediateSchedule,
+} from "@/app/lib/service-orders";
 
 type ItemLine = { id?: string; nome?: string; quantidade?: number };
 
@@ -41,18 +46,17 @@ function getActiveAgendamentoLines(
   return [...arrS, ...arrB].filter((line) => Math.max(0, Number(line.quantidade) || 0) > 0);
 }
 
+/** @deprecated GO-H5: use countServiceOrders (conta Ordens, não linhas comerciais). */
 export function countAgendamentoItemLines(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): number {
-  return getActiveAgendamentoLines(services, beats).reduce(
-    (acc, line) => acc + Math.max(1, Number(line.quantidade) || 1),
-    0
-  );
+  return countServiceOrders(services, beats);
 }
 
 /**
- * Exatamente 1 linha com quantidade 1 (qualquer serviço/pacote do catálogo).
+ * @deprecated GO-H5: prefer purchaseOpensImmediateSchedule / countServiceOrders === 1.
+ * Mantido: true quando há exatamente 1 linha comercial qty 1 (não equivale a 1 Ordem).
  */
 export function isSingleUnitAgendamentoPurchase(
   services: ItemLine[] = [],
@@ -63,47 +67,35 @@ export function isSingleUnitAgendamentoPurchase(
   return Math.max(1, Number(active[0].quantidade) || 1) === 1;
 }
 
-/**
- * GO-H4: pacote composto unitário → só cupons atômicos (nunca agenda direto).
- */
+/** @deprecated GO-H5: pacote deixou de ser ramificação — use purchaseEmitsServiceOrderCoupons. */
 export function isSingleMultiCouponPackageSelection(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
-  const active = getActiveAgendamentoLines(services, beats)[0];
-  return isMultiCouponAgendamentoPackageId(active?.id, active?.nome);
+  return purchaseEmitsServiceOrderCoupons(services, beats) && isSingleUnitAgendamentoPurchase(services, beats);
 }
 
 /**
- * GO-H4: agenda no checkout só serviço atômico unitário
- * (Sessão, Captação, Beat, Mixagem, Masterização, Sonoplastia…).
- * Pacotes compostos nunca abrem calendário no pagamento.
+ * GO-H5 regra universal: exatamente 1 Ordem de Serviço → calendário no checkout.
  */
 export function exigeAgendamentoNoCheckout(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  if (!isSingleUnitAgendamentoPurchase(services, beats)) return false;
-  if (isSingleMultiCouponPackageSelection(services, beats)) return false;
-  return true;
+  return purchaseOpensImmediateSchedule(services, beats);
 }
 
-/**
- * Horário de estúdio só para Sessão/Captação unitária (presencial).
- */
+/** Horário de estúdio só quando a única Ordem é Sessão/Captação. */
 export function exigeAgendamentoHora(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
   if (!exigeAgendamentoNoCheckout(services, beats)) return false;
-  const active = getActiveAgendamentoLines(services, beats);
-  return isSchedulableServiceType(active[0].id, active[0].nome);
+  const [order] = expandPurchaseToServiceOrders(services, beats);
+  return isSchedulableServiceType(order?.serviceType);
 }
 
-/**
- * Produção unitária atômica — só data de entrega desejada (sem horários).
- */
+/** Produção atômica única — só data de entrega. */
 export function exigeAgendamentoSomenteData(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
@@ -114,9 +106,6 @@ export function exigeAgendamentoSomenteData(
   );
 }
 
-/**
- * Compat: true quando a compra unitária exige data **e** hora (presencial).
- */
 export function exigeAgendamentoDataHora(
   services: ItemLine[] = [],
   beats: ItemLine[] = []
@@ -125,23 +114,17 @@ export function exigeAgendamentoDataHora(
 }
 
 /**
- * GO-H4.3: cupons quando multi-serviço OU pacote composto (mesmo unitário).
- * Serviço atômico unitário (Sessão, Captação, Beat, Mix, Master, Sonoplastia)
- * nunca emite cupom — agenda no calendário comum.
+ * GO-H5: cupons quando 2+ Ordens de Serviço.
+ * 1 Ordem nunca emite cupom — agenda no calendário comum.
  */
 export function isCouponsOnlyAgendamentoPayment(
   _metadata: Record<string, unknown>,
   services: ItemLine[] = [],
   beats: ItemLine[] = []
 ): boolean {
-  if (countAgendamentoItemLines(services, beats) > 1) return true;
-  return isSingleMultiCouponPackageSelection(services, beats);
+  return purchaseEmitsServiceOrderCoupons(services, beats);
 }
 
-/**
- * Compra unitária atômica com data no metadata (hora obrigatória só se presencial).
- * Produção pode omitir hora — effects usam PRODUCTION_SCHEDULE_DEFAULT_HOUR.
- */
 export function isSingleScheduledAgendamentoPayment(
   metadata: Record<string, unknown>,
   services: ItemLine[] = [],
@@ -154,7 +137,4 @@ export function isSingleScheduledAgendamentoPayment(
   return true;
 }
 
-/**
- * Horário padrão para serviços de produção = último horário operacional (prazo de entrega).
- */
 export const PRODUCTION_SCHEDULE_DEFAULT_HOUR = PRODUCTION_DELIVERY_HOUR;
