@@ -229,6 +229,35 @@ export async function revertAppointmentCancellation(
     return fail("Apenas agendamentos cancelados podem ter o cancelamento revertido", 400);
   }
 
+  // GO-H8: bloquear se já existem cupons/remarcações vinculados
+  if (before.refundCouponId) {
+    return fail(
+      "Não é possível reverter este cancelamento porque já existem remarcações ou cupons vinculados ao pedido.",
+      409,
+      "REBOOK_CHAIN"
+    );
+  }
+  if (before.cancelRefundOption) {
+    return fail(
+      "Não é possível reverter este cancelamento porque já existem remarcações ou cupons vinculados ao pedido.",
+      409,
+      "REBOOK_CHAIN"
+    );
+  }
+  const childCoupons = await prisma.coupon.count({
+    where: {
+      OR: [{ originAppointmentId: appointmentId }, { appointmentId }],
+      couponCategory: "reembolso",
+    },
+  });
+  if (childCoupons > 0) {
+    return fail(
+      "Não é possível reverter este cancelamento porque já existem remarcações ou cupons vinculados ao pedido.",
+      409,
+      "REBOOK_CHAIN"
+    );
+  }
+
   const dataHoraISO = new Date(before.data);
   const duracao = before.duracaoMinutos || 60;
   const conflito = await prisma.appointment.findFirst({

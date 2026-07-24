@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { LoadingBlock, useFeedback } from "@/components/design-system";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
+import {
+  couponCategoryLabel,
+  resolveCouponCategoryFromRow,
+} from "@/app/lib/domain/coupon-category";
 
 interface UserPlan {
   id: string;
@@ -440,7 +444,7 @@ export default function AdminPlanosPage() {
                           c.couponType === "reembolso" ? "bg-blue-500/20 text-blue-300" :
                           "bg-gray-500/20 text-gray-300"
                         }`}>
-                          {c.couponType === "plano" ? "Plano" : "Reembolso"}
+                          {couponCategoryLabel(resolveCouponCategoryFromRow(c))}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-zinc-300">

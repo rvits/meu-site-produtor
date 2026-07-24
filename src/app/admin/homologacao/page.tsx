@@ -102,6 +102,7 @@ type RealOrder = {
   serviceIds: string[];
   couponCodes: string[];
   couponTypes: string[];
+  couponCategories?: string[];
   orderCount: number;
   serviceOrders: ServiceOrderSummary[];
   appointments: Array<{ id: number; status: string; tipo: string; data: string }>;
@@ -877,7 +878,7 @@ export default function HomologacaoAdminPage() {
                 {realOrder.serviceOrders.map((o) => o.serviceType).join(", ") || "—"}
               </div>
               <div>
-                Cupons ({realOrder.couponTypes.join(", ") || "—"}):{" "}
+                Cupons ({(realOrder.couponCategories || realOrder.couponTypes).join(", ") || "—"}):{" "}
                 {realOrder.couponCodes.join(", ") || "—"}
               </div>
               <div>

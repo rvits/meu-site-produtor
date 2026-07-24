@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { getDatabaseProvider } from "@/app/lib/db-utils";
 import { deriveAppointmentStatusFromServiceStatuses } from "@/app/lib/domain/statuses";
 import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
+import { resolveCouponCategoryFromRow } from "@/app/lib/domain/coupon-category";
 
 export async function GET() {
   try {
@@ -292,12 +293,17 @@ export async function GET() {
 
       const userPlan = cupom.userPlanId ? userPlansMap.get(cupom.userPlanId) : null;
       const canonicalCouponType = resolveCanonicalCouponType(cupom);
+      const couponCategory = resolveCouponCategoryFromRow({
+        ...cupom,
+        couponCategory: (cupom as { couponCategory?: string | null }).couponCategory,
+      });
 
       return {
         ...cupom,
         status,
-        couponType: cupom.couponType || "plano", // Default para "plano" se não tiver (cupons antigos)
+        couponType: cupom.couponType || "plano",
         canonicalCouponType,
+        couponCategory,
         discountValue: cupom.discountValue || 0,
         userPlan: userPlan ? {
           id: userPlan.id,

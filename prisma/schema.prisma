@@ -355,6 +355,8 @@ model Coupon {
   id                    String    @id @default(uuid())
   code                  String    @unique
   couponType            String    @default("plano") // canônico persistido: plano|agendamento|reembolso|desconto|remarcacao|test|bonus (ver domain/coupon-types)
+  /// GO-H8: servico | producao | reembolso | plano | desconto (persistido; não inferir na UI)
+  couponCategory        String?
   discountType          String // "percent", "fixed" ou "service"
   discountValue         Float // Valor do desconto (percentual ou fixo) ou ID do serviço
   serviceType           String? // Tipo de serviço quando discountType = "service" (ex: "sessao", "captacao", "mix", etc.)
@@ -365,7 +367,16 @@ model Coupon {
   used                  Boolean   @default(false)
   usedAt                DateTime?
   usedBy                String? // userId que usou o cupom
-  appointmentId         Int? // ID do agendamento que gerou este cupom (para cupons de reembolso)
+  /// Agendamento ao qual o cupom está vinculado após resgate (ou legado).
+  appointmentId         Int?
+  /// GO-H8: agendamento que originou o cupom (cancelamento) — imutável após criação.
+  originAppointmentId   Int?
+  /// GO-H8: Pedido Raiz (Payment original da compra comercial).
+  rootPaymentId         String?
+  /// GO-H8: cupom anterior na cadeia de remarcações.
+  parentCouponId        String?
+  /// GO-H8: motivo do cancelamento que gerou este cupom (quando REBOOK).
+  cancelReason          String?
   userPlanId            String? // ID do plano que gerou este cupom (para cupons de plano)
   userPlan              UserPlan? @relation(fields: [userPlanId], references: [id], onDelete: Cascade)
   paymentId             String? // ID do pagamento que gerou este cupom (ex.: teste sem agendamento prévio)
@@ -388,7 +399,11 @@ model Coupon {
   @@index([usedBy])
   @@index([userPlanId])
   @@index([couponType])
+  @@index([couponCategory])
   @@index([appointmentId])
+  @@index([originAppointmentId])
+  @@index([rootPaymentId])
+  @@index([parentCouponId])
   @@index([paymentId])
   @@index([assignedUserId])
   @@index([serviceId])

@@ -293,13 +293,26 @@ export async function POST(req: Request) {
             },
           });
 
+          // GO-H8: garantir originAppointmentId antes de sobrescrever appointmentId no resgate
+          const originId =
+            couponRow.originAppointmentId ??
+            (couponRow.appointmentId && couponRow.appointmentId !== apt.id
+              ? couponRow.appointmentId
+              : null);
+
           const claimed = await tx.coupon.updateMany({
             where: {
               id: couponRow.id,
               used: false,
-              appointmentId: null,
             },
-            data: { appointmentId: apt.id },
+            data: {
+              appointmentId: apt.id,
+              ...(originId ? { originAppointmentId: originId } : {}),
+              // Consumo imediato — não esperar Aceitar do admin
+              used: true,
+              usedAt: new Date(),
+              usedBy: user.id,
+            },
           });
 
           if (claimed.count !== 1) {
@@ -307,6 +320,12 @@ export async function POST(req: Request) {
             (err as { code?: string }).code = "COUPON_CLAIM_CONFLICT";
             throw err;
           }
+
+          // Vincular ServiceOrder ao novo appointment (mesmo Pedido Raiz)
+          await tx.serviceOrder.updateMany({
+            where: { couponId: couponRow.id },
+            data: { appointmentId: apt.id, phase: "solicitation" },
+          });
 
           appointment = {
             id: apt.id,

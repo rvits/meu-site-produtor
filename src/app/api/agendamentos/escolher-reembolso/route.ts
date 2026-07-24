@@ -81,24 +81,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Agendamento feito com cupom de plano? (cupom com userPlanId vinculado a este agendamento)
-    // Ou cancelado sem pagamento (cupom foi liberado ao cancelar, então tratamos como cupom de plano)
-    let cupomPlanoDoAgendamento = await prisma.coupon.findFirst({
-      where: { appointmentId: id, userPlanId: { not: null } },
+    // GO-H8: cupom do plano (ou qualquer cupom) NÃO remove a opção Asaas.
+    // Ambos os caminhos (reembolso Asaas + cupom remarcação) ficam disponíveis.
+    let cupomDoAgendamento = await prisma.coupon.findFirst({
+      where: {
+        OR: [{ appointmentId: id }, { originAppointmentId: id }],
+      },
       orderBy: { createdAt: "desc" },
-      select: { id: true, serviceType: true, discountType: true, discountValue: true },
+      select: {
+        id: true,
+        serviceType: true,
+        discountType: true,
+        discountValue: true,
+        userPlanId: true,
+        paymentId: true,
+        rootPaymentId: true,
+        parentCouponId: true,
+        code: true,
+      },
     });
-    let foiComCupomPlano = !!cupomPlanoDoAgendamento;
-
-    if (foiComCupomPlano && opcao === "reembolso") {
-      return NextResponse.json(
-        {
-          error:
-            "Este agendamento foi feito com cupom do plano. Apenas a opção de gerar um novo cupom para remarcar está disponível.",
-        },
-        { status: 400 }
-      );
-    }
+    const cupomPlanoDoAgendamento = cupomDoAgendamento?.userPlanId
+      ? cupomDoAgendamento
+      : null;
+    // legado: variável ainda usada para serviceType do cupom
+    void cupomPlanoDoAgendamento;
 
     // Buscar pagamento: por appointmentId ou por appointmentIds (carrinho)
     let payment = await prisma.payment.findFirst({
@@ -206,18 +212,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // Cancelado/recusado sem pagamento = provavelmente foi com cupom de plano (cupom foi liberado ao cancelar/recusar)
-    if (!payment && (agendamento.status === "cancelado" || agendamento.status === "recusado")) {
-      foiComCupomPlano = true;
-    }
-    if (foiComCupomPlano && opcao === "reembolso") {
-      return NextResponse.json(
-        {
-          error:
-            "Este agendamento foi feito com cupom do plano. Apenas a opção de gerar um novo cupom para remarcar está disponível.",
-        },
-        { status: 400 }
-      );
+    // GO-H8: se o agendamento veio de cupom, localizar Pedido Raiz para Asaas
+    if (!payment && cupomDoAgendamento) {
+      const rootId = cupomDoAgendamento.rootPaymentId || cupomDoAgendamento.paymentId;
+      if (rootId) {
+        payment = await prisma.payment.findFirst({
+          where: { id: rootId, userId: user.id, status: "approved" },
+        });
+      }
     }
 
     const now = new Date();
@@ -225,11 +227,41 @@ export async function POST(req: Request) {
     let couponCode: string | null = null;
 
     if (opcao === "reembolso") {
+      if (!payment?.asaasId && !payment?.providerPaymentId) {
+        // Homologação / Simulation: ainda permite registrar intenção se houver payment
+        if (!payment) {
+          return NextResponse.json(
+            {
+              error:
+                "Pagamento original não encontrado para reembolso. Use a opção \"Cupom para remarcar\" ou contate o suporte.",
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       if (!payment?.asaasId) {
+        // Sem Asaas (HOMOLOGATION/SIMULATION): registra opção localmente
+        if (payment && String(payment.provider || "").toUpperCase() !== "ASAAS") {
+          await prisma.appointment.update({
+            where: { id },
+            data: {
+              cancelRefundOption: "reembolso",
+              refundProcessedAt: now,
+              refundAsaasStatus: "simulated",
+            },
+          });
+          return NextResponse.json({
+            message:
+              "Reembolso registrado no domínio (pagamento sem Asaas). Para cobranças Asaas o estorno segue o gateway.",
+            opcao: "reembolso",
+            refundAsaasStatus: "simulated",
+          });
+        }
         return NextResponse.json(
           {
             error:
-              "Pagamento não encontrado ou sem vínculo com Asaas para reembolso direto. Use a opção \"Cupom para remarcar\" para receber um cupom do mesmo valor.",
+              "Pagamento não encontrado ou sem vínculo com Asaas para reembolso direto. Use a opção \"Cupom para remarcar\".",
           },
           { status: 400 }
         );
@@ -449,11 +481,19 @@ export async function POST(req: Request) {
       orderBy: { createdAt: "asc" },
     });
     const serviceType = normalizeServiceTypeId(
-      cupomPlanoDoAgendamento?.serviceType ||
+      cupomDoAgendamento?.serviceType ||
         servicesDoApt[0]?.tipo ||
         agendamento.tipo ||
         "sessao"
     );
+
+    // GO-H8: cadeia de remarcações — mesmo Pedido Raiz
+    const parentCoupon = cupomDoAgendamento;
+    const rootPaymentId =
+      parentCoupon?.rootPaymentId ||
+      parentCoupon?.paymentId ||
+      payment?.id ||
+      null;
 
     const coupon = await createDomainCoupon(prisma, {
       canonicalType: "REBOOK",
@@ -463,6 +503,11 @@ export async function POST(req: Request) {
       originAppointmentId: id,
       assignedUserId: user.id,
       expiresAt,
+      paymentId: rootPaymentId,
+      rootPaymentId,
+      parentCouponId: parentCoupon?.id || null,
+      cancelReason: agendamento.cancelReason || null,
+      couponCategory: "reembolso",
     });
     couponCode = coupon.code;
     const ar = await amarrarCupomOuIdempotente(coupon.id);
@@ -472,6 +517,9 @@ export async function POST(req: Request) {
       opcao: "cupom",
       couponCode,
       serviceType,
+      rootPaymentId,
+      parentCouponId: parentCoupon?.id || null,
+      couponCategory: "reembolso",
     });
   } catch (err: any) {
     if (err.message === "Acesso negado" || err.message === "Não autenticado") {

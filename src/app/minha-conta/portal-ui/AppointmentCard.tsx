@@ -257,46 +257,27 @@ export function AppointmentCard({
                 )}
                 {!a.cancelRefundOption && (
                   <div className="flex flex-wrap items-center gap-2">
-                    {a.foiComCupomPlano ? (
-                      <>
-                        <p className="text-zinc-400 text-xs w-full">
-                          Este agendamento foi feito com cupom do plano. Gere um novo cupom para remarcar sua sessão.
-                        </p>
-                        <Button
-                          variant="secondary"
-                          icon="ticket"
-                          disabled={busy}
-                          onClick={() => handleEscolherReembolso("cupom")}
-                          className="!bg-amber-600 hover:!bg-amber-500 !text-white !border-transparent"
-                        >
-                          Cupom para remarcar
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-zinc-400 text-xs w-full">
-                          Escolha como deseja ser reembolsado:
-                        </p>
-                        <Button
-                          variant="secondary"
-                          icon="wallet"
-                          disabled={busy}
-                          onClick={() => handleEscolherReembolso("reembolso")}
-                          className="!bg-sky-600 hover:!bg-sky-500 !text-white !border-transparent"
-                        >
-                          Reembolso direto (Asaas)
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          icon="ticket"
-                          disabled={busy}
-                          onClick={() => handleEscolherReembolso("cupom")}
-                          className="!bg-amber-600 hover:!bg-amber-500 !text-white !border-transparent"
-                        >
-                          Cupom para remarcar
-                        </Button>
-                      </>
-                    )}
+                    <p className="text-zinc-400 text-xs w-full">
+                      Escolha como deseja ser reembolsado:
+                    </p>
+                    <Button
+                      variant="secondary"
+                      icon="wallet"
+                      disabled={busy}
+                      onClick={() => handleEscolherReembolso("reembolso")}
+                      className="!bg-sky-600 hover:!bg-sky-500 !text-white !border-transparent"
+                    >
+                      Reembolso direto (Asaas)
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      icon="ticket"
+                      disabled={busy}
+                      onClick={() => handleEscolherReembolso("cupom")}
+                      className="!bg-amber-600 hover:!bg-amber-500 !text-white !border-transparent"
+                    >
+                      Cupom para remarcar
+                    </Button>
                   </div>
                 )}
                 {a.cancelRefundOption === "reembolso" && (

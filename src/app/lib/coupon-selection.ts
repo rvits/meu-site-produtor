@@ -36,9 +36,14 @@ export function pickPrimaryCouponForDisplay<T extends CouponComparable>(coupons:
   return sortCouponsDeterministic(coupons)[0];
 }
 
-/** Cupons de “uso” no agendamento que podem ser liberados ao cancelar/recusar (não são cupom de remarcação pós-cancelamento). */
-export function filterBookingCouponsEligibleForRelease<T extends CouponComparable & { appointmentId: number | null }>(
-  coupons: T[]
-): T[] {
-  return coupons.filter((c) => c.appointmentId != null && !isRefundCoupon(c));
+/** Cupons de “uso” no agendamento que podem ser desvinculados ao cancelar (nunca REBOOK/REFUND). */
+export function filterBookingCouponsEligibleForRelease<
+  T extends CouponComparable & { appointmentId: number | null; couponCategory?: string | null }
+>(coupons: T[]): T[] {
+  return coupons.filter((c) => {
+    if (c.appointmentId == null) return false;
+    if (isRefundCoupon(c)) return false;
+    if (String(c.couponCategory || "") === "reembolso") return false;
+    return true;
+  });
 }

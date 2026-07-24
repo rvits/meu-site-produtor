@@ -25,9 +25,12 @@ import {
 import type { Cupom } from "./types";
 import {
   copyToClipboard,
+  couponCategoryDisplay,
   couponScheduleHref,
   getServiceName,
+  isDiscountFamilyCoupon,
   isPlanFamilyCoupon,
+  isProductionFamilyCoupon,
   isRefundFamilyCoupon,
   isServiceFamilyCoupon,
 } from "./helpers";
@@ -66,7 +69,9 @@ export function CouponsSection({
 
   const planoDisp = cupons.filter((c) => c.status === "disponivel" && isPlanFamilyCoupon(c));
   const servicoDisp = cupons.filter((c) => c.status === "disponivel" && isServiceFamilyCoupon(c));
+  const producaoDisp = cupons.filter((c) => c.status === "disponivel" && isProductionFamilyCoupon(c));
   const reembolsoDisp = cupons.filter((c) => c.status === "disponivel" && isRefundFamilyCoupon(c));
+  const descontoDisp = cupons.filter((c) => c.status === "disponivel" && isDiscountFamilyCoupon(c));
   const usados = cupons.filter((c) => c.status === "usado");
   const expirados = cupons.filter((c) => c.status === "expirado");
 
@@ -209,6 +214,72 @@ export function CouponsSection({
             </div>
           )}
 
+          {producaoDisp.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-violet-400">
+                Cupons de Produção — disponíveis ({producaoDisp.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {producaoDisp.map((cupom) => (
+                  <Card key={cupom.id} className="!border-violet-500/40 !bg-violet-500/5 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-400">
+                      Código do cupom
+                    </p>
+                    <CouponCode code={cupom.code} tone="text-violet-300" />
+                    {cupom.serviceType && (
+                      <p className="text-sm text-zinc-300">
+                        <strong>Produção:</strong>{" "}
+                        {getServiceName(cupom.serviceType, cupons, cupom.code)}
+                      </p>
+                    )}
+                    {cupom.expiresAt && (
+                      <p className="text-xs text-zinc-400">Válido até: {formatDate(cupom.expiresAt)}</p>
+                    )}
+                    <p className="text-xs text-violet-300">
+                      Cupom de produção digital — use para agendar o serviço indicado.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      icon="calendar"
+                      onClick={() => router.push(couponScheduleHref(cupom))}
+                      className="!bg-violet-600 hover:!bg-violet-500 !text-white !border-transparent"
+                    >
+                      Usar agora
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {descontoDisp.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-emerald-400">
+                Cupons de Desconto — disponíveis ({descontoDisp.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {descontoDisp.map((cupom) => (
+                  <Card key={cupom.id} className="!border-emerald-500/40 !bg-emerald-500/5 space-y-2">
+                    <CouponCode code={cupom.code} tone="text-emerald-300" />
+                    <p className="text-sm text-zinc-300">
+                      <strong>Categoria:</strong> {couponCategoryDisplay(cupom)}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      icon="calendar"
+                      onClick={() => router.push(couponScheduleHref(cupom))}
+                      className="!bg-emerald-600 hover:!bg-emerald-500 !text-white !border-transparent"
+                    >
+                      Usar agora
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {reembolsoDisp.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-sky-400">
@@ -221,16 +292,17 @@ export function CouponsSection({
                       Código do cupom
                     </p>
                     <CouponCode code={cupom.code} tone="text-sky-300" />
-                    <p className="text-sm text-zinc-300">
-                      <strong>Valor:</strong> {formatBRL(cupom.discountValue)}
+                    <p className="text-xs text-sky-300">
+                      Cupom de remarcação (reembolso) — reagende o mesmo serviço sem novo pagamento.
                     </p>
-                    {cupom.expiresAt && (
-                      <p className="text-xs text-zinc-400">Válido até: {formatDate(cupom.expiresAt)}</p>
+                    {cupom.serviceType && (
+                      <p className="text-sm text-zinc-300">
+                        <strong>Serviço:</strong> {getServiceName(cupom.serviceType, cupons, cupom.code)}
+                      </p>
                     )}
-                    <p className="text-xs text-amber-300">
-                      Pode zerar o serviço ou ser usado como desconto parcial.{" "}
-                      <strong>Sobras não utilizadas se perdem.</strong>
-                    </p>
+                    {cupom.rootPaymentId && (
+                      <p className="text-[10px] text-zinc-500">Pedido Raiz: {cupom.rootPaymentId}</p>
+                    )}
                     <Button
                       variant="secondary"
                       fullWidth
@@ -280,9 +352,7 @@ export function CouponsSection({
                       <p className="text-base font-bold text-red-400 font-mono tracking-wider line-through break-all">
                         {cupom.code}
                       </p>
-                      <Tag intent={isPlanFamilyCoupon(cupom) ? "success" : "info"}>
-                        {isPlanFamilyCoupon(cupom) ? "Plano" : "Reembolso"}
-                      </Tag>
+                      <Tag intent="info">{couponCategoryDisplay(cupom)}</Tag>
                     </div>
                     {cupom.serviceType && (
                       <p className="text-sm text-zinc-500">

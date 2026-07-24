@@ -1,40 +1,62 @@
 /**
- * Portal do Cliente (GO-03D) — helpers de apresentação.
- * A classificação de cupons e nomes de serviço reproduz exatamente a
- * lógica que já existia na página Minha Conta (sem mudança de regra).
+ * Portal do Cliente (GO-03D / GO-H8) — helpers de apresentação.
+ * Classificação oficial via couponCategory persistida.
  */
 
 import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
+import {
+  couponCategoryLabel,
+  resolveCouponCategoryFromRow,
+  type CouponCategory,
+} from "@/app/lib/domain/coupon-category";
 import type { Cupom } from "./types";
 
+export function couponCategoryOf(c: Cupom): CouponCategory {
+  return resolveCouponCategoryFromRow({
+    couponCategory: c.couponCategory,
+    couponType: c.couponType,
+    discountType: c.discountType,
+    serviceType: c.serviceType,
+    paymentId: c.paymentId,
+    userPlanId: c.userPlanId,
+    appointmentId: c.appointmentId,
+  });
+}
+
 export function isPlanFamilyCoupon(c: Cupom): boolean {
-  const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
-  return t === "PLAN" || t === "DISCOUNT" || (t === "TEST" && Boolean(c.userPlanId));
+  return couponCategoryOf(c) === "plano";
 }
 
 export function isRefundFamilyCoupon(c: Cupom): boolean {
-  const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
-  return t === "REFUND";
+  return couponCategoryOf(c) === "reembolso";
 }
 
 export function isServiceFamilyCoupon(c: Cupom): boolean {
-  const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
-  if (t === "SERVICE" || t === "REBOOK") return true;
-  if (
-    (t === "TEST" || t === "PLAN" || t === "BONUS" || t === "REFUND") &&
-    c.discountType === "service" &&
-    c.serviceType &&
-    !String(c.serviceType).startsWith("percent_")
-  ) {
-    return true;
-  }
-  return false;
+  return couponCategoryOf(c) === "servico";
+}
+
+export function isProductionFamilyCoupon(c: Cupom): boolean {
+  return couponCategoryOf(c) === "producao";
+}
+
+export function isDiscountFamilyCoupon(c: Cupom): boolean {
+  return couponCategoryOf(c) === "desconto";
+}
+
+export function couponCategoryDisplay(c: Cupom): string {
+  return couponCategoryLabel(couponCategoryOf(c));
 }
 
 /** Rota de resgate do cupom — mesma regra da página original. */
 export function couponScheduleHref(c: Cupom): string {
-  if (isServiceFamilyCoupon(c)) {
-    return `/agendamento/cupom/${encodeURIComponent(c.code)}`;
+  const cat = couponCategoryOf(c);
+  if (cat === "servico" || cat === "producao" || cat === "reembolso") {
+    const t = c.canonicalCouponType || resolveCanonicalCouponType(c);
+    if (t === "SERVICE" || t === "REBOOK" || t === "TEST" || t === "BONUS" || t === "PLAN") {
+      if (c.discountType === "service" && c.serviceType) {
+        return `/agendamento/cupom/${encodeURIComponent(c.code)}`;
+      }
+    }
   }
   return `/agendamento?cupom=${encodeURIComponent(c.code)}`;
 }

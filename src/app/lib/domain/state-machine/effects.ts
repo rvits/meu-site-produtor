@@ -43,6 +43,7 @@ export async function planTransitionEffects(event: DomainEvent): Promise<EffectP
       select: { userId: true },
     });
     if (apt) {
+      // GO-H8: resgate já marca used; aqui só cobre vínculos legados ainda used=false
       await prisma.coupon.updateMany({
         where: {
           appointmentId,

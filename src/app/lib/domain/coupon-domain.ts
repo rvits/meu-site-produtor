@@ -12,6 +12,10 @@ import {
   type CanonicalCouponType,
   type CouponTypeInput,
 } from "@/app/lib/domain/coupon-types";
+import {
+  resolveCouponCategory,
+  type CouponCategory,
+} from "@/app/lib/domain/coupon-category";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
 
 export type CouponDbClient = Prisma.TransactionClient | typeof import("@/app/lib/prisma").prisma;
@@ -25,8 +29,16 @@ export type CreateDomainCouponInput = {
   serviceType?: string | null;
   paymentId?: string | null;
   userPlanId?: string | null;
-  /** Appointment que originou o cupom (remarcação/reembolso). */
+  /** Appointment que originou o cupom (remarcação/reembolso) — GO-H8 imutável. */
   originAppointmentId?: number | null;
+  /** GO-H8: Pedido Raiz (Payment comercial original). */
+  rootPaymentId?: string | null;
+  /** GO-H8: cupom anterior na cadeia. */
+  parentCouponId?: string | null;
+  /** GO-H8: motivo do cancelamento. */
+  cancelReason?: string | null;
+  /** Override raro; por padrão resolveCouponCategory. */
+  couponCategory?: CouponCategory | null;
   assignedUserId?: string | null;
   /** Service vinculado (preenchido no resgate ou quando já existe). */
   serviceId?: string | null;
@@ -113,16 +125,33 @@ export async function createDomainCoupon(
       prefix: input.codePrefix || (input.canonicalType === "TEST" ? "TESTE_" : ""),
     }));
 
+  const category =
+    input.couponCategory ||
+    resolveCouponCategory({
+      canonicalType: input.canonicalType,
+      serviceType: serviceType ?? null,
+      discountType: input.discountType,
+    });
+
+  const rootPaymentId = input.rootPaymentId ?? input.paymentId ?? null;
+  const originAppointmentId = input.originAppointmentId ?? null;
+
   return db.coupon.create({
     data: {
       code,
       couponType: toPersistedCouponType(input.canonicalType),
+      couponCategory: category,
       discountType: input.discountType,
       discountValue: input.discountValue,
       serviceType: serviceType ?? null,
       paymentId: input.paymentId ?? null,
+      rootPaymentId,
+      parentCouponId: input.parentCouponId ?? null,
       userPlanId: input.userPlanId ?? null,
-      appointmentId: input.originAppointmentId ?? null,
+      // Legado: appointmentId = origem até o resgate sobrescrever com o novo apt
+      appointmentId: originAppointmentId,
+      originAppointmentId,
+      cancelReason: input.cancelReason ?? null,
       assignedUserId: input.assignedUserId ?? null,
       serviceId: input.serviceId ?? null,
       expiresAt: input.expiresAt ?? null,
@@ -132,13 +161,17 @@ export async function createDomainCoupon(
   });
 }
 
-/** Campos imutáveis após criação (OP-02A Fase 10). */
+/** Campos imutáveis após criação (OP-02A Fase 10 / GO-H8). */
 export const IMMUTABLE_COUPON_FIELDS = [
   "couponType",
+  "couponCategory",
   "discountType",
   "discountValue",
   "serviceType",
   "paymentId",
+  "rootPaymentId",
+  "parentCouponId",
+  "originAppointmentId",
   "userPlanId",
 ] as const;
 

@@ -60,6 +60,8 @@ export interface Cupom {
   code: string;
   couponType: string;
   canonicalCouponType?: string;
+  /** GO-H8: servico | producao | reembolso | plano | desconto */
+  couponCategory?: string | null;
   discountType: string;
   discountValue: number;
   serviceType?: string | null;
@@ -69,6 +71,9 @@ export interface Cupom {
   usedAt?: string | null;
   status: "disponivel" | "usado" | "expirado";
   paymentId?: string | null;
+  rootPaymentId?: string | null;
+  parentCouponId?: string | null;
+  originAppointmentId?: number | null;
   userPlanId?: string | null;
   appointmentId?: number | null;
   refundAsaasStatus?: string | null;

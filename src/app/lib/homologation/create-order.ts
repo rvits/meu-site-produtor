@@ -53,6 +53,14 @@ export type HomologationOrderSnapshot = {
   serviceIds: string[];
   couponCodes: string[];
   couponTypes: string[];
+  couponCategories?: string[];
+  couponMeta?: Array<{
+    code: string;
+    category: string | null;
+    rootPaymentId: string | null;
+    parentCouponId: string | null;
+    originAppointmentId: number | null;
+  }>;
   serviceOrders: Array<{
     id: string;
     serviceType: string;
@@ -172,9 +180,18 @@ export async function loadHomologationOrderSnapshot(
       : [];
 
   const coupons = await prisma.coupon.findMany({
-    where: { paymentId: payment.id },
+    where: {
+      OR: [{ paymentId: payment.id }, { rootPaymentId: payment.id }],
+    },
     orderBy: { createdAt: "asc" },
-    select: { code: true, couponType: true },
+    select: {
+      code: true,
+      couponType: true,
+      couponCategory: true,
+      rootPaymentId: true,
+      parentCouponId: true,
+      originAppointmentId: true,
+    },
   });
 
   const base = {
@@ -199,6 +216,14 @@ export async function loadHomologationOrderSnapshot(
     serviceIds: services.map((s) => s.id),
     couponCodes: coupons.map((c) => c.code),
     couponTypes: coupons.map((c) => c.couponType),
+    couponCategories: coupons.map((c) => c.couponCategory || c.couponType),
+    couponMeta: coupons.map((c) => ({
+      code: c.code,
+      category: c.couponCategory,
+      rootPaymentId: c.rootPaymentId,
+      parentCouponId: c.parentCouponId,
+      originAppointmentId: c.originAppointmentId,
+    })),
     serviceOrders: serviceOrders.map((o) => ({
       id: o.id,
       serviceType: o.serviceType,
