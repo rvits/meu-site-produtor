@@ -17,10 +17,10 @@ import {
   paymentByProviderIdWhere,
   paymentProviderPersistFields,
 } from "@/app/lib/payment-provider/identity";
-
-function isConfirmedPaymentEvent(event: string, status: string): boolean {
-  return event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED");
-}
+import {
+  isOperationallyApprovedAsaasPaymentEvent,
+  isPrismaUniqueConstraintError,
+} from "@/app/lib/asaas-approved-payment-event";
 
 async function publishPaymentEffectsReady(
   paymentDbId: string,
@@ -70,7 +70,7 @@ export async function processPaymentWebhook(body: {
       description: payment.description,
     });
 
-    if (!isConfirmedPaymentEvent(event, status)) {
+    if (!isOperationallyApprovedAsaasPaymentEvent(event, status)) {
       return { received: true };
     }
 
@@ -137,58 +137,85 @@ export async function processPaymentWebhook(body: {
             ? (payment.metadata as Record<string, unknown>)
             : null,
       });
-      const created = await prisma.payment.create({
-        data: {
-          userId,
-          amount: value,
-          status: "approved",
-          type: isPlanoDesc
-            ? "plano"
-            : isAgendamentoDesc
-              ? "agendamento"
-              : "outro",
-          currency: "BRL",
-          ...providerFields,
-          planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
-        },
-      });
-      // Ajuste pós-create: metadata tipado como carrinho deve contar como agendamento
-      const metaPeek = await resolvePaymentMetadataForWebhook({
-        userId,
-        asaasPaymentId: paymentId,
-        paymentMetadata: payment.metadata,
-        description: payment.description,
-      }).catch(() => ({}) as Record<string, unknown>);
-      if (String((metaPeek as Record<string, unknown>)?.tipo || "") === "carrinho" && created.type === "outro") {
-        await prisma.payment.update({
-          where: { id: created.id },
-          data: { type: "agendamento" },
-        });
-        paymentRecord = { id: created.id, userId: created.userId, type: "agendamento" };
-      } else {
-        paymentRecord = { id: created.id, userId: created.userId, type: created.type };
-      }
-      console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", paymentRecord.id);
       try {
-        const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
-        await publishSyncEvent({
-          name: "PaymentConfirmed",
-          entity: "payment",
-          entityId: paymentRecord.id,
-          from: "pending",
-          to: "confirmado",
-          options: {
-            source: "lifecycle",
+        const created = await prisma.payment.create({
+          data: {
             userId,
-            metadata: {
-              providerPaymentId: paymentId,
-              provider: providerFields.provider,
-              via: "processPaymentWebhook-create",
-            },
+            amount: value,
+            status: "approved",
+            type: isPlanoDesc
+              ? "plano"
+              : isAgendamentoDesc
+                ? "agendamento"
+                : "outro",
+            currency: "BRL",
+            ...providerFields,
+            planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
           },
         });
-      } catch (syncErr) {
-        console.error("[Process Payment Webhook] sync PaymentConfirmed falhou (non-fatal):", syncErr);
+        // Ajuste pós-create: metadata tipado como carrinho deve contar como agendamento
+        const metaPeek = await resolvePaymentMetadataForWebhook({
+          userId,
+          asaasPaymentId: paymentId,
+          paymentMetadata: payment.metadata,
+          description: payment.description,
+        }).catch(() => ({}) as Record<string, unknown>);
+        if (String((metaPeek as Record<string, unknown>)?.tipo || "") === "carrinho" && created.type === "outro") {
+          await prisma.payment.update({
+            where: { id: created.id },
+            data: { type: "agendamento" },
+          });
+          paymentRecord = { id: created.id, userId: created.userId, type: "agendamento" };
+        } else {
+          paymentRecord = { id: created.id, userId: created.userId, type: created.type };
+        }
+        console.log("[Process Payment Webhook] Pagamento registrado com sucesso:", paymentRecord.id);
+        try {
+          const { publishSyncEvent } = await import("@/app/lib/synchronization/engine");
+          await publishSyncEvent({
+            name: "PaymentConfirmed",
+            entity: "payment",
+            entityId: paymentRecord.id,
+            from: "pending",
+            to: "confirmado",
+            options: {
+              source: "lifecycle",
+              userId,
+              metadata: {
+                providerPaymentId: paymentId,
+                provider: providerFields.provider,
+                via: "processPaymentWebhook-create",
+              },
+            },
+          });
+        } catch (syncErr) {
+          console.error("[Process Payment Webhook] sync PaymentConfirmed falhou (non-fatal):", syncErr);
+        }
+      } catch (createErr: unknown) {
+        if (!isPrismaUniqueConstraintError(createErr)) {
+          throw createErr;
+        }
+        const raced = await prisma.payment.findFirst({
+          where: paymentByProviderIdWhere(paymentId),
+        });
+        if (!raced) {
+          throw createErr;
+        }
+        console.warn(
+          "[Process Payment Webhook] Corrida no create — usando Payment existente",
+          raced.id
+        );
+        paymentRecord = {
+          id: raced.id,
+          userId: raced.userId,
+          type: raced.type,
+        };
+        userId = raced.userId;
+        const st = String(raced.status || "").toLowerCase();
+        if (st === "pending" || st === "pendente" || st === "recebido" || st === "received") {
+          const { confirmPayment } = await import("@/app/lib/domain/workflow");
+          await confirmPayment(raced.id, { type: "webhook", id: paymentId });
+        }
       }
     }
 

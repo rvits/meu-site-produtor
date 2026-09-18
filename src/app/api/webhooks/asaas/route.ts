@@ -17,6 +17,10 @@ import {
 import { publishSyncEvent } from "@/app/lib/synchronization/engine";
 import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
 import { logFinancialFailure } from "@/app/lib/financial-ops-log";
+import {
+  isOperationallyApprovedAsaasPaymentEvent,
+  isPrismaUniqueConstraintError,
+} from "@/app/lib/asaas-approved-payment-event";
 
 /**
  * Webhook do Asaas para notificações de pagamento
@@ -29,13 +33,75 @@ import { logFinancialFailure } from "@/app/lib/financial-ops-log";
  * NÃO é processado. A resposta HTTP 200 evita penalidade Asaas, mas o corpo deixa
  * explícito processed=false (nunca sucesso operacional silencioso).
  *
- * Eventos suportados:
- * - PAYMENT_CREATED: Pagamento criado
- * - PAYMENT_RECEIVED: Pagamento confirmado ✅
+ * Reconhecimento operacional (efeitos de domínio): ver
+ * isOperationallyApprovedAsaasPaymentEvent — PAYMENT_CONFIRMED e PAYMENT_RECEIVED
+ * com status CONFIRMED/RECEIVED. Isso NÃO persiste liquidação financeira.
+ *
+ * Outros eventos:
  * - PAYMENT_REFUNDED: Estorno confirmado no Asaas (sincroniza refundAsaasStatus local)
- * - PAYMENT_OVERDUE: Pagamento vencido
- * - PAYMENT_DELETED: Pagamento deletado
+ * - PAYMENT_OVERDUE: Pagamento vencido (assinatura)
  */
+async function replayExistingApprovedPayment(params: {
+  existingPayment: { id: string; amount: number };
+  value: number;
+  paymentId: string;
+  description?: string | null;
+  userId: string;
+  operationId: string | null;
+}) {
+  const { existingPayment, value, paymentId, description, userId, operationId } = params;
+  if (Math.abs(Number(existingPayment.amount) - Number(value)) > 0.01) {
+    console.error("[WEBHOOK_SECURITY_AUDIT]", {
+      code: "DUPLICATE_AMOUNT_MISMATCH",
+      paymentId,
+      stored: existingPayment.amount,
+      received: value,
+    });
+    return NextResponse.json({ received: true, error: "Valor divergente" }, { status: 200 });
+  }
+  let reconciliationReady = false;
+  try {
+    const { processApprovedPayment } = await import("@/app/lib/process-approved-payment");
+    const fx = await processApprovedPayment({
+      paymentDbId: existingPayment.id,
+      value,
+      asaasPaymentId: paymentId,
+      description,
+      options: { sendEmails: false, source: "webhook" },
+    });
+    reconciliationReady = fx.paymentLinked;
+    if (!fx.paymentLinked) {
+      console.error("[Asaas Webhook] Replay idempotente incompleto:", fx.skippedReason);
+    }
+  } catch (reconcileErr: unknown) {
+    console.error("[Asaas Webhook] Reconcile pós-duplicata falhou:", {
+      paymentDbId: existingPayment.id,
+      asaasPaymentId: paymentId,
+      userId,
+      message: reconcileErr instanceof Error ? reconcileErr.message : String(reconcileErr),
+      stack: reconcileErr instanceof Error ? reconcileErr.stack : undefined,
+    });
+  }
+  if (!reconciliationReady) {
+    return NextResponse.json(
+      { received: true, error: "Reconciliação incompleta" },
+      { status: 200 }
+    );
+  }
+  await publishSyncEvent({
+    name: "PaymentConfirmed",
+    entity: "payment",
+    entityId: existingPayment.id,
+    to: "confirmado",
+    options: {
+      source: "recovery",
+      userId,
+      metadata: { effectsReady: true, duplicate: true, operationId },
+    },
+  });
+  return NextResponse.json({ received: true }, { status: 200 });
+}
+
 export async function POST(req: Request) {
   try {
     const webhookToken = process.env.ASAAS_WEBHOOK_ACCESS_TOKEN;
@@ -94,14 +160,14 @@ export async function POST(req: Request) {
     let body;
     try {
       body = JSON.parse(bodyText);
-    } catch (parseError: any) {
+    } catch (parseError: unknown) {
       console.error("[Asaas Webhook] Erro ao parsear body:", parseError);
       console.error("[Asaas Webhook] Body completo:", bodyText);
       return NextResponse.json(
         {
           received: true,
           error: "Erro ao parsear body",
-          details: parseError.message,
+          details: parseError instanceof Error ? parseError.message : String(parseError),
         },
         { status: 200 }
       );
@@ -138,13 +204,14 @@ export async function POST(req: Request) {
       metadata: payment.metadata,
     });
 
+    const shouldProcessApproved = isOperationallyApprovedAsaasPaymentEvent(event, status);
     console.log("[Asaas Webhook] Verificando condições:", {
       event,
       status,
-      shouldProcess: event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED"),
+      shouldProcess: shouldProcessApproved,
     });
 
-    if (event === "PAYMENT_RECEIVED" && (status === "RECEIVED" || status === "CONFIRMED")) {
+    if (shouldProcessApproved) {
       console.log("[Asaas Webhook] ✅ Condições atendidas, processando pagamento...");
       try {
         const paymentByProviderId = await prisma.payment.findFirst({
@@ -232,61 +299,14 @@ export async function POST(req: Request) {
 
         if (existingPayment) {
           console.log("[Asaas Webhook] Pagamento já processado:", paymentId);
-          if (Math.abs(Number(existingPayment.amount) - Number(value)) > 0.01) {
-            console.error("[WEBHOOK_SECURITY_AUDIT]", {
-              code: "DUPLICATE_AMOUNT_MISMATCH",
-              paymentId,
-              stored: existingPayment.amount,
-              received: value,
-            });
-            return NextResponse.json(
-              { received: true, error: "Valor divergente" },
-              { status: 200 }
-            );
-          }
-          let reconciliationReady = false;
-          try {
-            const { processApprovedPayment } = await import(
-              "@/app/lib/process-approved-payment"
-            );
-            const fx = await processApprovedPayment({
-              paymentDbId: existingPayment.id,
-              value,
-              asaasPaymentId: paymentId,
-              description: payment.description,
-              options: { sendEmails: false, source: "webhook" },
-            });
-            reconciliationReady = fx.paymentLinked;
-            if (!fx.paymentLinked) {
-              console.error("[Asaas Webhook] Replay idempotente incompleto:", fx.skippedReason);
-            }
-          } catch (reconcileErr: unknown) {
-            console.error("[Asaas Webhook] Reconcile pós-duplicata falhou:", {
-              paymentDbId: existingPayment.id,
-              asaasPaymentId: paymentId,
-              userId,
-              message: reconcileErr instanceof Error ? reconcileErr.message : String(reconcileErr),
-              stack: reconcileErr instanceof Error ? reconcileErr.stack : undefined,
-            });
-          }
-          if (!reconciliationReady) {
-            return NextResponse.json(
-              { received: true, error: "Reconciliação incompleta" },
-              { status: 200 }
-            );
-          }
-          await publishSyncEvent({
-            name: "PaymentConfirmed",
-            entity: "payment",
-            entityId: existingPayment.id,
-            to: "confirmado",
-            options: {
-              source: "recovery",
-              userId,
-              metadata: { effectsReady: true, duplicate: true, operationId },
-            },
+          return replayExistingApprovedPayment({
+            existingPayment,
+            value,
+            paymentId,
+            description: payment.description,
+            userId,
+            operationId,
           });
-          return NextResponse.json({ received: true }, { status: 200 });
         }
 
         const isPlanoDesc = isPlanoPaymentDescription(payment.description);
@@ -301,17 +321,44 @@ export async function POST(req: Request) {
           }));
         assertWebhookAmountMatchesMetadata(metadata, value);
 
-        const newPayment = await prisma.payment.create({
-          data: {
-            userId,
-            amount: value,
-            status: "approved",
-            type: isPlanoDesc ? "plano" : isAgendamentoDesc ? "agendamento" : "outro",
-            currency: "BRL",
-            asaasId: paymentId,
-            planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
-          },
-        });
+        let newPayment;
+        try {
+          newPayment = await prisma.payment.create({
+            data: {
+              userId,
+              amount: value,
+              status: "approved",
+              type: isPlanoDesc ? "plano" : isAgendamentoDesc ? "agendamento" : "outro",
+              currency: "BRL",
+              asaasId: paymentId,
+              planId: isPlanoDesc ? payment.description?.match(/Plano (\w+)/)?.[1] || null : null,
+            },
+          });
+        } catch (createErr: unknown) {
+          if (isPrismaUniqueConstraintError(createErr)) {
+            const raced = await prisma.payment.findFirst({
+              where: {
+                OR: [{ asaasId: paymentId }, { mercadopagoId: paymentId }],
+              },
+              orderBy: { createdAt: "desc" },
+            });
+            if (raced) {
+              console.warn("[Asaas Webhook] Corrida no create — reconciliando Payment existente", {
+                paymentId,
+                paymentDbId: raced.id,
+              });
+              return replayExistingApprovedPayment({
+                existingPayment: raced,
+                value,
+                paymentId,
+                description: payment.description,
+                userId,
+                operationId,
+              });
+            }
+          }
+          throw createErr;
+        }
 
         console.log("[Asaas Webhook] Pagamento registrado com sucesso:", newPayment.id);
 
@@ -396,9 +443,12 @@ export async function POST(req: Request) {
             metadata: { effectsReady: true, paymentType: tipo, operationId },
           },
         });
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         console.error("[Asaas Webhook] ❌ Erro ao processar pagamento no banco:", dbError);
-        console.error("[Asaas Webhook] Stack:", dbError.stack);
+        console.error(
+          "[Asaas Webhook] Stack:",
+          dbError instanceof Error ? dbError.stack : undefined
+        );
       }
     } else if (
       event === "PAYMENT_REFUNDED" ||
@@ -410,9 +460,12 @@ export async function POST(req: Request) {
           asaasPaymentId: paymentId,
           ...sync,
         });
-      } catch (refundSyncError: any) {
+      } catch (refundSyncError: unknown) {
         console.error("[Asaas Webhook] ❌ Erro ao sincronizar PAYMENT_REFUNDED:", refundSyncError);
-        console.error("[Asaas Webhook] Stack:", refundSyncError.stack);
+        console.error(
+          "[Asaas Webhook] Stack:",
+          refundSyncError instanceof Error ? refundSyncError.stack : undefined
+        );
       }
     } else if (event === "PAYMENT_OVERDUE" || String(status || "").toUpperCase() === "OVERDUE") {
       try {
@@ -438,16 +491,17 @@ export async function POST(req: Request) {
         event,
         status,
         reason:
-          event !== "PAYMENT_RECEIVED"
-            ? "Evento não é PAYMENT_RECEIVED"
-            : "Status não é RECEIVED ou CONFIRMED",
+          "Evento/status não reconhecem pagamento operacional (PAYMENT_CONFIRMED ou PAYMENT_RECEIVED com status CONFIRMED/RECEIVED)",
       });
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Asaas Webhook] Erro ao processar webhook:", error);
-    return NextResponse.json({ received: true, error: error.message }, { status: 200 });
+    return NextResponse.json(
+      { received: true, error: error instanceof Error ? error.message : String(error) },
+      { status: 200 }
+    );
   }
 }
 

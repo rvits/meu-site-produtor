@@ -9,6 +9,7 @@ import { refundPaymentStatus } from "@/app/lib/domain/workflow";
 import { syncInboundRefundConfirmation } from "@/app/lib/payment-refund-sync";
 import { REFUND_ASAAS_STATUS_SIMULATED } from "@/app/lib/symbolic-payment";
 import { paymentByProviderIdWhere } from "@/app/lib/payment-provider/identity";
+import { simulationDomainWebhookInput } from "@/app/lib/simulation-domain-webhook-input";
 import type {
   CheckoutParams,
   CheckoutResponse,
@@ -21,6 +22,8 @@ import type {
   SimulateWebhookParams,
   SimulateWebhookResult,
 } from "@/app/lib/payment-provider/types";
+
+export { simulationDomainWebhookInput } from "@/app/lib/simulation-domain-webhook-input";
 
 function newSimPaymentId(): string {
   return `sim_pay_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -398,8 +401,8 @@ export class SimulationProvider implements PaymentProvider {
       where: { asaasId: params.providerPaymentId },
     });
     let value = params.value ?? 0;
-    let description = params.description || "Agendamento THouse Rec - simulação";
-    let externalReference = params.externalReference || meta?.id || undefined;
+    const description = params.description || "Agendamento THouse Rec - simulação";
+    const externalReference = params.externalReference || meta?.id || undefined;
     if (meta && !params.value) {
       try {
         const parsed = JSON.parse(meta.metadata || "{}") as Record<string, unknown>;
@@ -409,20 +412,17 @@ export class SimulationProvider implements PaymentProvider {
       }
     }
 
-    const domainResult = await processPaymentWebhook({
-      event: "PAYMENT_RECEIVED",
-      payment: {
-        id: params.providerPaymentId,
-        status: params.status || "RECEIVED",
+    const domainResult = await processPaymentWebhook(
+      simulationDomainWebhookInput({
+        event: params.event,
+        status: params.status,
+        providerPaymentId: params.providerPaymentId,
         value,
-        netValue: value,
-        billingType: "UNDEFINED",
-        customer: "cus_simulation",
-        externalReference,
         description,
-        metadata: { ...(params.metadata || {}), provider: "SIMULATION" },
-      },
-    });
+        externalReference,
+        metadata: params.metadata,
+      })
+    );
 
     return {
       received: Boolean((domainResult as { received?: boolean })?.received),

@@ -245,7 +245,7 @@ export class AsaasProvider implements PaymentProvider {
       received: false,
       success: false,
       error:
-        "Asaas: confirmação ocorre via webhook PAYMENT_RECEIVED do provedor (não via confirmPayment local).",
+        "Asaas: confirmação ocorre via webhook PAYMENT_CONFIRMED ou PAYMENT_RECEIVED do provedor (não via confirmPayment local).",
     };
   }
 
