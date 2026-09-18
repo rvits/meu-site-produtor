@@ -18,6 +18,7 @@ import {
   normalizeServiceTypeId,
   type PricedCheckoutItem,
 } from "@/app/lib/service-catalog";
+import { resolveServiceExecutionMaterialization } from "@/app/lib/service-orders";
 
 export type ZeroCheckoutUser = {
   id: string;
@@ -82,8 +83,13 @@ export async function fulfillZeroTotalCouponAppointment(params: {
 
   const dataHoraISO = parseStudioDateTime(params.data, params.hora);
   const duracao = params.duracaoMinutos || 60;
-  const servicos = params.services;
-  const beats = params.beats;
+  const materialization = resolveServiceExecutionMaterialization({
+    services: params.services,
+    beats: params.beats,
+    existingTipos: [],
+  });
+  const servicos = materialization.services;
+  const beats = materialization.beats;
 
   let appointment!: {
     id: number;
@@ -173,10 +179,11 @@ export async function fulfillZeroTotalCouponAppointment(params: {
 
         for (const svc of servicos) {
           const tipoSvc = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
+          const qty = Math.max(1, Number(svc.quantidade) || 1);
           const desc =
-            [svc.nome, svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null].filter(Boolean).join(" — ") ||
+            [svc.nome, qty > 1 ? `Qtd: ${qty}` : null].filter(Boolean).join(" — ") ||
             tipoSvc;
-          for (let q = 0; q < (svc.quantidade || 1); q++) {
+          for (let q = 0; q < qty; q++) {
             const created = await tx.service.create({
               data: {
                 userId: user.id,
@@ -192,9 +199,10 @@ export async function fulfillZeroTotalCouponAppointment(params: {
 
         for (const b of beats) {
           const tipoB = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
+          const qtyB = Math.max(1, Number(b.quantidade) || 1);
           const descB =
-            [b.nome, b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null].filter(Boolean).join(" — ") || tipoB;
-          for (let q = 0; q < (b.quantidade || 1); q++) {
+            [b.nome, qtyB > 1 ? `Qtd: ${qtyB}` : null].filter(Boolean).join(" — ") || tipoB;
+          for (let q = 0; q < qtyB; q++) {
             const created = await tx.service.create({
               data: {
                 userId: user.id,

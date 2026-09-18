@@ -9,6 +9,11 @@ import {
   CHECKOUT_CATALOG,
   type CanonicalServiceId,
 } from "@/app/lib/service-catalog";
+import {
+  resolveBeatsPanelHint,
+  resolveStudioPanelHint,
+  schedulingHintText,
+} from "@/app/lib/scheduling-context";
 
 const STUDIO_ORDER: CanonicalServiceId[] = [
   "sessao",
@@ -152,6 +157,9 @@ export function CatalogSelectionPanels({
   /** marketing = visual do Agendamento; admin = painel zinc da Homologação */
   sectionStyle?: "marketing" | "admin";
 }) {
+  const studioHint = resolveStudioPanelHint(qty);
+  const beatsHint = resolveBeatsPanelHint(qty);
+
   const studioGrid = (
     <div className="grid gap-4 md:grid-cols-2">
       {STUDIO_ORDER.map((id) => {
@@ -202,6 +210,11 @@ export function CatalogSelectionPanels({
                 Selecione os serviços avulsos. Sessão e Captação usam o calendário presencial.
               </p>
               {studioGrid}
+              {studioHint ? (
+                <p className="mt-4 text-center text-sm leading-relaxed text-zinc-400">
+                  {schedulingHintText(studioHint)}
+                </p>
+              ) : null}
             </div>
           </section>
         )}
@@ -213,6 +226,11 @@ export function CatalogSelectionPanels({
                 Pacotes comerciais e beats — mesma decomposição do Agendamento (GO-H5).
               </p>
               {beatsGrid}
+              {beatsHint ? (
+                <p className="mt-4 text-center text-sm leading-relaxed text-zinc-400">
+                  {schedulingHintText(beatsHint)}
+                </p>
+              ) : null}
             </div>
           </section>
         )}
@@ -228,6 +246,11 @@ export function CatalogSelectionPanels({
           description="Selecione os serviços que você deseja para essa sessão. Você pode combinar captação, mix, master, sonoplastia e outras opções para montar um fluxo de trabalho completo ou apenas o que precisa no momento."
         >
           {studioGrid}
+          {studioHint ? (
+            <p className="mt-4 text-center text-sm leading-relaxed text-white/90">
+              {schedulingHintText(studioHint)}
+            </p>
+          ) : null}
         </MarketingPanel>
       )}
       {showBeats && (
@@ -236,6 +259,11 @@ export function CatalogSelectionPanels({
           description="Se você já tem uma ideia de sonoridade ou quer um beat exclusivo, pode selecionar aqui os pacotes de beats e produções completas."
         >
           {beatsGrid}
+          {beatsHint ? (
+            <p className="mt-4 text-center text-sm leading-relaxed text-white/90">
+              {schedulingHintText(beatsHint)}
+            </p>
+          ) : null}
         </MarketingPanel>
       )}
     </div>

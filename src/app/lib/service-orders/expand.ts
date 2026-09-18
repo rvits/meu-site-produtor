@@ -128,6 +128,72 @@ export function countServiceOrders(
   return expandPurchaseToServiceOrders(services, beats).length;
 }
 
+/** Soma qty das linhas comerciais (SKU da vitrine), sem expandir compostos. */
+export function countCommercialPurchaseLines(
+  services: PurchaseLine[] = [],
+  beats: PurchaseLine[] = []
+): number {
+  const arrS = Array.isArray(services) ? services : [];
+  const arrB = Array.isArray(beats) ? beats : [];
+  return (
+    arrS.reduce((acc, s) => acc + Math.max(1, Number(s.quantidade) || 1), 0) +
+    arrB.reduce((acc, b) => acc + Math.max(1, Number(b.quantidade) || 1), 0)
+  );
+}
+
+/**
+ * Linhas de execução atômicas agrupadas por tipo.
+ * Preço comercial permanece no SKU composto; esta lista não recorre o catálogo financeiro.
+ */
+export function expandPurchaseToAtomicServiceLines(
+  services: PurchaseLine[] = [],
+  beats: PurchaseLine[] = []
+): PurchaseLine[] {
+  const counts = new Map<string, number>();
+  for (const order of expandPurchaseToServiceOrders(services, beats)) {
+    counts.set(order.serviceType, (counts.get(order.serviceType) || 0) + 1);
+  }
+  return [...counts.entries()].map(([id, quantidade]) => ({ id, quantidade }));
+}
+
+export type ServiceExecutionMaterialization = {
+  mode: "atomic" | "legacy-composite";
+  services: PurchaseLine[];
+  beats: PurchaseLine[];
+  expectedCount: number;
+};
+
+/**
+ * Carrinho/agendamento imediato: materializa Services atômicos (GO-H5).
+ * Se já existir Service.tipo composto (legacy mix_master etc.), não converte nem completa com atômicos.
+ */
+export function resolveServiceExecutionMaterialization(params: {
+  services?: PurchaseLine[] | null;
+  beats?: PurchaseLine[] | null;
+  existingTipos?: string[] | null;
+}): ServiceExecutionMaterialization {
+  const services = Array.isArray(params.services) ? params.services : [];
+  const beats = Array.isArray(params.beats) ? params.beats : [];
+  const existingTipos = Array.isArray(params.existingTipos) ? params.existingTipos : [];
+  const legacyComposite = existingTipos.some((tipo) =>
+    isCommercialCompositeProductId(normalizeTypeId(String(tipo || "")))
+  );
+  if (legacyComposite) {
+    return {
+      mode: "legacy-composite",
+      services,
+      beats,
+      expectedCount: countCommercialPurchaseLines(services, beats),
+    };
+  }
+  return {
+    mode: "atomic",
+    services: expandPurchaseToAtomicServiceLines(services, beats),
+    beats: [],
+    expectedCount: countServiceOrders(services, beats),
+  };
+}
+
 /**
  * Regra universal GO-H5:
  * exatamente 1 Ordem → calendário imediato;

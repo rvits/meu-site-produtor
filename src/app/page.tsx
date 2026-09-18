@@ -6,6 +6,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import ProfessionalBox from "@/app/components/ProfessionalBox";
 import { Button, LinkButton } from "@/components/design-system";
 import { PLAN_DEFINITIONS, type PlanTierId } from "@/app/lib/plan-definitions";
+import { PLAN_CARD_DESCRIPTION_CLASS } from "@/app/lib/plan-card-layout";
 
 // ID do vídeo do YouTube - Substitua pelo ID real do vídeo
 // Para obter o ID: pegue a URL do YouTube (ex: https://www.youtube.com/watch?v=VIDEO_ID)
@@ -443,7 +444,7 @@ export default function Home() {
                       {precoFormatado}
                     </p>
 
-                    <p className="text-center text-xs text-zinc-400">
+                    <p className={PLAN_CARD_DESCRIPTION_CLASS}>
                       {plano.descricao}
                     </p>
                         </div>

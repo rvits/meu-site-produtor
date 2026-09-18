@@ -23,7 +23,10 @@ export type { CommercialCompositeProductId, OfficialPackageId } from "@/app/lib/
 export {
   expandPurchaseToServiceOrders,
   expandLineToAtomicServiceTypes,
+  expandPurchaseToAtomicServiceLines,
   countServiceOrders,
+  countCommercialPurchaseLines,
+  resolveServiceExecutionMaterialization,
   purchaseOpensImmediateSchedule,
   purchaseEmitsServiceOrderCoupons,
   resolveCommercialProductId,
@@ -33,6 +36,7 @@ export type {
   PurchaseLine,
   ServiceOrderSpec,
   PersistedServiceOrderShape,
+  ServiceExecutionMaterialization,
 } from "@/app/lib/service-orders/expand";
 
 export {

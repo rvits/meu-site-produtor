@@ -16,6 +16,10 @@ import {
   type CanonicalCouponType,
 } from "@/app/lib/domain/coupon-types";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import {
+  computePlanPercentDiscount,
+  resolvePlanPercentKind,
+} from "@/app/lib/plan-percent-discount";
 import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
 import {
   computePartnershipDiscount,
@@ -275,25 +279,21 @@ function validateMinValue(
   return null;
 }
 
-function validateServiceBeatMix(
+function validatePlanPercentApplicable(
   coupon: Coupon,
-  totalServicos: number,
-  totalBeats: number
+  servicos: ServicoItem[],
+  beats: BeatItem[]
 ): { ok: false; error: string } | null {
-  if (coupon.serviceType === "percent_servicos" && totalBeats > 0) {
-    return {
-      ok: false,
-      error:
-        "Este cupom de 10% é válido apenas para serviços avulsos (captação, mix, master, etc.). Não pode ser usado em beats. Para beats, use o cupom de desconto específico para beats.",
-    };
-  }
-  if (coupon.serviceType === "percent_beats" && totalServicos > 0) {
-    return {
-      ok: false,
-      error:
-        "Este cupom de 10% é válido apenas para beats. Não pode ser usado em serviços avulsos (captação, mix, master, etc.). Para serviços, use o cupom de desconto específico para serviços.",
-    };
-  }
+  const kind = resolvePlanPercentKind(coupon.serviceType);
+  if (!kind || coupon.discountType !== "percent") return null;
+  const computed = computePlanPercentDiscount({
+    serviceType: coupon.serviceType,
+    percent: coupon.discountValue,
+    maxDiscount: coupon.maxDiscount,
+    services: servicos,
+    beats,
+  });
+  if (!computed.ok) return { ok: false, error: computed.error };
   return null;
 }
 
@@ -303,11 +303,12 @@ function computeDiscountedTotal(
   servicos: ServicoItem[],
   beats: BeatItem[]
 ): number {
-  const { total, totalServicos, totalBeats } = totals;
+  const { total } = totals;
   let discount = 0;
   let finalTotal = total;
   let isServiceCoupon = false;
   const isRefundCoupon = resolveCanonicalCouponType(coupon) === "REFUND";
+  const round2 = (n: number) => Math.round(n * 100) / 100;
 
   if (isPromotionalPartnershipCoupon(coupon)) {
     return computePartnershipDiscount({
@@ -323,17 +324,27 @@ function computeDiscountedTotal(
     discount = total;
     finalTotal = 0;
   } else if (coupon.discountType === "percent") {
-    const baseParaDesconto =
-      coupon.serviceType === "percent_servicos"
-        ? totalServicos
-        : coupon.serviceType === "percent_beats"
-          ? totalBeats
-          : total;
-    discount = (baseParaDesconto * coupon.discountValue) / 100;
-    if (coupon.maxDiscount && discount > coupon.maxDiscount) {
-      discount = coupon.maxDiscount;
+    const planPercent = resolvePlanPercentKind(coupon.serviceType);
+    if (planPercent) {
+      const computed = computePlanPercentDiscount({
+        serviceType: coupon.serviceType,
+        percent: coupon.discountValue,
+        maxDiscount: coupon.maxDiscount,
+        services: servicos,
+        beats,
+      });
+      if (computed.ok) {
+        discount = computed.discount;
+        finalTotal = round2(total - discount);
+      }
+    } else {
+      const baseParaDesconto = total;
+      discount = (baseParaDesconto * coupon.discountValue) / 100;
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+        discount = coupon.maxDiscount;
+      }
+      finalTotal = total - discount;
     }
-    finalTotal = total - discount;
   } else if (isRefundCoupon) {
     if (coupon.discountValue >= total) {
       discount = total;
@@ -395,9 +406,7 @@ export async function validateCouponAndGetTotal(
     coupon ? validateExpiresAt(coupon) : null,
     coupon ? validatePlanCouponWindow(coupon) : null,
     coupon ? validateMinValue(coupon, totals.total) : null,
-    coupon
-      ? validateServiceBeatMix(coupon, totals.totalServicos, totals.totalBeats)
-      : null,
+    coupon ? validatePlanPercentApplicable(coupon, servicos, beats) : null,
   ];
 
   for (const gate of gates) {

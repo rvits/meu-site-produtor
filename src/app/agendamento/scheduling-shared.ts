@@ -14,7 +14,7 @@ export { OPERATIONAL_HOURS, PRODUCTION_DELIVERY_HOUR };
 
 /** Texto obrigatório acima do calendário para serviços de produção (sem horários). */
 export const PRODUCTION_DELIVERY_DATE_MESSAGE =
-  "Selecione a data em que deseja receber o material final. Esta data representa a entrega desejada. Após o envio da solicitação, a equipe analisará a disponibilidade e confirmará ou ajustará essa data conforme a capacidade de produção.";
+  "Escolha a data em que deseja receber o trabalho concluído. Essa data representa o prazo de entrega desejado, e não o início da produção.";
 
 export function serviceNeedsStudioHours(
   serviceType?: string | null,

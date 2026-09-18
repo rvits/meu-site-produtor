@@ -9,6 +9,8 @@ import {
   createServicesForAppointmentIfMissing,
   type AgendamentoItemLine,
 } from "@/app/lib/asaas-agendamento-payment-effects";
+import { createCouponsForAgendamentoItems } from "@/app/lib/agendamento-payment-coupons";
+import { isSymbolicAgendamentoCouponStyle } from "@/app/lib/symbolic-payment";
 import { decidePaymentSlotAction, shouldSendFulfillmentEmails } from "@/app/lib/payment-appointment-idempotency";
 
 export type CarrinhoItemMeta = {
@@ -21,12 +23,14 @@ export type CarrinhoItemMeta = {
   beats?: AgendamentoItemLine[];
   cupomCode?: string;
   couponId?: string;
+  somenteCupons?: boolean;
 };
 
 export type ProcessCarrinhoPaymentEffectsResult = {
   appointmentIds: number[];
   paymentLinked: boolean;
   emailsSent: boolean;
+  couponsCount?: number;
   skippedReason?: string;
 };
 
@@ -82,11 +86,20 @@ export async function processCarrinhoPaymentEffects(params: {
   let firstItemServices: AgendamentoItemLine[] = [];
   let firstItemBeats: AgendamentoItemLine[] = [];
   let createdAppointmentThisRun = false;
+  const pendingServices: AgendamentoItemLine[] = [];
+  const pendingBeats: AgendamentoItemLine[] = [];
 
   for (const item of items) {
     const data = item.data;
     const hora = item.hora;
-    if (!data || !hora) continue;
+    const hasImmediateSchedule =
+      Boolean(String(data || "").trim() && String(hora || "").trim()) &&
+      item.somenteCupons !== true;
+    if (!hasImmediateSchedule) {
+      if (Array.isArray(item.servicos)) pendingServices.push(...item.servicos);
+      if (Array.isArray(item.beats)) pendingBeats.push(...item.beats);
+      continue;
+    }
     const duracaoMinutos = item.duracaoMinutos ?? 60;
     const tipoAgendamento = item.tipo || "sessao";
     const observacoes = item.observacoes || null;
@@ -149,6 +162,8 @@ export async function processCarrinhoPaymentEffects(params: {
       }
     }
 
+    // Item com data/hora: Appointment imediato (regra do carrinho).
+    // Services atômicos via createServicesForAppointmentIfMissing (GO-H5 composition).
     const servicesCreated = await createServicesForAppointmentIfMissing({
       appointmentId,
       userId,
@@ -188,13 +203,89 @@ export async function processCarrinhoPaymentEffects(params: {
     }
   }
 
+  let couponsCount = 0;
+  if (pendingServices.length > 0 || pendingBeats.length > 0) {
+    try {
+      const coupons = await createCouponsForAgendamentoItems({
+        userId,
+        paymentId: paymentDbId,
+        services: pendingServices,
+        beats: pendingBeats,
+        isTestPayment: isSymbolicAgendamentoCouponStyle(metadata),
+      });
+      couponsCount = coupons.length;
+      console.log(`${logPrefix} direitos pendentes (cupons GO-H5)`, {
+        paymentDbId,
+        couponsCount,
+      });
+    } catch (couponErr: unknown) {
+      console.error(`${logPrefix} falha ao emitir cupons de carrinho sem agenda:`, couponErr);
+      if (appointmentIds.length === 0) {
+        return {
+          appointmentIds: [],
+          paymentLinked: false,
+          emailsSent: false,
+          couponsCount: 0,
+          skippedReason: "Falha ao gerar cupons para o carrinho sem agenda",
+        };
+      }
+    }
+  }
+
   const firstId = appointmentIds[0] ?? null;
-  if (firstId === null) {
+  if (firstId === null && couponsCount === 0) {
     return {
       appointmentIds: [],
       paymentLinked: false,
       emailsSent: false,
-      skippedReason: "Nenhum agendamento criado (conflito de slot ou itens inválidos)",
+      couponsCount: 0,
+      skippedReason: "Carrinho sem agenda e sem direitos para materializar",
+    };
+  }
+
+  if (firstId === null) {
+    await prisma.payment.update({
+      where: { id: paymentDbId },
+      data: { type: "agendamento", appointmentId: null },
+    });
+    let emailsSent = false;
+    if (sendEmails) {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, nomeArtistico: true, telefone: true },
+        });
+        if (user) {
+          await sendPaymentConfirmationEmailToUser(
+            user.email,
+            user.nomeArtistico,
+            new Date(),
+            value
+          );
+          await sendPaymentNotificationToTHouse(
+            user.email,
+            user.nomeArtistico,
+            user.telefone,
+            new Date(),
+            "carrinho",
+            60,
+            null,
+            value,
+            (metadata.paymentMethod as string | null) || null,
+            pendingServices,
+            pendingBeats
+          );
+          emailsSent = true;
+        }
+      } catch (emailError: unknown) {
+        console.error(`${logPrefix} erro ao enviar emails (não crítico):`, emailError);
+      }
+    }
+    return {
+      appointmentIds: [],
+      paymentLinked: true,
+      emailsSent,
+      couponsCount,
     };
   }
 
@@ -261,5 +352,6 @@ export async function processCarrinhoPaymentEffects(params: {
     appointmentIds,
     paymentLinked: true,
     emailsSent,
+    couponsCount,
   };
 }

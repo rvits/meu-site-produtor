@@ -79,7 +79,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
   bronze: {
     id: "bronze",
     nome: "Plano Bronze",
-    descricao: "Para quem está começando a gravar com frequência.",
+    descricao: "Para quem está começando a gravar com frequência no estúdio.",
     mensal: 239.99,
     anual: 2399.9,
     hasPromotionAccess: false,
@@ -98,8 +98,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
   prata: {
     id: "prata",
     nome: "Plano Prata",
-    descricao:
-      "Para artistas que gravam com regularidade e já possuem músicas próprias.",
+    descricao: "Para artistas que gravam com regularidade e já têm músicas próprias.",
     mensal: 449.99,
     anual: 4499.9,
     hasPromotionAccess: true,
@@ -125,8 +124,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
   ouro: {
     id: "ouro",
     nome: "Plano Ouro",
-    descricao:
-      "Acompanhamento artístico contínuo com o Tremv e benefícios amplos por ciclo.",
+    descricao: "Para quem busca rotina ampla de estúdio e acompanhamento contínuo.",
     mensal: 799.99,
     anual: 7999.9,
     hasPromotionAccess: true,
@@ -202,6 +200,55 @@ export function countPlanCycleCoupons(planId: string | null | undefined): number
   const plan = getPlanDefinition(planId);
   if (!plan) return 0;
   return plan.cycleBenefits.reduce((sum, g) => sum + g.quantity, 0);
+}
+
+export type PlanCycleCouponSummary = {
+  sessao: number;
+  captacao: number;
+  mix: number;
+  master: number;
+  beat: number;
+  serviceDiscount: number;
+  beatDiscount: number;
+  serviceCoupons: number;
+  discountCoupons: number;
+  totalCoupons: number;
+};
+
+export function summarizePlanCycleCoupons(
+  planId: string | null | undefined
+): PlanCycleCouponSummary | null {
+  const plan = getPlanDefinition(planId);
+  if (!plan) return null;
+  const out: PlanCycleCouponSummary = {
+    sessao: 0,
+    captacao: 0,
+    mix: 0,
+    master: 0,
+    beat: 0,
+    serviceDiscount: 0,
+    beatDiscount: 0,
+    serviceCoupons: 0,
+    discountCoupons: 0,
+    totalCoupons: 0,
+  };
+  for (const grant of plan.cycleBenefits) {
+    if (grant.kind === "service") {
+      const qty = grant.quantity;
+      if (grant.serviceType === "beat1") out.beat += qty;
+      else if (grant.serviceType === "sessao") out.sessao += qty;
+      else if (grant.serviceType === "captacao") out.captacao += qty;
+      else if (grant.serviceType === "mix") out.mix += qty;
+      else if (grant.serviceType === "master") out.master += qty;
+      out.serviceCoupons += qty;
+    } else {
+      if (grant.target === "servicos") out.serviceDiscount += grant.quantity;
+      if (grant.target === "beats") out.beatDiscount += grant.quantity;
+      out.discountCoupons += grant.quantity;
+    }
+  }
+  out.totalCoupons = out.serviceCoupons + out.discountCoupons;
+  return out;
 }
 
 export function formatPlanPriceBRL(value: number): string {

@@ -18,6 +18,8 @@ const cases: Array<[string, Line[], Line[], number]> = [
   ["2 sessoes", [{ id: "sessao", quantidade: 2 }], [], 2],
   ["1 mix", [{ id: "mix", quantidade: 1 }], [], 1],
   ["mix_master", [{ id: "mix_master", quantidade: 1 }], [], 2],
+  ["captacao+mix_master", [{ id: "captacao", quantidade: 1 }, { id: "mix_master", quantidade: 1 }], [], 3],
+  ["mix_master x2", [{ id: "mix_master", quantidade: 2 }], [], 4],
   ["sessao+beat", [{ id: "sessao", quantidade: 1 }], [{ id: "beat1", quantidade: 1 }], 2],
   ["producao_completa", [], [{ id: "producao_completa", quantidade: 1 }], 7],
   ["beat2", [], [{ id: "beat2", quantidade: 1 }], 2],

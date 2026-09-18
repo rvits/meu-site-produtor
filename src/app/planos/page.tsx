@@ -13,6 +13,7 @@ import {
   useFeedback,
 } from "@/components/design-system";
 import { PLAN_DEFINITIONS, type PlanTierId } from "@/app/lib/plan-definitions";
+import { PLAN_CARD_DESCRIPTION_CLASS } from "@/app/lib/plan-card-layout";
 
 // =========================================================
 // TIPOS
@@ -192,7 +193,7 @@ export default function PlanosPage() {
                           {precoFormatado}
                         </p>
 
-                        <p className="text-center text-xs text-zinc-400">
+                        <p className={PLAN_CARD_DESCRIPTION_CLASS}>
                           {plano.descricao}
                         </p>
                       </div>

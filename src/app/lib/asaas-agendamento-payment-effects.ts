@@ -4,6 +4,7 @@
  */
 import { prisma } from "@/app/lib/prisma";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { resolveServiceExecutionMaterialization } from "@/app/lib/service-orders";
 import {
   createCouponsForAgendamentoItems,
   isSymbolicAgendamentoCouponStyle,
@@ -48,13 +49,13 @@ export function parseAgendamentoMetadataItems(metadata: Record<string, unknown>)
   return { services, beats };
 }
 
+/** Quantidade de Services atômicos esperados (compostos expandem; preço não). */
 export function expectedServiceLines(services: ItemLine[], beats: ItemLine[]): number {
-  const arrS = Array.isArray(services) ? services : [];
-  const arrB = Array.isArray(beats) ? beats : [];
-  return (
-    arrS.reduce((acc, s) => acc + Math.max(1, Number(s.quantidade) || 1), 0) +
-    arrB.reduce((acc, b) => acc + Math.max(1, Number(b.quantidade) || 1), 0)
-  );
+  return resolveServiceExecutionMaterialization({
+    services,
+    beats,
+    existingTipos: [],
+  }).expectedCount;
 }
 
 async function countServicesByTipo(appointmentId: number): Promise<Map<string, number>> {
@@ -79,12 +80,19 @@ export async function createServicesForAppointmentIfMissing(params: {
 }): Promise<number> {
   const { appointmentId, userId, services, beats } = params;
   const logPrefix = params.logPrefix || "[AgendamentoEffects]";
-  const expected = expectedServiceLines(services, beats);
+  const existingRows = await prisma.service.findMany({
+    where: { appointmentId },
+    select: { tipo: true },
+  });
+  const materialization = resolveServiceExecutionMaterialization({
+    services,
+    beats,
+    existingTipos: existingRows.map((row) => row.tipo),
+  });
+  const expected = materialization.expectedCount;
   if (expected === 0) return 0;
 
-  const svcCount = await prisma.service.count({
-    where: { appointmentId },
-  });
+  const svcCount = existingRows.length;
 
   if (svcCount > 0 && svcCount < expected) {
     console.warn(
@@ -96,15 +104,18 @@ export async function createServicesForAppointmentIfMissing(params: {
       appointmentId,
       svcCount,
       expected,
+      mode: materialization.mode,
     });
     return 0;
   }
 
   let servicesCreatedThisRun = 0;
   const byTipo = svcCount > 0 ? await countServicesByTipo(appointmentId) : new Map<string, number>();
+  const servicesToCreate = materialization.services;
+  const beatsToCreate = materialization.beats;
 
-  if (Array.isArray(services) && services.length > 0) {
-    for (const svc of services) {
+  if (Array.isArray(servicesToCreate) && servicesToCreate.length > 0) {
+    for (const svc of servicesToCreate) {
       const tipoSvc = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
       const desc =
         [svc.nome, svc.quantidade && svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null]
@@ -132,8 +143,8 @@ export async function createServicesForAppointmentIfMissing(params: {
       byTipo.set(tipoSvc, have + toCreate);
     }
   }
-  if (Array.isArray(beats) && beats.length > 0) {
-    for (const b of beats) {
+  if (Array.isArray(beatsToCreate) && beatsToCreate.length > 0) {
+    for (const b of beatsToCreate) {
       const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
       const descBeat =
         [b.nome, b.quantidade && b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null]
