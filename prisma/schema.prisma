@@ -205,6 +205,8 @@ model Payment {
   amount            Float
   currency          String   @default("BRL")
   status            String   @default("pending")
+  /// Último payment.status informado pelo Asaas (CONFIRMED, RECEIVED, …). Null = legado / desconhecido.
+  asaasPaymentStatus String?
   type              String
   paymentMethod     String? // Método de pagamento selecionado pelo usuário
   planId            String?

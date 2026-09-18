@@ -21,6 +21,11 @@ import {
   isOperationallyApprovedAsaasPaymentEvent,
   isPrismaUniqueConstraintError,
 } from "@/app/lib/asaas-approved-payment-event";
+import {
+  checkoutPaymentMethodFromMetadata,
+  normalizeAsaasPaymentStatus,
+} from "@/app/lib/asaas-payment-status";
+import { persistAsaasPaymentStatus } from "@/app/lib/asaas-payment-status-persist";
 
 /**
  * Webhook do Asaas para notificações de pagamento
@@ -48,8 +53,14 @@ async function replayExistingApprovedPayment(params: {
   description?: string | null;
   userId: string;
   operationId: string | null;
+  asaasPaymentStatus?: unknown;
 }) {
-  const { existingPayment, value, paymentId, description, userId, operationId } = params;
+  const { existingPayment, value, paymentId, description, userId, operationId, asaasPaymentStatus } =
+    params;
+  await persistAsaasPaymentStatus({
+    paymentDbId: existingPayment.id,
+    incomingStatus: asaasPaymentStatus,
+  });
   if (Math.abs(Number(existingPayment.amount) - Number(value)) > 0.01) {
     console.error("[WEBHOOK_SECURITY_AUDIT]", {
       code: "DUPLICATE_AMOUNT_MISMATCH",
@@ -306,6 +317,7 @@ export async function POST(req: Request) {
             description: payment.description,
             userId,
             operationId,
+            asaasPaymentStatus: status,
           });
         }
 
@@ -328,6 +340,12 @@ export async function POST(req: Request) {
               userId,
               amount: value,
               status: "approved",
+              asaasPaymentStatus: normalizeAsaasPaymentStatus(status),
+              paymentMethod: checkoutPaymentMethodFromMetadata(
+                metadata && typeof metadata === "object"
+                  ? (metadata as Record<string, unknown>)
+                  : null
+              ),
               type: isPlanoDesc ? "plano" : isAgendamentoDesc ? "agendamento" : "outro",
               currency: "BRL",
               asaasId: paymentId,
@@ -354,6 +372,7 @@ export async function POST(req: Request) {
                 description: payment.description,
                 userId,
                 operationId,
+                asaasPaymentStatus: status,
               });
             }
           }
@@ -467,6 +486,10 @@ export async function POST(req: Request) {
           refundSyncError instanceof Error ? refundSyncError.stack : undefined
         );
       }
+      await persistAsaasPaymentStatus({
+        providerPaymentId: paymentId,
+        incomingStatus: status,
+      });
     } else if (event === "PAYMENT_OVERDUE" || String(status || "").toUpperCase() === "OVERDUE") {
       try {
         const subId = payment.subscription ? String(payment.subscription) : null;
@@ -486,12 +509,20 @@ export async function POST(req: Request) {
       } catch (overdueErr) {
         console.error("[Asaas Webhook] Erro OVERDUE:", overdueErr);
       }
+      await persistAsaasPaymentStatus({
+        providerPaymentId: paymentId,
+        incomingStatus: status,
+      });
     } else {
       console.log("[Asaas Webhook] ⚠️ Evento não processado:", {
         event,
         status,
         reason:
           "Evento/status não reconhecem pagamento operacional (PAYMENT_CONFIRMED ou PAYMENT_RECEIVED com status CONFIRMED/RECEIVED)",
+      });
+      await persistAsaasPaymentStatus({
+        providerPaymentId: paymentId,
+        incomingStatus: status,
       });
     }
 

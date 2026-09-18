@@ -21,6 +21,11 @@ import {
   isOperationallyApprovedAsaasPaymentEvent,
   isPrismaUniqueConstraintError,
 } from "@/app/lib/asaas-approved-payment-event";
+import {
+  checkoutPaymentMethodFromMetadata,
+  normalizeAsaasPaymentStatus,
+} from "@/app/lib/asaas-payment-status";
+import { persistAsaasPaymentStatus } from "@/app/lib/asaas-payment-status-persist";
 
 async function publishPaymentEffectsReady(
   paymentDbId: string,
@@ -71,6 +76,10 @@ export async function processPaymentWebhook(body: {
     });
 
     if (!isOperationallyApprovedAsaasPaymentEvent(event, status)) {
+      await persistAsaasPaymentStatus({
+        providerPaymentId: paymentId,
+        incomingStatus: status,
+      });
       return { received: true };
     }
 
@@ -80,6 +89,13 @@ export async function processPaymentWebhook(body: {
     const existingPayment = await prisma.payment.findFirst({
       where: paymentByProviderIdWhere(paymentId),
     });
+
+    if (existingPayment) {
+      await persistAsaasPaymentStatus({
+        paymentDbId: existingPayment.id,
+        incomingStatus: status,
+      });
+    }
 
     let userId: string;
     if (existingPayment) {
@@ -143,6 +159,12 @@ export async function processPaymentWebhook(body: {
             userId,
             amount: value,
             status: "approved",
+            asaasPaymentStatus: normalizeAsaasPaymentStatus(status),
+            paymentMethod: checkoutPaymentMethodFromMetadata(
+              metadata && typeof metadata === "object"
+                ? (metadata as Record<string, unknown>)
+                : null
+            ),
             type: isPlanoDesc
               ? "plano"
               : isAgendamentoDesc
@@ -218,6 +240,11 @@ export async function processPaymentWebhook(body: {
         }
       }
     }
+
+    await persistAsaasPaymentStatus({
+      paymentDbId: paymentRecord.id,
+      incomingStatus: status,
+    });
 
     const tipo = resolvePaymentTipo({
       metadata,

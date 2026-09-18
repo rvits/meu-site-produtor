@@ -347,7 +347,9 @@ void (async () => {
     const zero = readSrc("src/app/lib/coupon-zero-checkout.ts");
     const sucesso = readSrc("src/app/pagamentos/sucesso/page.tsx");
     assert.match(webhook, /isOperationallyApprovedAsaasPaymentEvent/);
+    assert.match(webhook, /persistAsaasPaymentStatus/);
     assert.match(orchestrator, /isOperationallyApprovedAsaasPaymentEvent/);
+    assert.match(orchestrator, /asaasPaymentStatus: normalizeAsaasPaymentStatus\(status\)/);
     assert.doesNotMatch(orchestrator, /function isConfirmedPaymentEvent/);
     assert.match(sim, /simulationDomainWebhookInput/);
     assert.doesNotMatch(zero, /processPaymentWebhook|webhooks\/asaas/);

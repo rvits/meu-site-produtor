@@ -8,6 +8,13 @@ import {
   paymentRefundStatusClass,
   type PaymentRefundStatus,
 } from "@/app/lib/payment-refund-status";
+import {
+  asaasPaymentStatusBadgeClass,
+  internalPaymentStatusBadgeClass,
+  presentAsaasPaymentStatusLabel,
+  presentCheckoutPaymentMethod,
+  presentInternalPaymentStatus,
+} from "@/app/lib/asaas-payment-status";
 
 interface UserInfo {
   id: string;
@@ -36,6 +43,7 @@ interface Payment {
   status: string;
   type: string;
   paymentMethod?: string | null;
+  asaasPaymentStatus?: string | null;
   planId?: string | null;
   serviceId?: string | null;
   mercadopagoId?: string | null;
@@ -256,25 +264,21 @@ export default function AdminPagamentosPage() {
                       </div>
 
                       <div className="text-right space-y-1">
-                        <span
-                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                            p.status === "approved"
-                              ? "bg-green-500/20 text-green-300"
-                              : p.status === "pending"
-                                ? "bg-yellow-500/20 text-yellow-300"
-                                : p.status === "rejected"
-                                  ? "bg-red-500/20 text-red-300"
-                                  : "bg-gray-500/20 text-gray-300"
-                          }`}
-                        >
-                          {p.status === "approved"
-                            ? "Aprovado"
-                            : p.status === "pending"
-                              ? "Pendente"
-                              : p.status === "rejected"
-                                ? "Rejeitado"
-                                : p.status}
-                        </span>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${internalPaymentStatusBadgeClass(p.status)}`}
+                          >
+                            {presentInternalPaymentStatus(p.status)}
+                          </span>
+                          {p.status === "approved" &&
+                            presentAsaasPaymentStatusLabel(p.asaasPaymentStatus) && (
+                              <span
+                                className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${asaasPaymentStatusBadgeClass(p.asaasPaymentStatus)}`}
+                              >
+                                {presentAsaasPaymentStatusLabel(p.asaasPaymentStatus)}
+                              </span>
+                            )}
+                        </div>
                         {statusReembolso !== "nao_reembolsado" && (
                           <span
                             className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${paymentRefundStatusClass(statusReembolso)}`}
@@ -337,8 +341,16 @@ export default function AdminPagamentosPage() {
                         </div>
                         <div>
                           <span className="text-zinc-400">Status:</span>
-                          <p className="text-zinc-200 capitalize">{p.status}</p>
+                          <p className="text-zinc-200">{presentInternalPaymentStatus(p.status)}</p>
                         </div>
+                        {presentAsaasPaymentStatusLabel(p.asaasPaymentStatus) && (
+                          <div>
+                            <span className="text-zinc-400">Asaas:</span>
+                            <p className="text-zinc-200">
+                              {presentAsaasPaymentStatusLabel(p.asaasPaymentStatus)}
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <span className="text-zinc-400">Tipo:</span>
                           <p className="text-zinc-200 capitalize">{p.type}</p>
@@ -386,22 +398,12 @@ export default function AdminPagamentosPage() {
                             )}
                           </p>
                         </div>
-                        {p.paymentMethod && (
-                          <div>
-                            <span className="text-zinc-400">Forma de Pagamento:</span>
-                            <p className="text-zinc-200 capitalize">
-                              {p.paymentMethod === "cartao_credito"
-                                ? "Cartão de Crédito"
-                                : p.paymentMethod === "cartao_debito"
-                                  ? "Cartão de Débito"
-                                  : p.paymentMethod === "pix"
-                                    ? "Pix"
-                                    : p.paymentMethod === "boleto"
-                                      ? "Boleto Bancário"
-                                      : p.paymentMethod}
-                            </p>
-                          </div>
-                        )}
+                        <div>
+                          <span className="text-zinc-400">Forma de Pagamento:</span>
+                          <p className="text-zinc-200">
+                            {presentCheckoutPaymentMethod(p.paymentMethod)}
+                          </p>
+                        </div>
                         {p.planId && (
                           <div>
                             <span className="text-zinc-400">ID do Plano:</span>
