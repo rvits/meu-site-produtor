@@ -1,7 +1,6 @@
 // src/app/api/asaas/checkout-carrinho/route.ts
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
-import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { getAsaasApiKey } from "@/app/lib/env";
@@ -10,33 +9,18 @@ import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
 import type { PricedCheckoutItem } from "@/app/lib/service-catalog";
+import {
+  carrinhoCheckoutSchema,
+  checkoutZodIssueSummaries,
+  logCheckoutEvent,
+  omitCheckoutJsonNulls,
+  publicCheckoutFailureMessage,
+  publicCheckoutZodMessage,
+} from "@/app/lib/checkout-request-schema";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
-
-const itemSchema = z.object({
-  data: z.string().optional(),
-  hora: z.string().optional(),
-  somenteCupons: z.boolean().optional(),
-  duracaoMinutos: z.number().optional(),
-  tipo: z.string().optional(),
-  servicos: z.array(z.object({
-    id: z.string(),
-    quantidade: z.number().int().min(1).max(20),
-  })).optional(),
-  beats: z.array(z.object({
-    id: z.string(),
-    quantidade: z.number().int().min(1).max(20),
-  })).optional(),
-  observacoes: z.string().optional(),
-  cupomCode: z.string().trim().min(1).optional(),
-});
-
-const carrinhoCheckoutSchema = z.object({
-  items: z.array(itemSchema).min(1, "Carrinho deve ter pelo menos um agendamento"),
-  paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
-});
 
 export async function POST(req: Request) {
   try {
@@ -44,11 +28,20 @@ export async function POST(req: Request) {
     const goLiveBlocked = goLiveBlockIfNeeded(user.role);
     if (goLiveBlocked) return goLiveBlocked;
 
-    const body = await req.json();
+    const body = omitCheckoutJsonNulls(await req.json());
+    logCheckoutEvent("carrinho", "CHECKOUT_REQUEST_RECEIVED", {
+      itemCount: Array.isArray((body as { items?: unknown[] })?.items)
+        ? (body as { items: unknown[] }).items.length
+        : 0,
+      hasPaymentMethod: Boolean((body as { paymentMethod?: unknown }).paymentMethod),
+    });
     const validation = carrinhoCheckoutSchema.safeParse(body);
     if (!validation.success) {
+      logCheckoutEvent("carrinho", "VALIDATION_FAILED", {
+        issues: checkoutZodIssueSummaries(validation.error),
+      });
       return NextResponse.json(
-        { error: validation.error.errors[0]?.message || "Dados inválidos" },
+        { error: publicCheckoutZodMessage(validation.error) },
         { status: 400 }
       );
     }
@@ -212,10 +205,18 @@ export async function POST(req: Request) {
         expiresAt,
       },
     });
+    logCheckoutEvent("carrinho", "PAYMENT_METADATA_CREATED", {
+      operationId: paymentMetadataRow.id,
+      itemCount: safeItems.length,
+    });
 
     const provider = new AsaasProvider(ASAAS_API_KEY, IS_TEST);
     const descricao = `Carrinho THouse Rec - ${safeItems.length} agendamento(s)`;
 
+    logCheckoutEvent("carrinho", "ASAAS_CHECKOUT_REQUEST", {
+      operationId: paymentMetadataRow.id,
+      billingType: "UNDEFINED",
+    });
     const checkoutResponse = await provider.createCheckout({
       items: [
         {
@@ -255,17 +256,28 @@ export async function POST(req: Request) {
       }
     }
 
+    logCheckoutEvent("carrinho", "ASAAS_CHECKOUT_CREATED", {
+      operationId: paymentMetadataRow.id,
+      hasPreferenceId: Boolean(asaasPaymentId),
+    });
+    logCheckoutEvent("carrinho", "REDIRECT_URL_RETURNED", {
+      operationId: paymentMetadataRow.id,
+      hasInitPoint: Boolean(checkoutResponse.initPoint),
+    });
+
     return NextResponse.json({
       initPoint: checkoutResponse.initPoint,
       provider: "asaas",
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    const safeMessage = message || "Erro desconhecido ao criar pagamento";
-    if (safeMessage === "Não autenticado") {
+    const publicMessage = publicCheckoutFailureMessage(err);
+    logCheckoutEvent("carrinho", "ASAAS_CHECKOUT_FAILED", {
+      publicMessage,
+    });
+    if (publicMessage === "Não autenticado") {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
     console.error("[Asaas Checkout Carrinho] Erro completo:", err);
-    return NextResponse.json({ error: safeMessage }, { status: 500 });
+    return NextResponse.json({ error: publicMessage }, { status: 500 });
   }
 }

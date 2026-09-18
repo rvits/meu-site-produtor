@@ -22,6 +22,7 @@ import {
 import {
   CHECKOUT_CATALOG,
 } from "@/app/lib/service-catalog";
+import { toPersistedCartItem } from "@/app/lib/cart-checkout-item";
 import { PLAN_DEFINITIONS, type PlanTierId } from "@/app/lib/plan-definitions";
 import {
   Button,
@@ -595,7 +596,7 @@ function AgendamentoContent() {
     }
 
     // Se não for cupom de serviço ou se ainda há valor a pagar: adicionar ao carrinho e ir para o carrinho
-    const item = {
+    const item = toPersistedCartItem({
       cartId: Date.now(),
       data: dataSelecionada,
       hora: horaEfetiva,
@@ -609,7 +610,7 @@ function AgendamentoContent() {
       observacoes: comentarios,
       cupomCode: cupomAplicado?.code || undefined,
       cupomAplicado: cupomAplicado || undefined,
-    };
+    });
     try {
       const raw = sessionStorage.getItem(CARRINHO_KEY) || localStorage.getItem(CARRINHO_KEY) || "[]";
       const cart = JSON.parse(raw);
@@ -690,7 +691,7 @@ function AgendamentoContent() {
         duracaoMinutos = Math.max(60, (captacaoQtd + sessaoQtd) * 60);
       }
     }
-    const item = {
+    const item = toPersistedCartItem({
       cartId: Date.now(),
       data: dataSelecionada,
       hora: horaEfetiva,
@@ -704,7 +705,7 @@ function AgendamentoContent() {
       observacoes: comentarios,
       cupomCode: cupomAplicado?.code || undefined,
       cupomAplicado: cupomAplicado || undefined,
-    };
+    });
     try {
       const raw = sessionStorage.getItem(CARRINHO_KEY) || localStorage.getItem(CARRINHO_KEY) || "[]";
       const cart = JSON.parse(raw);

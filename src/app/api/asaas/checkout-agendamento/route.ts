@@ -1,12 +1,10 @@
 // src/app/api/asaas/checkout-agendamento/route.ts
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/app/lib/auth";
-import { z } from "zod";
 import { AsaasProvider } from "@/app/lib/payment-providers";
 import { prisma } from "@/app/lib/prisma";
 import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
 import {
-  countAgendamentoItemLines,
   exigeAgendamentoHora,
   exigeAgendamentoNoCheckout,
   exigeAgendamentoSomenteData,
@@ -17,66 +15,18 @@ import { getAsaasApiKey } from "@/app/lib/env";
 import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
+import {
+  agendamentoCheckoutSchema,
+  checkoutZodIssueSummaries,
+  logCheckoutEvent,
+  omitCheckoutJsonNulls,
+  publicCheckoutFailureMessage,
+  publicCheckoutZodMessage,
+} from "@/app/lib/checkout-request-schema";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const IS_TEST = process.env.NODE_ENV !== "production";
-
-const agendamentoCheckoutSchema = z
-  .object({
-    servicos: z
-      .array(
-        z.object({
-          id: z.string(),
-          nome: z.string().optional(),
-          quantidade: z.number().int().min(1).max(20),
-          preco: z.number().optional(),
-        })
-      )
-      .optional(),
-    beats: z
-      .array(
-        z.object({
-          id: z.string(),
-          nome: z.string().optional(),
-          quantidade: z.number().int().min(1).max(20),
-          preco: z.number().optional(),
-        })
-      )
-      .optional(),
-    data: z.string().optional(),
-    hora: z.string().optional(),
-    duracaoMinutos: z.number().optional(),
-    tipo: z.string().optional(),
-    observacoes: z.string().optional(),
-    paymentMethod: z.enum(["cartao_credito", "cartao_debito", "pix", "boleto"]).optional(),
-    cupomCode: z.string().optional(),
-    symbolicAgendamento: z.boolean().optional(),
-  })
-  .superRefine((payload, ctx) => {
-    const lines = countAgendamentoItemLines(payload.servicos, payload.beats);
-    if (lines === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Selecione ao menos um serviço ou pacote.",
-      });
-    }
-    if (!exigeAgendamentoNoCheckout(payload.servicos, payload.beats)) return;
-    if (!payload.data?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Selecione a data do agendamento.",
-        path: ["data"],
-      });
-    }
-    if (exigeAgendamentoHora(payload.servicos, payload.beats) && !payload.hora?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Selecione o horário do agendamento.",
-        path: ["hora"],
-      });
-    }
-  });
 
 export async function POST(req: Request) {
   try {
@@ -97,20 +47,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
-    
-    // ✅ Validar entrada
+    const body = omitCheckoutJsonNulls(await req.json());
+    logCheckoutEvent("agendamento", "CHECKOUT_REQUEST_RECEIVED", {
+      hasPaymentMethod: Boolean((body as { paymentMethod?: unknown }).paymentMethod),
+      hasCoupon: Boolean((body as { cupomCode?: unknown }).cupomCode),
+    });
     const validation = agendamentoCheckoutSchema.safeParse(body);
     if (!validation.success) {
+      logCheckoutEvent("agendamento", "VALIDATION_FAILED", {
+        issues: checkoutZodIssueSummaries(validation.error),
+      });
       return NextResponse.json(
-        { error: validation.error.errors[0]?.message || "Dados inválidos" },
+        { error: publicCheckoutZodMessage(validation.error) },
         { status: 400 }
       );
     }
 
     let { servicos, beats, data, hora, duracaoMinutos, tipo, observacoes, paymentMethod, cupomCode, symbolicAgendamento } =
       validation.data;
-    const userName = user.nomeArtistico;
+    const userName = (user.nomeArtistico || user.nomeCompleto || "Cliente") as string;
 
     if (symbolicAgendamento) {
       if (!canUseSymbolicSimulation(user)) {
@@ -269,6 +224,9 @@ export async function POST(req: Request) {
         expiresAt: expiresAtAg,
       },
     });
+    logCheckoutEvent("agendamento", "PAYMENT_METADATA_CREATED", {
+      operationId: paymentMetadataRow.id,
+    });
 
     const backSuccess = symbolicAgendamento
       ? `${SITE_URL}/pagamentos/sucesso?teste=true&tipo=agendamento&operationId=${encodeURIComponent(paymentMetadataRow.id)}`
@@ -281,6 +239,10 @@ export async function POST(req: Request) {
       : `${SITE_URL}/pagamentos/pendente`;
 
     // Criar checkout com identificador único da operação.
+    logCheckoutEvent("agendamento", "ASAAS_CHECKOUT_REQUEST", {
+      operationId: paymentMetadataRow.id,
+      billingType: "UNDEFINED",
+    });
     const checkoutResponse = await provider.createCheckout({
       items,
       payer: {
@@ -312,32 +274,31 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log("[Asaas] Checkout criado com sucesso:", checkoutResponse.initPoint);
+    logCheckoutEvent("agendamento", "ASAAS_CHECKOUT_CREATED", {
+      operationId: paymentMetadataRow.id,
+      hasPreferenceId: Boolean(asaasPaymentId),
+    });
+    logCheckoutEvent("agendamento", "REDIRECT_URL_RETURNED", {
+      operationId: paymentMetadataRow.id,
+      hasInitPoint: Boolean(checkoutResponse.initPoint),
+    });
+
+    console.log("[Asaas] Checkout criado com sucesso:", Boolean(checkoutResponse.initPoint));
     
     return NextResponse.json({ 
       initPoint: checkoutResponse.initPoint,
       provider: "asaas",
       symbolicAgendamento: !!symbolicAgendamento,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[Asaas] Erro ao criar checkout de agendamento:", err);
-    console.error("[Asaas] Tipo do erro:", err?.constructor?.name);
-    console.error("[Asaas] Mensagem do erro:", err?.message);
-    
-    if (err.message === "Não autenticado") {
+    const publicMessage = publicCheckoutFailureMessage(err);
+    logCheckoutEvent("agendamento", "ASAAS_CHECKOUT_FAILED", {
+      publicMessage,
+    });
+    if (publicMessage === "Não autenticado") {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
-    
-    const errorMessage = err?.message || "Erro desconhecido ao criar pagamento";
-    return NextResponse.json(
-      { 
-        error: errorMessage,
-        debug: process.env.NODE_ENV === "development" ? {
-          message: err?.message,
-          stack: err?.stack,
-        } : undefined
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: publicMessage }, { status: 500 });
   }
 }

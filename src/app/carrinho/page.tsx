@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
+import { sanitizeCartItemsForCheckoutApi } from "@/app/lib/cart-checkout-item";
 import {
   Button,
   EmptyState,
@@ -20,18 +21,19 @@ const CARRINHO_KEY = "agendamento_carrinho";
 
 type CartItem = {
   cartId?: number;
-  data: string;
-  hora: string;
+  data?: string | null;
+  hora?: string | null;
   duracaoMinutos?: number;
-  tipo?: string;
-  servicos: Array<{ id: string; nome: string; quantidade: number; preco: number }>;
-  beats: Array<{ id: string; nome: string; quantidade: number; preco: number }>;
+  tipo?: string | null;
+  servicos: Array<{ id: string; nome?: string; quantidade: number; preco?: number }>;
+  beats: Array<{ id: string; nome?: string; quantidade: number; preco?: number }>;
   total: number;
   subtotal?: number;
   discount?: number;
-  observacoes?: string;
-  cupomCode?: string;
+  observacoes?: string | null;
+  cupomCode?: string | null;
   cupomAplicado?: unknown;
+  somenteCupons?: boolean;
 };
 
 function formatBrl(n: number) {
@@ -205,7 +207,13 @@ export default function CarrinhoPage() {
         }
       }
 
-      const items = cart.map(({ cartId, ...rest }) => rest);
+      const items = sanitizeCartItemsForCheckoutApi(
+        cart.map((item) => {
+          const copy: Record<string, unknown> = { ...item };
+          delete copy.cartId;
+          return copy;
+        })
+      );
       const endpoint = `/api/${paymentProvider}/checkout-carrinho`;
       const res = await fetch(endpoint, {
         method: "POST",

@@ -61,23 +61,35 @@ export const agendamentoSchema = z.object({
   observacoes: z.string().optional(),
 });
 
+/**
+ * PATCH de conta: JSON `null` significa "não alterar", não "string vazia".
+ * Zod 3 `z.string().optional()` rejeita null com "Expected string, received null".
+ */
+const omitNullKeepString = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => (value === null ? undefined : value));
+
 export const updateContaSchema = z.object({
-  nomeArtistico: z.string().min(2).optional(),
-  nomeSocial: z.string().optional(),
-  email: z.string().email().optional(),
-  telefone: z.string().optional(),
-  sexo: sexoEnum.optional(),
-  genero: generoEnum.optional(),
-  generoOutro: z.string().optional(),
-  senha: z.string().min(6).optional(),
-  senhaAtual: z.string().optional(),
-  cpf: z.string().optional(),
-  cep: z.string().optional(),
-  dataNascimento: birthDateSchema.optional(),
-  pais: z.string().optional(),
-  cidade: z.string().optional(),
-  bairro: z.string().optional(),
-  estado: z.string().optional(),
+  nomeArtistico: omitNullKeepString.pipe(z.string().min(2).optional()),
+  nomeSocial: omitNullKeepString,
+  email: omitNullKeepString.pipe(z.string().email().optional()),
+  telefone: omitNullKeepString,
+  sexo: sexoEnum.nullish(),
+  genero: generoEnum.nullish(),
+  generoOutro: omitNullKeepString,
+  senha: omitNullKeepString.pipe(z.string().min(6).optional()),
+  senhaAtual: omitNullKeepString,
+  cpf: omitNullKeepString,
+  cep: omitNullKeepString,
+  dataNascimento: z
+    .union([birthDateSchema, z.null()])
+    .optional()
+    .transform((value) => (value === null ? undefined : value)),
+  pais: omitNullKeepString,
+  cidade: omitNullKeepString,
+  bairro: omitNullKeepString,
+  estado: omitNullKeepString,
   estilosMusicais: z.string().optional().nullable(),
   nacionalidade: z.string().optional().nullable(),
   /** URL pública do avatar (https ou path /uploads/…). Vazio limpa a foto. */
@@ -135,3 +147,24 @@ export const faqSchema = z.object({
   question: z.string().min(5, "Pergunta muito curta"),
   answer: z.string().min(10, "Resposta muito curta"),
 });
+
+export function publicContaUpdateZodMessage(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return "Não foi possível salvar seus dados. Verifique os campos e tente novamente.";
+  const path = issue.path.map(String).join(".");
+  const raw = issue.message || "";
+  const leaksInternalType =
+    /expected/i.test(raw) || /received/i.test(raw) || /invalid_type/i.test(raw);
+
+  if (path.includes("cpf")) return "Informe um CPF válido com 11 dígitos.";
+  if (path.includes("cep")) return "Informe um CEP válido.";
+  if (path.includes("dataNascimento")) {
+    return leaksInternalType ? "Informe uma data de nascimento válida." : raw;
+  }
+  if (path.includes("email")) return "Informe um e-mail válido.";
+  if (path.includes("nomeArtistico") || path.includes("nome")) {
+    return "Informe um nome com no mínimo 2 caracteres.";
+  }
+  if (!leaksInternalType && raw.trim()) return raw;
+  return "Não foi possível salvar seus dados. Verifique nome, CPF, CEP e data de nascimento.";
+}

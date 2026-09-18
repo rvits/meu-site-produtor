@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
-import { updateContaSchema } from "@/app/lib/validations";
+import { publicContaUpdateZodMessage, updateContaSchema } from "@/app/lib/validations";
 import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
 
 export async function POST(req: Request) {
@@ -13,8 +13,18 @@ export async function POST(req: Request) {
     // ✅ Validar entrada
     const validation = updateContaSchema.safeParse(body);
     if (!validation.success) {
+      console.info(
+        JSON.stringify({
+          source: "conta-update",
+          event: "VALIDATION_FAILED",
+          issues: validation.error.issues.map((issue) => ({
+            path: issue.path.map(String).join(".") || "(root)",
+            code: issue.code,
+          })),
+        })
+      );
       return NextResponse.json(
-        { error: validation.error.errors[0]?.message || "Dados inválidos" },
+        { error: publicContaUpdateZodMessage(validation.error) },
         { status: 400 }
       );
     }
