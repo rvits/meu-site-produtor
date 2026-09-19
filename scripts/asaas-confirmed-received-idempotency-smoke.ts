@@ -353,7 +353,8 @@ void (async () => {
     assert.doesNotMatch(orchestrator, /function isConfirmedPaymentEvent/);
     assert.match(sim, /simulationDomainWebhookInput/);
     assert.doesNotMatch(zero, /processPaymentWebhook|webhooks\/asaas/);
-    assert.match(sucesso, /window\.location\.href = "\/minha-conta"/);
+    assert.doesNotMatch(sucesso, /window\.location\.href = "\/minha-conta"/);
+    assert.match(sucesso, /Ver meus serviços e agendar/);
     assert.equal(hasOperationalTimer("sessao"), true);
     const start = resolveOperationalStartWrite({
       tipo: "sessao",

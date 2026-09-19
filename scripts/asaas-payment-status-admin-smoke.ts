@@ -134,7 +134,7 @@ function src(rel: string) {
   assert.match(admin, /presentAsaasPaymentStatusLabel/);
   assert.match(admin, /presentCheckoutPaymentMethod/);
   assert.doesNotMatch(sucesso, /asaasPaymentStatus/);
-  pass("contratos: schema/migration/webhook/admin; /pagamentos/sucesso intocado");
+  pass("contratos: schema/migration/webhook/admin; sucesso sem asaasPaymentStatus");
 }
 
 console.log(JSON.stringify({ reportId: "asaas-payment-status-admin-smoke", pass: true }, null, 2));

@@ -2,11 +2,10 @@
 
 /**
  * Pagamento aprovado — GO-03E/F Design System.
- * GO-04A.2 RC-09: timeout, retry controlado, botão Atualizar status, orientação ao usuário.
- * Domínio / DomainSync inalterados — apenas UX resiliente.
+ * GO-04A.2 RC-09: timeout, retry controlado, botão Atualizar status.
+ * Sem redirect automático para Minha Conta.
  */
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useDomainSync } from "@/app/lib/synchronization/DomainSyncProvider";
@@ -24,13 +23,16 @@ const POLL_INTERVAL_MS = 5000;
 const TIMEOUT_MS = 90_000;
 const MAX_AUTO_RETRIES = 18;
 
+/** Aba real do portal: visão geral lista agendamentos e cupons/direitos. */
+export const MINHA_CONTA_POS_PAGAMENTO_HREF = "/minha-conta?tab=visao-geral";
+
 function SucessoContent() {
   const searchParams = useSearchParams();
   const isTeste = searchParams.get("teste") === "true";
   const tipo = searchParams.get("tipo");
   const operationId = searchParams.get("operationId");
   const { connected, lastEvent } = useDomainSync();
-  const [confirmado, setConfirmado] = useState(false);
+  const [confirmado, setConfirmado] = useState(() => !operationId);
   const [timedOut, setTimedOut] = useState(false);
   const [checking, setChecking] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -63,19 +65,13 @@ function SucessoContent() {
         markConfirmed();
         return true;
       }
-      if (data.processed) {
-        setStatusHint(
-          "Pagamento ainda está sendo confirmado. Estamos verificando automaticamente."
-        );
-      } else {
-        setStatusHint(
-          "Pagamento ainda está sendo confirmado. Estamos verificando automaticamente."
-        );
-      }
+      setStatusHint(
+        "Pagamento ainda está sendo confirmado. Estamos verificando automaticamente."
+      );
       return false;
     } catch {
       setStatusHint(
-        "Não foi possível atualizar agora. Tente novamente em instantes com \"Atualizar status\"."
+        'Não foi possível atualizar agora. Tente novamente em instantes com "Atualizar status".'
       );
       return false;
     } finally {
@@ -130,14 +126,6 @@ function SucessoContent() {
     };
   }, [confirmado, operationId, pollStatus]);
 
-  useEffect(() => {
-    if (!confirmado) return;
-    const redirect = setTimeout(() => {
-      window.location.href = "/minha-conta";
-    }, 1200);
-    return () => clearTimeout(redirect);
-  }, [confirmado]);
-
   if (!confirmado) {
     return (
       <StatusPage
@@ -157,14 +145,14 @@ function SucessoContent() {
             >
               Atualizar status
             </Button>
-            <LinkButton href="/minha-conta" variant="outline" size="md">
+            <LinkButton href={MINHA_CONTA_POS_PAGAMENTO_HREF} variant="outline" size="md">
               Ir para Minha Conta
             </LinkButton>
           </>
         }
       >
         <div className="flex flex-col items-center gap-3">
-          {!timedOut && <Spinner className="w-6 h-6" />}
+          {!timedOut && <Spinner className="w-6 h-6" aria-hidden />}
           <p className="text-xs text-zinc-500 text-center">
             Sincronização {connected ? "conectada" : "reconectando…"}
             {operationId ? ` · verificação automática (${retryCount})` : ""}
@@ -178,42 +166,51 @@ function SucessoContent() {
     );
   }
 
-  const body =
-    tipo === "plano" ? (
-      <>
-        <p className="text-sm font-semibold text-emerald-300 mb-1">
-          Plano ativado com sucesso
-        </p>
-        <p className="text-sm text-zinc-400 leading-relaxed">
-          Seu pagamento foi concluído. O plano foi ativado e os cupons de serviços já estão
-          disponíveis na sua conta.
-          {!isTeste && " Você receberá um email de confirmação em breve."}
-        </p>
-      </>
-    ) : (
-      <>
-        <p className="text-sm font-semibold text-emerald-300 mb-1">
-          Obrigado por agendar com a THouse Rec
-        </p>
-        <p className="text-sm text-zinc-400 leading-relaxed">
-          Seu pagamento foi concluído com sucesso. Aguarde a confirmação do agendamento pelo seu
-          email.
-        </p>
-      </>
-    );
+  const effectsVerified = Boolean(operationId);
+  const isPlano = tipo === "plano";
+
+  const body = isPlano ? (
+    <>
+      <p className="text-sm font-semibold text-emerald-300 mb-1">Pagamento confirmado!</p>
+      <p className="text-sm text-zinc-400 leading-relaxed">
+        {effectsVerified
+          ? "Seu pagamento foi processado com sucesso. O plano e os serviços do seu ciclo estão disponíveis na Minha Conta."
+          : "Seu pagamento foi processado. Você pode consultar o plano e os serviços na Minha Conta."}
+        {!isTeste && " Você receberá um e-mail de confirmação em breve."}
+      </p>
+      <p className="text-sm text-zinc-400 leading-relaxed mt-3">
+        Serviços que ainda não têm data e horário podem ser agendados por lá.
+      </p>
+    </>
+  ) : (
+    <>
+      <p className="text-sm font-semibold text-emerald-300 mb-1">Pagamento confirmado!</p>
+      <p className="text-sm text-zinc-400 leading-relaxed">
+        {effectsVerified
+          ? "Seu pagamento foi processado com sucesso. Seus serviços adquiridos estão disponíveis na sua conta."
+          : "Seu pagamento foi processado. Você pode consultar o status e seus serviços na Minha Conta."}
+        {!isTeste && " Você receberá um e-mail de confirmação em breve."}
+      </p>
+      <p className="text-sm text-zinc-400 leading-relaxed mt-3">
+        Serviços que ainda não possuem data e horário podem ser agendados nessa área. Se já
+        houver um horário definido, o agendamento também aparece na Minha Conta.
+      </p>
+    </>
+  );
 
   return (
     <StatusPage
       intent="success"
       icon="check-circle"
-      title="Pagamento aprovado"
+      title="Pagamento confirmado!"
+      description="Seu pagamento foi processado com sucesso."
       actions={
         <>
-          <LinkButton href="/" variant="primary" size="md">
-            Voltar ao início
+          <LinkButton href={MINHA_CONTA_POS_PAGAMENTO_HREF} variant="primary" size="md">
+            Ver meus serviços e agendar
           </LinkButton>
-          <LinkButton href="/minha-conta" variant="outline" size="md">
-            Ver Minha Conta
+          <LinkButton href="/" variant="outline" size="md">
+            Voltar para o início
           </LinkButton>
         </>
       }
@@ -224,19 +221,12 @@ function SucessoContent() {
         </Callout>
       )}
       <Card className="!border-emerald-500/30 !bg-emerald-500/5">{body}</Card>
-      {!operationId && (
-        <Callout intent="info" title="Dica">
-          Se você não foi redirecionado automaticamente após o pagamento, não se preocupe. O
-          pagamento foi processado e você receberá um email de confirmação em breve.
+      {!effectsVerified && (
+        <Callout intent="info" title="Acompanhe na sua conta">
+          Você pode consultar o status e seus serviços na Minha Conta assim que a confirmação
+          for concluída.
         </Callout>
       )}
-      <p className="text-center text-xs text-zinc-500">
-        Redirecionando para{" "}
-        <Link href="/minha-conta" className="text-red-400 hover:underline">
-          Minha Conta
-        </Link>
-        …
-      </p>
     </StatusPage>
   );
 }
