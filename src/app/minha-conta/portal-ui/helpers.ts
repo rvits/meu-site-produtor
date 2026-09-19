@@ -77,6 +77,10 @@ export function couponCategoryDisplay(c: Cupom): string {
 }
 
 /** Rota de resgate do cupom — mesma regra da página original. */
+export function isAvailableScheduleCoupon(c: Cupom): boolean {
+  return c.status === "disponivel" && c.used !== true;
+}
+
 export function couponScheduleHref(c: Cupom): string {
   const cat = couponCategoryOf(c);
   if (cat === "servico" || cat === "producao" || cat === "reembolso") {

@@ -97,4 +97,11 @@ const checkoutCart = fs.readFileSync(
   pass("isolamento: checkout aponta para sucesso; webhook/recovery não");
 }
 
+{
+  assert.match(portal, /loginHrefWithInternalReturn/);
+  assert.match(portal, /\/minha-conta\?\$\{qs\}/);
+  assert.doesNotMatch(portal, /router\.push\(["']\/login["']\)/);
+  pass("CASO 11 Minha Conta preserva return-to no login");
+}
+
 console.log(JSON.stringify({ reportId: "payment-success-ux-smoke", pass: true }, null, 2));

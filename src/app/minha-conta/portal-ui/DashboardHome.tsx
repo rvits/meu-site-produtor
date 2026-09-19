@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   Grid,
@@ -23,6 +24,11 @@ import {
 import type { Agendamento, PortalData, PortalNotification } from "./types";
 import type { TabKey } from "./tabs";
 import { collectDownloads } from "./DownloadsSection";
+import {
+  couponScheduleHref,
+  getServiceName,
+  isAvailableScheduleCoupon,
+} from "./helpers";
 import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 import { normalizeOfficialStatus } from "@/app/lib/ui/status-palette";
 
@@ -150,6 +156,7 @@ export function DashboardHome({
   goTo: (tab: TabKey) => void;
   onOpenNotification?: (n: PortalNotification) => void;
 }) {
+  const router = useRouter();
   const resumo = useMemo(() => {
     const ativos = new Set(["pendente", "aceito", "confirmado", "em_andamento"]);
     const servicosAtivos = data.agendamentos.filter((a) => ativos.has(a.status)).length;
@@ -189,6 +196,11 @@ export function DashboardHome({
   const notificacoes = useMemo(
     () => (data.notifications ?? []).slice(0, 6),
     [data.notifications]
+  );
+
+  const direitosParaAgendar = useMemo(
+    () => data.cupons.filter(isAvailableScheduleCoupon).slice(0, 8),
+    [data.cupons]
   );
 
   return (
@@ -241,6 +253,46 @@ export function DashboardHome({
           onClick={() => goTo("notificacoes")}
         />
       </Grid>
+
+      {direitosParaAgendar.length > 0 && (
+        <Section
+          title="Direitos disponíveis para agendar"
+          icon="ticket"
+          description="Use um direito já adquirido. Não gera nova cobrança."
+          actions={
+            <button
+              onClick={() => goTo("cupons")}
+              className="text-xs font-semibold text-red-400 hover:text-red-300 inline-flex items-center gap-1"
+            >
+              Ver todos os cupons
+              <Icon name="arrow-right" className="w-3 h-3" />
+            </button>
+          }
+        >
+          <div className="space-y-2">
+            {direitosParaAgendar.map((cupom) => (
+              <Card key={cupom.id} className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-100 truncate">
+                    {cupom.serviceType
+                      ? getServiceName(cupom.serviceType, data.cupons, cupom.code)
+                      : cupom.code}
+                  </p>
+                  <p className="text-xs text-zinc-500 font-mono truncate">{cupom.code}</p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon="calendar"
+                  onClick={() => router.push(couponScheduleHref(cupom))}
+                >
+                  Agendar
+                </Button>
+              </Card>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <Section
         title="Próximos agendamentos"

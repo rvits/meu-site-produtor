@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
+import { loginHrefWithInternalReturn } from "@/app/lib/safe-redirect";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import {
   Avatar,
@@ -225,7 +226,9 @@ export function ClientPortal() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.push("/login");
+      const qs = searchParams.toString();
+      const returnTo = qs ? `/minha-conta?${qs}` : "/minha-conta";
+      router.push(loginHrefWithInternalReturn(returnTo));
       return;
     }
     void refreshConta();

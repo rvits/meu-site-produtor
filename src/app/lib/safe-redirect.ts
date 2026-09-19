@@ -45,6 +45,12 @@ export function sanitizeInternalRedirect(
   }
 }
 
+/** Monta /login?redirect=… só com destino interno já sanitizado. */
+export function loginHrefWithInternalReturn(returnPath: string): string {
+  const safe = sanitizeInternalRedirect(returnPath);
+  return `/login?redirect=${encodeURIComponent(safe)}`;
+}
+
 export function resolvePostLoginRedirect(
   params: { get(name: string): string | null },
   fallback: string = DEFAULT_POST_LOGIN
