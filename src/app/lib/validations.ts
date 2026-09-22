@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { validateBirthDateString } from "@/app/lib/birth-date-validation";
+import {
+  normalizeOrientationOther,
+  sexualOrientationEnum,
+} from "@/app/lib/sexual-orientation";
 
 const sexoEnum = z.enum(["masculino", "feminino", "prefiro_nao_declarar"], {
   errorMap: () => ({ message: "Selecione o sexo." }),
 });
 
-const generoEnum = z.enum(
+/** Códigos históricos de `genero`. Não aceitam orientação sexual nova. */
+const legacyGeneroEnum = z.enum(
   [
     "heterossexual",
     "homossexual",
@@ -17,6 +22,8 @@ const generoEnum = z.enum(
   ],
   { errorMap: () => ({ message: "Selecione o gênero." }) }
 );
+
+export { legacyGeneroEnum };
 
 const birthDateSchema = z
   .string()
@@ -47,10 +54,18 @@ export const registroSchema = z.object({
   bairro: z.string().min(1, "Bairro é obrigatório"),
   dataNascimento: birthDateSchema,
   sexo: sexoEnum,
-  genero: generoEnum,
-  generoOutro: z.string().optional().nullable(),
+  orientacaoSexual: sexualOrientationEnum,
+  orientacaoSexualOutro: z.string().optional().nullable(),
   estilosMusicais: z.string().optional().nullable(),
   nacionalidade: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.orientacaoSexual === "outro" && !normalizeOrientationOther(data.orientacaoSexualOutro)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["orientacaoSexualOutro"],
+      message: "Especifique sua orientação sexual.",
+    });
+  }
 });
 
 export const agendamentoSchema = z.object({
@@ -76,8 +91,8 @@ export const updateContaSchema = z.object({
   email: omitNullKeepString.pipe(z.string().email().optional()),
   telefone: omitNullKeepString,
   sexo: sexoEnum.nullish(),
-  genero: generoEnum.nullish(),
-  generoOutro: omitNullKeepString,
+  orientacaoSexual: sexualOrientationEnum.nullish(),
+  orientacaoSexualOutro: z.union([z.string(), z.null()]).optional(),
   senha: omitNullKeepString.pipe(z.string().min(6).optional()),
   senhaAtual: omitNullKeepString,
   /**
@@ -111,6 +126,14 @@ export const updateContaSchema = z.object({
         v.startsWith("/uploads/"),
       { message: "URL da foto inválida" }
     ),
+}).superRefine((data, ctx) => {
+  if (data.orientacaoSexual === "outro" && !normalizeOrientationOther(data.orientacaoSexualOutro)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["orientacaoSexualOutro"],
+      message: "Especifique sua orientação sexual.",
+    });
+  }
 });
 
 export const checkoutSchema = z.object({
@@ -167,6 +190,9 @@ export function publicContaUpdateZodMessage(error: z.ZodError): string {
     return leaksInternalType ? "Informe uma data de nascimento válida." : raw;
   }
   if (path.includes("email")) return "Informe um e-mail válido.";
+  if (path.includes("orientacaoSexual")) {
+    return leaksInternalType ? "Selecione a orientação sexual." : raw;
+  }
   if (path.includes("nomeArtistico") || path.includes("nome")) {
     return "Informe um nome com no mínimo 2 caracteres.";
   }

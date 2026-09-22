@@ -12,6 +12,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isCpfEstablished, normalizeCpfDigits } from "@/app/lib/cpf-validation";
 import {
+  legacyOrientationPresentation,
+  SEXUAL_ORIENTATION_OPTIONS,
+} from "@/app/lib/sexual-orientation";
+import {
   Avatar,
   Button,
   Callout,
@@ -38,6 +42,8 @@ type ContaData = {
   bairro: string;
   dataNascimento: string;
   sexo: string | null;
+  orientacaoSexual: string | null;
+  orientacaoSexualOutro: string | null;
   genero: string | null;
   generoOutro: string | null;
   estilosMusicais: string | null;
@@ -101,7 +107,7 @@ export function ProfileSection() {
   function setCampo<K extends keyof ContaData>(campo: K, valor: ContaData[K] | string) {
     setForm((prev) => {
       if (!prev) return prev;
-      if (valor === "" && (campo === "nomeSocial" || campo === "generoOutro")) {
+      if (valor === "" && (campo === "nomeSocial" || campo === "orientacaoSexualOutro")) {
         return { ...prev, [campo]: null };
       }
       return { ...prev, [campo]: valor as ContaData[K] };
@@ -147,6 +153,17 @@ export function ProfileSection() {
     setSalvando(true);
     try {
       const payload: Record<string, unknown> = { ...form };
+      delete payload.genero;
+      delete payload.generoOutro;
+      if (!form.orientacaoSexual) {
+        delete payload.orientacaoSexual;
+        delete payload.orientacaoSexualOutro;
+      } else if (form.orientacaoSexual !== "outro") {
+        payload.orientacaoSexualOutro = null;
+      } else if (!String(form.orientacaoSexualOutro ?? "").trim()) {
+        toast.error("Não foi possível salvar", "Especifique sua orientação sexual.");
+        return;
+      }
       if (senhaAtual) payload.senhaAtual = senhaAtual;
       const r = await fetch("/api/conta/update", {
         method: "POST",
@@ -205,6 +222,9 @@ export function ProfileSection() {
   }
 
   const precisaSenhaAtual = form.email !== emailOriginal;
+  const legado = !form.orientacaoSexual
+    ? legacyOrientationPresentation(form.genero)
+    : { kind: "none" as const };
 
   return (
     <Section title="Perfil" icon="user">
@@ -348,30 +368,35 @@ export function ProfileSection() {
                 ]}
               />
             </Field>
-            <Field label="Gênero">
+            <Field label="Orientação sexual">
               <Select
-                value={form.genero || ""}
+                value={form.orientacaoSexual || ""}
                 onChange={(e) => {
-                  setCampo("genero", e.target.value || null);
-                  if (e.target.value !== "outro") setCampo("generoOutro", null);
+                  const v = e.target.value;
+                  if (!v) return;
+                  setCampo("orientacaoSexual", v);
+                  if (v !== "outro") setCampo("orientacaoSexualOutro", null);
                 }}
                 options={[
-                  ...(!form.genero ? [{ value: "", label: "Selecione..." }] : []),
-                  { value: "heterossexual", label: "Heterossexual" },
-                  { value: "homossexual", label: "Homossexual" },
-                  { value: "bissexual", label: "Bissexual" },
-                  { value: "transsexual", label: "Transsexual" },
-                  { value: "nao_binario", label: "Não-binário" },
-                  { value: "outro", label: "Outro" },
+                  ...(!form.orientacaoSexual ? [{ value: "", label: "Selecione..." }] : []),
+                  ...SEXUAL_ORIENTATION_OPTIONS,
                 ]}
               />
+              {legado.kind === "unambiguous" && (
+                <p className="mt-1 text-[11px] text-zinc-500">Registro anterior: {legado.label}</p>
+              )}
+              {legado.kind === "unconverted" && (
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Há um dado de cadastro anterior que não foi convertido para orientação sexual.
+                </p>
+              )}
             </Field>
-            {form.genero === "outro" && (
-              <Field label="Especifique seu gênero">
+            {form.orientacaoSexual === "outro" && (
+              <Field label="Especifique sua orientação sexual">
                 <Input
-                  value={form.generoOutro ?? ""}
-                  onChange={(e) => setCampo("generoOutro", e.target.value || null)}
-                  placeholder="Como você se identifica?"
+                  value={form.orientacaoSexualOutro ?? ""}
+                  onChange={(e) => setCampo("orientacaoSexualOutro", e.target.value || null)}
+                  placeholder="Como você se identifica"
                 />
               </Field>
             )}

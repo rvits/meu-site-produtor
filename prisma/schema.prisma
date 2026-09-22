@@ -22,9 +22,11 @@ model User {
   cep             String?
   cpf             String?   @unique
   dataNascimento  DateTime
-  sexo            String?
-  genero          String?
-  generoOutro     String?
+  sexo                  String?
+  genero                String?
+  generoOutro           String?
+  orientacaoSexual      String?
+  orientacaoSexualOutro String?
   estilosMusicais String?
   nacionalidade   String?
   foto            String?

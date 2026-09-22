@@ -1,0 +1,3 @@
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "orientacaoSexual" TEXT;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "orientacaoSexualOutro" TEXT;

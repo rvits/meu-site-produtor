@@ -947,7 +947,7 @@ export default function TermosContratosPage() {
             {activeDoc === "privacidade" && (
               <>
                 <p className="mt-1 text-center text-xs text-zinc-400">
-                  Última atualização: Julho/2026
+                  Última atualização: Setembro/2026
                 </p>
                 <p>
                   A THouse Rec respeita sua privacidade e protege seus dados
@@ -964,7 +964,7 @@ export default function TermosContratosPage() {
                   1.1. <strong>Dados fornecidos por você:</strong>
                 </p>
                 <ul className="mt-1 list-disc pl-5 space-y-1">
-                  <li>Dados de cadastro: nome artístico, nome completo, nome social, e-mail, senha (criptografada), telefone, CPF, data de nascimento, sexo, gênero, localização (país, estado, cidade, bairro), estilos musicais, nacionalidade, foto de perfil (URL);</li>
+                  <li>Dados de cadastro: nome artístico, nome completo, nome social, e-mail, senha (criptografada), telefone, CPF, data de nascimento, sexo, orientação sexual e, para cadastros anteriores, gênero, localização (país, estado, cidade, bairro), estilos musicais, nacionalidade, foto de perfil (URL);</li>
                   <li>Dados de agendamento: data, horário, tipo de serviço, duração, observações, serviços adicionais, beats selecionados;</li>
                   <li>Dados de planos: plano escolhido, modo (mensal/anual), status de assinatura;</li>
                   <li>Perguntas do FAQ: texto da pergunta, nome do usuário, e-mail associado;</li>

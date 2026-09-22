@@ -34,8 +34,8 @@ export interface RegistroPayload {
   bairro: string;
   dataNascimento: string;
   sexo?: string | null;
-  genero?: string | null;
-  generoOutro?: string | null;
+  orientacaoSexual?: string | null;
+  orientacaoSexualOutro?: string | null;
   estilosMusicais?: string | null;
   nacionalidade?: string | null;
 }

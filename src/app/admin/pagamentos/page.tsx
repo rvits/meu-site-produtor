@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LoadingBlock, useFeedback } from "@/components/design-system";
 import { useDomainRefresh } from "@/app/hooks/useDomainRefresh";
 import { couponOriginLabel, type CouponOrigin } from "@/app/lib/coupon-origin";
+import { sexualOrientationLabel } from "@/app/lib/sexual-orientation";
 import {
   paymentRefundStatusClass,
   type PaymentRefundStatus,
@@ -30,6 +31,8 @@ interface UserInfo {
   cep?: string | null;
   dataNascimento?: string | Date | null;
   sexo?: string | null;
+  orientacaoSexual?: string | null;
+  orientacaoSexualOutro?: string | null;
   genero?: string | null;
   generoOutro?: string | null;
   nacionalidade?: string | null;
@@ -480,9 +483,20 @@ export default function AdminPagamentosPage() {
                             </p>
                           </div>
                         )}
+                        {p.user.orientacaoSexual && (
+                          <div>
+                            <span className="text-zinc-400">Orientação sexual:</span>
+                            <p className="text-zinc-200">
+                              {p.user.orientacaoSexual === "outro" && p.user.orientacaoSexualOutro
+                                ? p.user.orientacaoSexualOutro
+                                : sexualOrientationLabel(p.user.orientacaoSexual) ||
+                                  p.user.orientacaoSexual.replace(/_/g, " ")}
+                            </p>
+                          </div>
+                        )}
                         {p.user.genero && (
                           <div>
-                            <span className="text-zinc-400">Gênero:</span>
+                            <span className="text-zinc-400">Gênero (cadastro anterior):</span>
                             <p className="text-zinc-200 capitalize">
                               {p.user.genero === "outro" && p.user.generoOutro
                                 ? p.user.generoOutro

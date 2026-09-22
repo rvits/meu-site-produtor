@@ -84,6 +84,7 @@ async function main() {
     bairro: "Centro",
     dataNascimento: "1995-06-15",
     sexo: "masculino",
+    orientacaoSexual: "prefiro_nao_informar",
   };
   const reg = await req(
     "/api/registro",

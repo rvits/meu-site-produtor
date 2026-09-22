@@ -13,6 +13,7 @@ import {
   civilDateUtc,
   decideBirthDateUpdate,
 } from "@/app/lib/birth-date-validation";
+import { orientationWriteFields } from "@/app/lib/sexual-orientation";
 
 export async function POST(req: Request) {
   try {
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
       rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
         ? { ...(rawBody as Record<string, unknown>) }
         : {};
+
+    delete body.genero;
+    delete body.generoOutro;
 
     if (typeof body.dataNascimento === "string") {
       const existingCivil = civilDateUtc(userData.dataNascimento);
@@ -67,8 +71,8 @@ export async function POST(req: Request) {
       email,
       telefone,
       sexo,
-      genero,
-      generoOutro,
+      orientacaoSexual,
+      orientacaoSexualOutro,
       senha,
       senhaAtual,
       cpf,
@@ -123,8 +127,9 @@ export async function POST(req: Request) {
     if (email) updateData.email = email;
     if (telefone) updateData.telefone = telefone;
     if (sexo !== undefined) updateData.sexo = sexo || null;
-    if (genero !== undefined) updateData.genero = genero || null;
-    if (generoOutro !== undefined) updateData.generoOutro = generoOutro || null;
+    if (orientacaoSexual) {
+      Object.assign(updateData, orientationWriteFields(orientacaoSexual, orientacaoSexualOutro));
+    }
     const cpfDecision = decideCpfUpdate(userData.cpf, cpf);
     if (cpfDecision.action === "reject") {
       const status = cpfDecision.message === CPF_IMMUTABLE_MESSAGE ? 409 : 400;

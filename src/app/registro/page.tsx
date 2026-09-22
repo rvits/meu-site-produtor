@@ -2,7 +2,7 @@
 
 /**
  * Registro — GO-03F: Design System (AuthShell + Field/Input/Select/Button/Callout).
- * GO-06E: capitalização automática, ano de nascimento na faixa de idade, sexo/gênero placeholder.
+ * GO-06E: capitalização automática, ano de nascimento na faixa de idade, sexo e orientação sexual.
  */
 
 import { useState } from "react";
@@ -13,6 +13,7 @@ import {
   getBirthDateMinYear,
   getBirthDateMaxYear,
 } from "../lib/birth-date-validation";
+import { SEXUAL_ORIENTATION_OPTIONS } from "@/app/lib/sexual-orientation";
 import {
   AuthShell,
   Button,
@@ -56,8 +57,8 @@ export default function RegistroPage() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [nomeSocial, setNomeSocial] = useState("");
   const [sexo, setSexo] = useState("");
-  const [genero, setGenero] = useState("");
-  const [generoOutro, setGeneroOutro] = useState("");
+  const [orientacaoSexual, setOrientacaoSexual] = useState("");
+  const [orientacaoSexualOutro, setOrientacaoSexualOutro] = useState("");
   const [estilosMusicais, setEstilosMusicais] = useState("");
   const [nacionalidade, setNacionalidade] = useState("");
 
@@ -174,13 +175,13 @@ export default function RegistroPage() {
       return;
     }
 
-    if (!genero) {
-      setErro("Selecione o gênero.");
+    if (!orientacaoSexual) {
+      setErro("Selecione a orientação sexual.");
       return;
     }
 
-    if (genero === "outro" && !generoOutro.trim()) {
-      setErro("Especifique seu gênero.");
+    if (orientacaoSexual === "outro" && !orientacaoSexualOutro.trim()) {
+      setErro("Especifique sua orientação sexual.");
       return;
     }
 
@@ -200,8 +201,9 @@ export default function RegistroPage() {
       bairro,
       dataNascimento,
       sexo,
-      genero,
-      generoOutro: genero === "outro" ? generoOutro : null,
+      orientacaoSexual,
+      orientacaoSexualOutro:
+        orientacaoSexual === "outro" ? orientacaoSexualOutro.trim() : null,
       estilosMusicais: estilosMusicais
         ? capitalizeWords(estilosMusicais.trim())
         : null,
@@ -352,35 +354,29 @@ export default function RegistroPage() {
           />
         </Field>
 
-        <Field label="Gênero">
+        <Field label="Orientação sexual">
           <Select
             required
-            value={genero}
+            value={orientacaoSexual}
             onChange={(e) => {
               const v = e.target.value;
               if (!v) return;
-              setGenero(v);
-              if (v !== "outro") setGeneroOutro("");
+              setOrientacaoSexual(v);
+              if (v !== "outro") setOrientacaoSexualOutro("");
             }}
             options={[
-              ...(!genero ? [{ value: "", label: "Selecione…" }] : []),
-              { value: "heterossexual", label: "Heterossexual" },
-              { value: "homossexual", label: "Homossexual" },
-              { value: "bissexual", label: "Bissexual" },
-              { value: "transsexual", label: "Transsexual" },
-              { value: "nao_binario", label: "Não-binário" },
-              { value: "outro", label: "Outro" },
-              { value: "prefiro_nao_informar", label: "Prefiro não informar" },
+              ...(!orientacaoSexual ? [{ value: "", label: "Selecione…" }] : []),
+              ...SEXUAL_ORIENTATION_OPTIONS,
             ]}
           />
         </Field>
 
-        {genero === "outro" && (
-          <Field label="Especifique seu gênero">
+        {orientacaoSexual === "outro" && (
+          <Field label="Especifique sua orientação sexual">
             <Input
-              value={generoOutro}
-              onChange={(e) => setGeneroOutro(e.target.value)}
-              placeholder="Como você se identifica?"
+              value={orientacaoSexualOutro}
+              onChange={(e) => setOrientacaoSexualOutro(e.target.value)}
+              placeholder="Como você se identifica"
             />
           </Field>
         )}

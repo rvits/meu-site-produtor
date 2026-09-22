@@ -125,7 +125,9 @@ export const rc02Scenarios: ScenarioDefinition[] = [
           bairro: "Centro",
           dataNascimento: new Date("1990-01-01"),
           sexo: "prefiro_nao_declarar",
-          genero: "prefiro_nao_informar",
+          orientacaoSexual: "prefiro_nao_informar",
+          genero: null,
+          generoOutro: null,
           role: "ADMIN",
         },
       });

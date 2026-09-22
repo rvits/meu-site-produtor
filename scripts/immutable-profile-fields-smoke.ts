@@ -336,7 +336,11 @@ async function main() {
     record(
       "J",
       relations.every((name) => userBlock.includes(name)) &&
-        !schema.includes("orientacaoSexual") &&
+        schema.includes("orientacaoSexual") &&
+        schema.includes("orientacaoSexualOutro") &&
+        schema.includes("genero") &&
+        schema.includes("generoOutro") &&
+        schema.includes("sexo") &&
         counts._count.appointments === 0 &&
         counts._count.sessions === 0 &&
         counts._count.payments === 0 &&

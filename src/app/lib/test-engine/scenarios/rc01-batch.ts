@@ -138,7 +138,7 @@ export const rc01Scenarios: ScenarioDefinition[] = [
   def(
     "RC01-001",
     "Cadastro completo",
-    "CPF, email, idade, sexo, gênero, sessão e Minha Conta",
+    "CPF, email, idade, sexo, orientação sexual, sessão e Minha Conta",
     async (ctx) => {
       const asserts: AssertResult[] = [];
       const email = `${ctx.artifactPrefix}-reg-${Date.now()}@homolog.test`;
@@ -158,7 +158,7 @@ export const rc01Scenarios: ScenarioDefinition[] = [
         bairro: "Centro",
         dataNascimento: validBirth,
         sexo: "masculino",
-        genero: "heterossexual",
+        orientacaoSexual: "heterossexual",
       });
       asserts.push({
         name: "assertCpfRejected",
@@ -179,7 +179,7 @@ export const rc01Scenarios: ScenarioDefinition[] = [
         bairro: "Centro",
         dataNascimento: `${new Date().getFullYear()}-01-01`,
         sexo: "feminino",
-        genero: "prefiro_nao_informar",
+        orientacaoSexual: "prefiro_nao_informar",
       });
       asserts.push({
         name: "assertAgeRejected",
@@ -200,7 +200,7 @@ export const rc01Scenarios: ScenarioDefinition[] = [
         bairro: "Botafogo",
         dataNascimento: validBirth,
         sexo: "masculino" as const,
-        genero: "bissexual" as const,
+        orientacaoSexual: "bissexual" as const,
       };
       const parsed = registroSchema.safeParse(body);
       asserts.push({
@@ -238,8 +238,15 @@ export const rc01Scenarios: ScenarioDefinition[] = [
         ok:
           user.cpf === normalizeCpfDigits(cpf) &&
           user.sexo === "masculino" &&
-          user.genero === "bissexual",
-        evidence: { cpf: user.cpf, sexo: user.sexo, genero: user.genero },
+          user.orientacaoSexual === "bissexual" &&
+          user.genero == null &&
+          user.generoOutro == null,
+        evidence: {
+          cpf: user.cpf,
+          sexo: user.sexo,
+          orientacaoSexual: user.orientacaoSexual,
+          genero: user.genero,
+        },
       });
       asserts.push(await assertMinhaConta({ userId: user.id }));
 
@@ -522,7 +529,9 @@ export const rc01Scenarios: ScenarioDefinition[] = [
             bairro: "Centro",
             dataNascimento: new Date("1990-01-01"),
             sexo: "prefiro_nao_declarar",
-            genero: "prefiro_nao_informar",
+            orientacaoSexual: "prefiro_nao_informar",
+            genero: null,
+            generoOutro: null,
             role: "ADMIN",
           },
         });

@@ -32,6 +32,8 @@ export async function GET() {
             cep: true,
             dataNascimento: true,
             sexo: true,
+            orientacaoSexual: true,
+            orientacaoSexualOutro: true,
             genero: true,
             generoOutro: true,
             nacionalidade: true,

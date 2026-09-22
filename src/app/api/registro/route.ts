@@ -4,6 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 import { createUserSession } from "@/app/lib/auth";
 import { registroSchema } from "@/app/lib/validations";
 import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
+import { orientationWriteFields } from "@/app/lib/sexual-orientation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 
 export const runtime = "nodejs";
@@ -47,8 +48,8 @@ export async function POST(req: Request) {
       bairro,
       dataNascimento,
       sexo,
-      genero,
-      generoOutro,
+      orientacaoSexual,
+      orientacaoSexualOutro,
       estilosMusicais,
       nacionalidade,
     } = validation.data;
@@ -102,8 +103,9 @@ export async function POST(req: Request) {
         bairro,
         dataNascimento: new Date(dataNascimento),
         sexo,
-        genero,
-        generoOutro: generoOutro || null,
+        ...orientationWriteFields(orientacaoSexual, orientacaoSexualOutro),
+        genero: null,
+        generoOutro: null,
         estilosMusicais: estilosMusicais || null,
         nacionalidade: nacionalidade || null,
         role: "USER",
