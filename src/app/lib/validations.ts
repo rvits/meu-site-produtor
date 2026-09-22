@@ -80,7 +80,12 @@ export const updateContaSchema = z.object({
   generoOutro: omitNullKeepString,
   senha: omitNullKeepString.pipe(z.string().min(6).optional()),
   senhaAtual: omitNullKeepString,
-  cpf: omitNullKeepString,
+  /**
+   * null e "" chegam ao handler como tentativa de limpar.
+   * Omitir a chave significa não alterar. Diferente dos outros opcionais,
+   * null aqui não vira undefined.
+   */
+  cpf: z.union([z.string(), z.null()]).optional(),
   cep: omitNullKeepString,
   dataNascimento: z
     .union([birthDateSchema, z.null()])

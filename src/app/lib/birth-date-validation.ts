@@ -22,6 +22,43 @@ function ageFromParts(year: number, month: number, day: number, today = new Date
   return age;
 }
 
+export const BIRTH_DATE_IMMUTABLE_MESSAGE =
+  "Data de nascimento não pode ser alterada após o cadastro.";
+
+/**
+ * Dia civil no mesmo critério de GET /api/conta: `Date#toISOString().slice(0, 10)`.
+ * Uma string YYYY-MM-DD é usada como está, sem `new Date`, para não deslocar o dia.
+ */
+export function civilDateUtc(value: Date | string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString().slice(0, 10);
+  }
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(value).trim());
+  return match ? match[1] : null;
+}
+
+export type BirthDateUpdateDecision =
+  | { action: "omit" }
+  | { action: "reject"; message: string };
+
+/**
+ * Data já gravada não é substituída.
+ * O mesmo dia civil é no-op. null/undefined significam campo omitido.
+ */
+export function decideBirthDateUpdate(
+  current: Date | string | null | undefined,
+  incoming: string | null | undefined
+): BirthDateUpdateDecision {
+  if (incoming === undefined || incoming === null) return { action: "omit" };
+
+  const existingCivil = civilDateUtc(current);
+  const incomingCivil = civilDateUtc(incoming);
+  if (existingCivil && incomingCivil === existingCivil) return { action: "omit" };
+  return { action: "reject", message: BIRTH_DATE_IMMUTABLE_MESSAGE };
+}
+
 export function validateBirthDateString(
   dateStr: string
 ): { valid: true } | { valid: false; error: string } {

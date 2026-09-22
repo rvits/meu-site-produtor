@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { isCpfEstablished, normalizeCpfDigits } from "@/app/lib/cpf-validation";
 import {
   Avatar,
   Button,
@@ -47,7 +48,11 @@ type ContaData = {
 };
 
 function formatCpf(cpf: string): string {
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  const digits = normalizeCpfDigits(cpf);
+  if (digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+  return cpf;
 }
 
 export function ProfileSection() {
@@ -60,6 +65,8 @@ export function ProfileSection() {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [enviandoCodigoSenha, setEnviandoCodigoSenha] = useState(false);
   const [emailOriginal, setEmailOriginal] = useState("");
+  const [cpfTravado, setCpfTravado] = useState(false);
+  const [nascimentoTravado, setNascimentoTravado] = useState(false);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [dragFoto, setDragFoto] = useState(false);
   const [showUrlAvancado, setShowUrlAvancado] = useState(false);
@@ -82,6 +89,8 @@ export function ProfileSection() {
       if (!data || !data.id) throw new Error("Dados da conta incompletos");
       setForm(data);
       setEmailOriginal(data.email);
+      setCpfTravado(isCpfEstablished(data.cpf));
+      setNascimentoTravado(Boolean(data.dataNascimento));
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao carregar dados da conta");
     } finally {
@@ -152,6 +161,8 @@ export function ProfileSection() {
       toast.success("Perfil atualizado", "Suas alterações foram salvas com sucesso.");
       setSenhaAtual("");
       setEmailOriginal(form.email);
+      if (isCpfEstablished(form.cpf)) setCpfTravado(true);
+      if (form.dataNascimento) setNascimentoTravado(true);
     } finally {
       setSalvando(false);
     }
@@ -287,22 +298,42 @@ export function ProfileSection() {
             <Field label="Telefone">
               <Input value={form.telefone} onChange={(e) => setCampo("telefone", e.target.value)} />
             </Field>
-            <Field label="CPF">
+            <Field
+              label="CPF"
+              hint={cpfTravado ? "Não pode ser alterado após o cadastro." : undefined}
+            >
               <Input
                 value={form.cpf ? formatCpf(form.cpf) : ""}
                 onChange={(e) => {
+                  if (cpfTravado) return;
                   const apenasNumeros = e.target.value.replace(/\D/g, "");
                   setCampo("cpf", apenasNumeros || null);
                 }}
                 placeholder="000.000.000-00"
-                maxLength={14}
+                maxLength={cpfTravado ? undefined : 14}
+                disabled={cpfTravado}
+                readOnly={cpfTravado}
+                aria-readonly={cpfTravado}
+                className={cpfTravado ? "cursor-not-allowed opacity-60" : ""}
               />
             </Field>
-            <Field label="Data de nascimento">
+            <Field
+              label="Data de nascimento"
+              hint={
+                nascimentoTravado ? "Não pode ser alterada após o cadastro." : undefined
+              }
+            >
               <Input
                 type="date"
                 value={form.dataNascimento?.slice(0, 10) ?? ""}
-                onChange={(e) => setCampo("dataNascimento", e.target.value)}
+                onChange={(e) => {
+                  if (nascimentoTravado) return;
+                  setCampo("dataNascimento", e.target.value);
+                }}
+                disabled={nascimentoTravado}
+                readOnly={nascimentoTravado}
+                aria-readonly={nascimentoTravado}
+                className={nascimentoTravado ? "cursor-not-allowed opacity-60" : ""}
               />
             </Field>
             <Field label="Sexo">

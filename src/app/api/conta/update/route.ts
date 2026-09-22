@@ -3,14 +3,46 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { publicContaUpdateZodMessage, updateContaSchema } from "@/app/lib/validations";
-import { CPF_DUPLICATE_MESSAGE, normalizeCpfDigits } from "@/app/lib/cpf-validation";
+import {
+  CPF_DUPLICATE_MESSAGE,
+  CPF_IMMUTABLE_MESSAGE,
+  decideCpfUpdate,
+} from "@/app/lib/cpf-validation";
+import {
+  BIRTH_DATE_IMMUTABLE_MESSAGE,
+  civilDateUtc,
+  decideBirthDateUpdate,
+} from "@/app/lib/birth-date-validation";
 
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
-    const body = await req.json();
+    const rawBody = await req.json();
 
-    // ✅ Validar entrada
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (!userData) {
+      return NextResponse.json(
+        { error: "Usuário não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const body: Record<string, unknown> =
+      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+        ? { ...(rawBody as Record<string, unknown>) }
+        : {};
+
+    if (typeof body.dataNascimento === "string") {
+      const existingCivil = civilDateUtc(userData.dataNascimento);
+      const incomingCivil = civilDateUtc(body.dataNascimento);
+      if (existingCivil && incomingCivil === existingCivil) {
+        delete body.dataNascimento;
+      }
+    }
+
     const validation = updateContaSchema.safeParse(body);
     if (!validation.success) {
       console.info(
@@ -50,17 +82,6 @@ export async function POST(req: Request) {
       nacionalidade,
       foto,
     } = validation.data;
-
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
-
-    if (!userData) {
-      return NextResponse.json(
-        { error: "Usuário não encontrado." },
-        { status: 404 }
-      );
-    }
 
     // 🔐 SE MUDOU EMAIL OU SENHA → VALIDAR SENHA ATUAL
     if ((email && email !== userData.email) || senha) {
@@ -104,20 +125,20 @@ export async function POST(req: Request) {
     if (sexo !== undefined) updateData.sexo = sexo || null;
     if (genero !== undefined) updateData.genero = genero || null;
     if (generoOutro !== undefined) updateData.generoOutro = generoOutro || null;
-    if (cpf !== undefined) {
-      const cpfDigits = normalizeCpfDigits(cpf);
-      if (cpfDigits) {
-        const cpfEmUso = await prisma.user.findFirst({
-          where: { cpf: cpfDigits, NOT: { id: user.id } },
-          select: { id: true },
-        });
-        if (cpfEmUso) {
-          return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
-        }
-        updateData.cpf = cpfDigits;
-      } else {
-        updateData.cpf = null;
+    const cpfDecision = decideCpfUpdate(userData.cpf, cpf);
+    if (cpfDecision.action === "reject") {
+      const status = cpfDecision.message === CPF_IMMUTABLE_MESSAGE ? 409 : 400;
+      return NextResponse.json({ error: cpfDecision.message }, { status });
+    }
+    if (cpfDecision.action === "set") {
+      const cpfEmUso = await prisma.user.findFirst({
+        where: { cpf: cpfDecision.cpf, NOT: { id: user.id } },
+        select: { id: true },
+      });
+      if (cpfEmUso) {
+        return NextResponse.json({ error: CPF_DUPLICATE_MESSAGE }, { status: 400 });
       }
+      updateData.cpf = cpfDecision.cpf;
     }
     if (cep !== undefined) updateData.cep = cep || null;
     if (pais !== undefined) updateData.pais = pais;
@@ -127,8 +148,12 @@ export async function POST(req: Request) {
     if (estilosMusicais !== undefined) updateData.estilosMusicais = estilosMusicais || null;
     if (nacionalidade !== undefined) updateData.nacionalidade = nacionalidade || null;
     if (foto !== undefined) updateData.foto = foto && String(foto).trim() ? String(foto).trim() : null;
-    if (dataNascimento) {
-      updateData.dataNascimento = new Date(dataNascimento);
+    const birthDecision = decideBirthDateUpdate(userData.dataNascimento, dataNascimento);
+    if (birthDecision.action === "reject") {
+      return NextResponse.json(
+        { error: BIRTH_DATE_IMMUTABLE_MESSAGE },
+        { status: 409 }
+      );
     }
     if (senha) {
       updateData.senha = await bcrypt.hash(senha, 10);

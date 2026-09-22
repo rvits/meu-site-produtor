@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { sanitizeCartItemsForCheckoutApi } from "@/app/lib/cart-checkout-item";
+import { isCpfEstablished } from "@/app/lib/cpf-validation";
 import {
   Button,
   EmptyState,
@@ -60,6 +61,8 @@ export default function CarrinhoPage() {
     aceiteTermos: false,
   });
   const [erros, setErros] = useState<Record<string, string>>({});
+  const [cpfSomenteLeitura, setCpfSomenteLeitura] = useState(false);
+  const [nascimentoSomenteLeitura, setNascimentoSomenteLeitura] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -96,6 +99,9 @@ export default function CarrinhoPage() {
                 dataNascStr = new Date(dNasc).toISOString().split("T")[0];
               }
             }
+            const cpfEstabelecido = isCpfEstablished(data.cpf);
+            setCpfSomenteLeitura(cpfEstabelecido);
+            setNascimentoSomenteLeitura(Boolean(dataNascStr));
             setFormData((prev) => ({
               ...prev,
               nome: data.nomeCompleto || data.nomeArtistico || user.nomeArtistico || prev.nome || "",
@@ -103,7 +109,7 @@ export default function CarrinhoPage() {
               cidade: data.cidade || prev.cidade || "",
               bairro: data.bairro || prev.bairro || "",
               cep: (data.cep || prev.cep || "").replace(/\D/g, "").slice(0, 8),
-              cpf: (data.cpf || prev.cpf || "").replace(/\D/g, "").slice(0, 11),
+              cpf: cpfEstabelecido ? String(data.cpf).trim() : prev.cpf || "",
               dataNascimento: dataNascStr || prev.dataNascimento,
             }));
           } else {
@@ -407,24 +413,62 @@ export default function CarrinhoPage() {
                     placeholder="Seu nome completo"
                   />
                 </Field>
-                <Field label="Data de nascimento *" hint={erros.dataNascimento}>
+                <Field
+                  label="Data de nascimento *"
+                  hint={
+                    nascimentoSomenteLeitura
+                      ? "Não pode ser alterada após o cadastro."
+                      : erros.dataNascimento
+                  }
+                >
                   <Input
                     type="date"
                     name="dataNascimento"
                     value={formData.dataNascimento}
-                    onChange={(e) => handleChange("dataNascimento", e.target.value)}
-                    className={erros.dataNascimento ? "border-red-500" : ""}
+                    onChange={(e) => {
+                      if (nascimentoSomenteLeitura) return;
+                      handleChange("dataNascimento", e.target.value);
+                    }}
+                    disabled={nascimentoSomenteLeitura}
+                    readOnly={nascimentoSomenteLeitura}
+                    aria-readonly={nascimentoSomenteLeitura}
+                    className={
+                      nascimentoSomenteLeitura
+                        ? "cursor-not-allowed opacity-60"
+                        : erros.dataNascimento
+                          ? "border-red-500"
+                          : ""
+                    }
                   />
                 </Field>
-                <Field label="CPF *" hint={erros.cpf}>
+                <Field
+                  label="CPF *"
+                  hint={
+                    cpfSomenteLeitura
+                      ? "Não pode ser alterado após o cadastro."
+                      : erros.cpf
+                  }
+                >
                   <Input
                     type="text"
                     name="cpf"
                     value={formData.cpf}
-                    onChange={(e) => handleChange("cpf", formatarCPF(e.target.value))}
-                    className={erros.cpf ? "border-red-500" : ""}
+                    onChange={(e) => {
+                      if (cpfSomenteLeitura) return;
+                      handleChange("cpf", formatarCPF(e.target.value));
+                    }}
+                    disabled={cpfSomenteLeitura}
+                    readOnly={cpfSomenteLeitura}
+                    aria-readonly={cpfSomenteLeitura}
+                    className={
+                      cpfSomenteLeitura
+                        ? "cursor-not-allowed opacity-60"
+                        : erros.cpf
+                          ? "border-red-500"
+                          : ""
+                    }
                     placeholder="00000000000"
-                    maxLength={11}
+                    maxLength={cpfSomenteLeitura ? undefined : 11}
                   />
                 </Field>
                 <Field label="País *" hint={erros.pais}>
