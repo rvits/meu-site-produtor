@@ -7,6 +7,7 @@
  */
 
 import { Timeline, TimelineItemData, formatDateTime } from "@/components/design-system";
+import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import type { Agendamento } from "./types";
 
 export function buildOrderTimeline(a: Agendamento): TimelineItemData[] {
@@ -46,7 +47,7 @@ export function buildOrderTimeline(a: Agendamento): TimelineItemData[] {
         ? "current"
         : "pending",
     icon: "calendar",
-    meta: formatDateTime(a.data),
+    meta: formatStudioDateTimePtBR(a.data),
     description: `${a.tipo} · ${a.duracaoMinutos} min`,
   });
 

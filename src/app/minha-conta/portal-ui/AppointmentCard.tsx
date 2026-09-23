@@ -20,6 +20,7 @@ import {
   useFeedback,
   useToast,
 } from "@/components/design-system";
+import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
 import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
@@ -133,7 +134,7 @@ export function AppointmentCard({
           </div>
           <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
             <Icon name="calendar" className="w-3.5 h-3.5" />
-            {formatDateTime(a.data)} · {a.duracaoMinutos} min
+            {formatStudioDateTimePtBR(a.data)} · {a.duracaoMinutos} min
           </p>
         </div>
         <div className="flex items-center gap-2">

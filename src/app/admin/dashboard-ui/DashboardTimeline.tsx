@@ -5,8 +5,9 @@
  */
 import Link from "next/link";
 import { appointmentReservesCalendar } from "@/app/lib/domain/statuses";
-import { Icons, formatDateTime, serviceTypeLabel } from "@/app/admin/servicos-ui/meta";
+import { Icons, formatDateTime, formatTime, serviceTypeLabel } from "@/app/admin/servicos-ui/meta";
 import { StatusBadge } from "@/app/admin/servicos-ui/Badges";
+import { toIsoDateStudio, todayIsoStudio, minScheduleDateIsoStudio, formatStudioDatePtBR } from "@/app/lib/calendar-time";
 import type { DashAppointment, DashCoupon, DashPayment, DashService } from "./types";
 import { formatCurrency } from "./aggregates";
 
@@ -135,37 +136,20 @@ export function DashboardTimeline({ items }: { items: TimelineItem[] }) {
   );
 }
 
-function dayLabel(d: Date): string {
-  return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
-}
-
 export function DashboardCalendar({ appointments }: { appointments: DashAppointment[] }) {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  const tomorrowEnd = new Date(tomorrowStart);
-  tomorrowEnd.setHours(23, 59, 59, 999);
-  const weekEnd = new Date(todayStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  weekEnd.setHours(23, 59, 59, 999);
+  const todayIso = todayIsoStudio();
+  const tomorrowIso = minScheduleDateIsoStudio(1);
+  const weekEndIso = minScheduleDateIsoStudio(7);
 
   const active = appointments.filter(
     (a) => a.user?.nomeArtistico && appointmentReservesCalendar(a.status)
   );
 
-  const today = active.filter((a) => {
-    const t = new Date(a.data).getTime();
-    return t >= todayStart.getTime() && t < tomorrowStart.getTime();
-  });
-  const tomorrow = active.filter((a) => {
-    const t = new Date(a.data).getTime();
-    return t >= tomorrowStart.getTime() && t <= tomorrowEnd.getTime();
-  });
+  const today = active.filter((a) => toIsoDateStudio(a.data) === todayIso);
+  const tomorrow = active.filter((a) => toIsoDateStudio(a.data) === tomorrowIso);
   const week = active.filter((a) => {
-    const t = new Date(a.data).getTime();
-    return t >= todayStart.getTime() && t <= weekEnd.getTime();
+    const iso = toIsoDateStudio(a.data);
+    return iso >= todayIso && iso <= weekEndIso;
   });
 
   if (active.length === 0 || (today.length === 0 && tomorrow.length === 0 && week.length === 0)) {
@@ -180,8 +164,8 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
   }
 
   const columns = [
-    { title: "Hoje", date: dayLabel(todayStart), items: today, href: "/admin/agendamentos/todos" },
-    { title: "Amanhã", date: dayLabel(tomorrowStart), items: tomorrow, href: "/admin/agendamentos/todos" },
+    { title: "Hoje", date: formatStudioDatePtBR(todayIso), items: today, href: "/admin/agendamentos/todos" },
+    { title: "Amanhã", date: formatStudioDatePtBR(tomorrowIso), items: tomorrow, href: "/admin/agendamentos/todos" },
     { title: "Esta semana", date: `${today.length + tomorrow.length}→${week.length} itens`, items: week.slice(0, 8), href: "/admin/agendamentos/todos" },
   ];
 
@@ -210,8 +194,7 @@ export function DashboardCalendar({ appointments }: { appointments: DashAppointm
                   >
                     <p className="truncate text-xs font-medium text-zinc-200">{a.user?.nomeArtistico}</p>
                     <p className="truncate text-[11px] text-zinc-500">
-                      {serviceTypeLabel(a.tipo)} ·{" "}
-                      {new Date(a.data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {serviceTypeLabel(a.tipo)} · {formatTime(a.data)}
                     </p>
                     <div className="mt-1">
                       <StatusBadge status={a.status} />

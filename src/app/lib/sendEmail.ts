@@ -1,4 +1,9 @@
 import nodemailer from "nodemailer";
+import { formatStudioDatePtBR, formatStudioDateTimePtBR, formatStudioTimePtBR } from "@/app/lib/calendar-time";
+
+function formatAppointmentSlotEmail(appointmentDate: Date): string {
+  return formatStudioDateTimePtBR(appointmentDate);
+}
 
 /**
  * Envia email de solicitação de atendimento humano.
@@ -753,13 +758,7 @@ export async function sendPaymentConfirmationEmailToUser(
 ) {
   try {
     const transporter = createEmailTransporter();
-    const formattedDate = appointmentDate.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formattedDate = formatAppointmentSlotEmail(appointmentDate);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -843,13 +842,7 @@ export async function sendPaymentNotificationToTHouse(
     const transporter = createEmailTransporter();
     // Sempre enviar para o email da organização
     const thouseEmail = process.env.SUPPORT_DEST_EMAIL || "thouse.rec.tremv@gmail.com";
-    const formattedDate = appointmentDate.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formattedDate = formatAppointmentSlotEmail(appointmentDate);
 
     const servicesList = services.length > 0 
       ? services.map(s => `${s.nome} (${s.quantidade}x) - R$ ${(s.preco * s.quantidade).toFixed(2).replace(".", ",")}`).join("<br>")
@@ -956,15 +949,8 @@ export async function sendAppointmentAcceptedEmail(
 ) {
   try {
     const transporter = createEmailTransporter();
-    const formattedDate = appointmentDate.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    const formattedTime = appointmentDate.toLocaleString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formattedDate = formatStudioDatePtBR(appointmentDate);
+    const formattedTime = formatStudioTimePtBR(appointmentDate);
     const address = "Rua São Clemente 114, apartamento 1203";
 
     const htmlContent = `
@@ -1273,13 +1259,7 @@ export async function sendAppointmentCancelledEmail(
 ) {
   try {
     const transporter = createEmailTransporter();
-    const formattedDate = appointmentDate.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formattedDate = formatAppointmentSlotEmail(appointmentDate);
     const couponSection = couponCode 
       ? `<div style="background-color: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
            <p style="color: #92400e; margin: 0 0 10px 0; font-weight: bold;">🎟️ Seu Cupom de Desconto:</p>

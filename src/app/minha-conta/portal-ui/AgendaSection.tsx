@@ -14,9 +14,16 @@ import {
   StatusBadge,
   Button,
   cx,
-  formatDate,
-  formatTime,
 } from "@/components/design-system";
+import {
+  formatStudioDatePtBR,
+  formatStudioTimePtBR,
+  formatStudioMonthShort,
+  formatStudioDayOfMonth,
+  toIsoDateStudio,
+  todayIsoStudio,
+  parseIsoDateParts,
+} from "@/app/lib/calendar-time";
 import type { Agendamento } from "./types";
 import { AppointmentCard } from "./AppointmentCard";
 
@@ -35,8 +42,9 @@ function MiniCalendar({ agendamentos }: { agendamentos: Agendamento[] }) {
   const marcados = useMemo(() => {
     const map = new Map<string, number>();
     for (const a of agendamentos) {
-      const d = new Date(a.data);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const p = parseIsoDateParts(toIsoDateStudio(a.data));
+      if (!p) continue;
+      const key = `${p.year}-${p.month - 1}-${p.day}`;
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return map;
@@ -44,7 +52,7 @@ function MiniCalendar({ agendamentos }: { agendamentos: Agendamento[] }) {
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const hoje = new Date();
+  const todayParts = parseIsoDateParts(todayIsoStudio());
   const cells: Array<number | null> = [
     ...Array.from({ length: firstDay }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -76,9 +84,10 @@ function MiniCalendar({ agendamentos }: { agendamentos: Agendamento[] }) {
           const key = `${month.getFullYear()}-${month.getMonth()}-${day}`;
           const count = marcados.get(key) ?? 0;
           const isHoje =
-            day === hoje.getDate() &&
-            month.getMonth() === hoje.getMonth() &&
-            month.getFullYear() === hoje.getFullYear();
+            Boolean(todayParts) &&
+            day === todayParts!.day &&
+            month.getMonth() + 1 === todayParts!.month &&
+            month.getFullYear() === todayParts!.year;
           return (
             <span
               key={key}
@@ -148,16 +157,16 @@ export function AgendaSection({
                 <Card key={a.id} className="flex flex-wrap items-center gap-3">
                   <span className="flex flex-col items-center justify-center w-14 rounded-lg bg-zinc-800 border border-zinc-700 py-1.5">
                     <span className="text-[10px] uppercase text-zinc-500 leading-none">
-                      {new Date(a.data).toLocaleDateString("pt-BR", { month: "short" })}
+                      {formatStudioMonthShort(a.data)}
                     </span>
                     <span className="text-lg font-bold text-zinc-100 leading-tight">
-                      {new Date(a.data).getDate()}
+                      {formatStudioDayOfMonth(a.data)}
                     </span>
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-zinc-100 truncate">{a.tipo}</p>
                     <p className="text-xs text-zinc-500">
-                      {formatDate(a.data)} às {formatTime(a.data)} · {a.duracaoMinutos} min
+                      {formatStudioDatePtBR(a.data)} às {formatStudioTimePtBR(a.data)} · {a.duracaoMinutos} min
                     </p>
                   </div>
                   <StatusBadge status={a.status} />

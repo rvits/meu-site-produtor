@@ -22,6 +22,7 @@ import {
   formatDateTime,
   Intent,
 } from "@/components/design-system";
+import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import type { PortalData } from "./types";
 import { isRefundFamilyCoupon } from "./helpers";
 
@@ -240,7 +241,7 @@ export function HistorySection({ data }: { data: PortalData }) {
                   <Tag intent={r.intent}>{KIND_LABEL[r.kind]}</Tag>
                 </div>
                 <p className="text-[11px] text-zinc-500">
-                  {formatDateTime(r.date)}
+                  {r.kind === "agendamento" ? formatStudioDateTimePtBR(r.date) : formatDateTime(r.date)}
                   {r.detail ? ` · ${r.detail}` : ""}
                 </p>
               </div>

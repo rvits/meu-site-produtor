@@ -16,11 +16,15 @@ import {
   Section,
   StatusBadge,
   cx,
-  formatDate,
-  formatTime,
   formatDateTime,
   Button,
 } from "@/components/design-system";
+import {
+  formatStudioDatePtBR,
+  formatStudioTimePtBR,
+  formatStudioMonthShort,
+  formatStudioDayOfMonth,
+} from "@/app/lib/calendar-time";
 import type { Agendamento, PortalData, PortalNotification } from "./types";
 import type { TabKey } from "./tabs";
 import { collectDownloads } from "./DownloadsSection";
@@ -83,16 +87,16 @@ function AppointmentRow({ a }: { a: Agendamento }) {
     <Card className="flex items-center gap-3">
       <span className="flex flex-col items-center justify-center w-12 rounded-lg bg-zinc-800 border border-zinc-700 py-1">
         <span className="text-[10px] uppercase text-zinc-500 leading-none">
-          {new Date(a.data).toLocaleDateString("pt-BR", { month: "short" })}
+          {formatStudioMonthShort(a.data)}
         </span>
         <span className="text-base font-bold text-zinc-100 leading-tight">
-          {new Date(a.data).getDate()}
+          {formatStudioDayOfMonth(a.data)}
         </span>
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-zinc-100 truncate">{orderLabel(a)}</p>
         <p className="text-[11px] text-zinc-500">
-          {formatDate(a.data)} às {formatTime(a.data)}
+          {formatStudioDatePtBR(a.data)} às {formatStudioTimePtBR(a.data)}
         </p>
       </div>
       <StatusBadge status={displayStatus(a)} />

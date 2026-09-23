@@ -32,6 +32,11 @@ export {
   weekdaySun0,
   minScheduleDateIsoStudio,
   normalizeHourLabel,
+  formatStudioDatePtBR,
+  formatStudioTimePtBR,
+  formatStudioDateTimePtBR,
+  formatStudioMonthShort,
+  formatStudioDayOfMonth,
 } from "@/app/lib/calendar-time";
 
 /** @deprecated use toIsoDateStudio */

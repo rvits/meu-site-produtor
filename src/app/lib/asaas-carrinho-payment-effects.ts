@@ -12,6 +12,12 @@ import {
 import { createCouponsForAgendamentoItems } from "@/app/lib/agendamento-payment-coupons";
 import { isSymbolicAgendamentoCouponStyle } from "@/app/lib/symbolic-payment";
 import { decidePaymentSlotAction, shouldSendFulfillmentEmails } from "@/app/lib/payment-appointment-idempotency";
+import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
+
+/** Instant gravado em Appointment.data para item de carrinho (parede America/Sao_Paulo). */
+export function carrinhoItemToAppointmentDate(data: string, hora: string): Date {
+  return parseStudioDateTime(data, hora);
+}
 
 export type CarrinhoItemMeta = {
   data?: string;
@@ -103,7 +109,7 @@ export async function processCarrinhoPaymentEffects(params: {
     const duracaoMinutos = item.duracaoMinutos ?? 60;
     const tipoAgendamento = item.tipo || "sessao";
     const observacoes = item.observacoes || null;
-    const dataHoraISO = new Date(`${data}T${hora}:00`);
+    const dataHoraISO = carrinhoItemToAppointmentDate(String(data), String(hora));
 
     const ownReusable = await prisma.appointment.findFirst({
       where: {

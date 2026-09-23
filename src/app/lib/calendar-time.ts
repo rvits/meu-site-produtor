@@ -201,3 +201,28 @@ export function formatStudioTimePtBR(value: string | Date | null | undefined): s
     hour12: false,
   }).format(d);
 }
+
+/** Data + hora civis da agenda (não usa TZ do browser/servidor). */
+export function formatStudioDateTimePtBR(value: string | Date | null | undefined): string {
+  const date = formatStudioDatePtBR(value);
+  const time = formatStudioTimePtBR(value);
+  if (date === "—" || time === "—") return "—";
+  return `${date} ${time}`;
+}
+
+/** Mês curto (ex.: set.) no fuso do estúdio — badge de agenda. */
+export function formatStudioMonthShort(value: string | Date | null | undefined): string {
+  const iso = toIsoDateStudio(value ?? "");
+  if (!iso) return "—";
+  const d = new Date(`${iso}T12:00:00${PLATFORM_UTC_OFFSET}`);
+  return d.toLocaleDateString("pt-BR", {
+    timeZone: PLATFORM_TIMEZONE,
+    month: "short",
+  });
+}
+
+/** Dia do mês civil no fuso do estúdio. */
+export function formatStudioDayOfMonth(value: string | Date | null | undefined): string {
+  const p = parseIsoDateParts(toIsoDateStudio(value ?? ""));
+  return p ? String(p.day) : "—";
+}
