@@ -23,6 +23,8 @@ export const CPF_DUPLICATE_MESSAGE = "O CPF informado já está cadastrado.";
 
 export const CPF_IMMUTABLE_MESSAGE = "CPF não pode ser alterado após o cadastro.";
 
+export const CPF_CLEAR_MESSAGE = "CPF não pode ser apagado.";
+
 export const CPF_INVALID_MESSAGE = "Informe um CPF válido com 11 dígitos.";
 
 export type CpfUpdateDecision =
@@ -32,17 +34,20 @@ export type CpfUpdateDecision =
 
 /**
  * CPF ausente pode ser preenchido uma vez com 11 dígitos.
- * CPF já gravado — com pontuação, 11 dígitos ou texto legado — não é substituído nem apagado.
- * O mesmo CPF em outra formatação é no-op e não regrava a coluna.
- * Valor não vazio que não normaliza para 11 dígitos permanece bloqueado.
+ * CPF já gravado — com pontuação, 11 dígitos ou texto legado — não é substituído nem apagado,
+ * salvo quando `allowEstablishedChange` está ligado. Nesse caso um CPF novo de 11 dígitos
+ * pode substituir o atual. Vazio continua rejeitado. O mesmo CPF em outra formatação é no-op.
  */
 export function decideCpfUpdate(
   currentCpf: string | null | undefined,
-  incoming: string | null | undefined
+  incoming: string | null | undefined,
+  options?: { allowEstablishedChange?: boolean }
 ): CpfUpdateDecision {
   if (incoming === undefined) return { action: "omit" };
 
   const incomingDigits = normalizeCpfDigits(incoming);
+  const incomingTrim = incoming == null ? "" : String(incoming).trim();
+  const allowChange = options?.allowEstablishedChange === true;
 
   if (!isCpfEstablished(currentCpf)) {
     if (incomingDigits.length === 0) return { action: "omit" };
@@ -53,17 +58,30 @@ export function decideCpfUpdate(
   }
 
   const existingUsable = usableCpfDigits(currentCpf);
-  if (existingUsable) {
-    if (incomingDigits === existingUsable) return { action: "omit" };
+  if (existingUsable && incomingDigits === existingUsable) return { action: "omit" };
+
+  const currentTrim = String(currentCpf ?? "").trim();
+  if (!existingUsable && incomingTrim !== "" && incomingTrim === currentTrim) {
+    return { action: "omit" };
+  }
+
+  const existingDigits = normalizeCpfDigits(currentCpf);
+  if (!existingUsable && existingDigits.length > 0 && incomingDigits === existingDigits) {
+    return { action: "omit" };
+  }
+
+  if (!allowChange) {
     return { action: "reject", message: CPF_IMMUTABLE_MESSAGE };
   }
 
-  const currentTrim = String(currentCpf ?? "").trim();
-  const incomingTrim = incoming == null ? "" : String(incoming).trim();
-  if (incomingTrim !== "" && incomingTrim === currentTrim) return { action: "omit" };
+  if (incomingTrim === "") {
+    return { action: "reject", message: CPF_CLEAR_MESSAGE };
+  }
 
-  const existingDigits = normalizeCpfDigits(currentCpf);
-  if (existingDigits.length > 0 && incomingDigits === existingDigits) return { action: "omit" };
+  const nextDigits = usableCpfDigits(incoming);
+  if (!nextDigits) {
+    return { action: "reject", message: CPF_INVALID_MESSAGE };
+  }
 
-  return { action: "reject", message: CPF_IMMUTABLE_MESSAGE };
+  return { action: "set", cpf: nextDigits };
 }

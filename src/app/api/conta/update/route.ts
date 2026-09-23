@@ -4,12 +4,14 @@ import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { publicContaUpdateZodMessage, updateContaSchema } from "@/app/lib/validations";
 import {
+  CPF_CLEAR_MESSAGE,
   CPF_DUPLICATE_MESSAGE,
   CPF_IMMUTABLE_MESSAGE,
   decideCpfUpdate,
 } from "@/app/lib/cpf-validation";
 import {
   BIRTH_DATE_IMMUTABLE_MESSAGE,
+  civilDateToUtcDate,
   civilDateUtc,
   decideBirthDateUpdate,
 } from "@/app/lib/birth-date-validation";
@@ -38,6 +40,8 @@ export async function POST(req: Request) {
 
     delete body.genero;
     delete body.generoOutro;
+    delete body.cpfEditavelPeloUsuario;
+    delete body.dataNascimentoEditavelPeloUsuario;
 
     if (typeof body.dataNascimento === "string") {
       const existingCivil = civilDateUtc(userData.dataNascimento);
@@ -130,9 +134,14 @@ export async function POST(req: Request) {
     if (orientacaoSexual) {
       Object.assign(updateData, orientationWriteFields(orientacaoSexual, orientacaoSexualOutro));
     }
-    const cpfDecision = decideCpfUpdate(userData.cpf, cpf);
+    const cpfDecision = decideCpfUpdate(userData.cpf, cpf, {
+      allowEstablishedChange: userData.cpfEditavelPeloUsuario,
+    });
     if (cpfDecision.action === "reject") {
-      const status = cpfDecision.message === CPF_IMMUTABLE_MESSAGE ? 409 : 400;
+      const status =
+        cpfDecision.message === CPF_IMMUTABLE_MESSAGE || cpfDecision.message === CPF_CLEAR_MESSAGE
+          ? 409
+          : 400;
       return NextResponse.json({ error: cpfDecision.message }, { status });
     }
     if (cpfDecision.action === "set") {
@@ -153,12 +162,15 @@ export async function POST(req: Request) {
     if (estilosMusicais !== undefined) updateData.estilosMusicais = estilosMusicais || null;
     if (nacionalidade !== undefined) updateData.nacionalidade = nacionalidade || null;
     if (foto !== undefined) updateData.foto = foto && String(foto).trim() ? String(foto).trim() : null;
-    const birthDecision = decideBirthDateUpdate(userData.dataNascimento, dataNascimento);
+    const birthDecision = decideBirthDateUpdate(userData.dataNascimento, dataNascimento, {
+      allowChange: userData.dataNascimentoEditavelPeloUsuario,
+    });
     if (birthDecision.action === "reject") {
-      return NextResponse.json(
-        { error: BIRTH_DATE_IMMUTABLE_MESSAGE },
-        { status: 409 }
-      );
+      const status = birthDecision.message === BIRTH_DATE_IMMUTABLE_MESSAGE ? 409 : 400;
+      return NextResponse.json({ error: birthDecision.message }, { status });
+    }
+    if (birthDecision.action === "set") {
+      updateData.dataNascimento = civilDateToUtcDate(birthDecision.civil);
     }
     if (senha) {
       updateData.senha = await bcrypt.hash(senha, 10);

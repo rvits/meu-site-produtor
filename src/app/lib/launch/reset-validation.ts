@@ -36,6 +36,7 @@ const REMOVED_ON_RESET = [
   "UserQuestion",
   "AccountDeletionLog",
   "PasswordResetCode",
+  "AdminAuditLog",
   "Uploads tmp/homolog/deliveries",
   "Relatórios TE/SIM temporários",
 ] as const;

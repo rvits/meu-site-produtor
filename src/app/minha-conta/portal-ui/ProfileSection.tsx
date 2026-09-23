@@ -51,6 +51,8 @@ type ContaData = {
   foto: string | null;
   role: string;
   createdAt: string;
+  cpfEditavelPeloUsuario?: boolean;
+  dataNascimentoEditavelPeloUsuario?: boolean;
 };
 
 function formatCpf(cpf: string): string {
@@ -95,8 +97,8 @@ export function ProfileSection() {
       if (!data || !data.id) throw new Error("Dados da conta incompletos");
       setForm(data);
       setEmailOriginal(data.email);
-      setCpfTravado(isCpfEstablished(data.cpf));
-      setNascimentoTravado(Boolean(data.dataNascimento));
+      setCpfTravado(isCpfEstablished(data.cpf) && data.cpfEditavelPeloUsuario !== true);
+      setNascimentoTravado(Boolean(data.dataNascimento) && data.dataNascimentoEditavelPeloUsuario !== true);
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro ao carregar dados da conta");
     } finally {
@@ -155,6 +157,8 @@ export function ProfileSection() {
       const payload: Record<string, unknown> = { ...form };
       delete payload.genero;
       delete payload.generoOutro;
+      delete payload.cpfEditavelPeloUsuario;
+      delete payload.dataNascimentoEditavelPeloUsuario;
       if (!form.orientacaoSexual) {
         delete payload.orientacaoSexual;
         delete payload.orientacaoSexualOutro;
@@ -178,8 +182,8 @@ export function ProfileSection() {
       toast.success("Perfil atualizado", "Suas alterações foram salvas com sucesso.");
       setSenhaAtual("");
       setEmailOriginal(form.email);
-      if (isCpfEstablished(form.cpf)) setCpfTravado(true);
-      if (form.dataNascimento) setNascimentoTravado(true);
+      setCpfTravado(isCpfEstablished(form.cpf) && form.cpfEditavelPeloUsuario !== true);
+      setNascimentoTravado(Boolean(form.dataNascimento) && form.dataNascimentoEditavelPeloUsuario !== true);
     } finally {
       setSalvando(false);
     }
@@ -320,7 +324,13 @@ export function ProfileSection() {
             </Field>
             <Field
               label="CPF"
-              hint={cpfTravado ? "Não pode ser alterado após o cadastro." : undefined}
+              hint={
+                cpfTravado
+                  ? "Não pode ser alterado após o cadastro."
+                  : form.cpfEditavelPeloUsuario && isCpfEstablished(form.cpf)
+                    ? "Alteração temporariamente autorizada pelo administrador."
+                    : undefined
+              }
             >
               <Input
                 value={form.cpf ? formatCpf(form.cpf) : ""}
@@ -340,7 +350,11 @@ export function ProfileSection() {
             <Field
               label="Data de nascimento"
               hint={
-                nascimentoTravado ? "Não pode ser alterada após o cadastro." : undefined
+                nascimentoTravado
+                  ? "Não pode ser alterada após o cadastro."
+                  : form.dataNascimentoEditavelPeloUsuario && form.dataNascimento
+                    ? "Alteração temporariamente autorizada pelo administrador."
+                    : undefined
               }
             >
               <Input

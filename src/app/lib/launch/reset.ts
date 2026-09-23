@@ -102,6 +102,7 @@ async function countAll(prisma: PrismaClient) {
     userQuestions,
     accountDeletionLogs,
     passwordResetCodes,
+    adminAuditLogs,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.appointment.count(),
@@ -119,6 +120,7 @@ async function countAll(prisma: PrismaClient) {
     prisma.userQuestion.count(),
     prisma.accountDeletionLog.count(),
     prisma.passwordResetCode.count(),
+    prisma.adminAuditLog.count(),
   ]);
   return {
     users,
@@ -137,6 +139,7 @@ async function countAll(prisma: PrismaClient) {
     userQuestions,
     accountDeletionLogs,
     passwordResetCodes,
+    adminAuditLogs,
   };
 }
 
@@ -183,7 +186,7 @@ function cleanUploads(root: string, preserveAvatarUrl: string | null | undefined
  * Ordem de exclusão (respeita FKs Prisma):
  * Sync/History → Chat → Logs/Sessions → Coupons → Subscriptions →
  * Services → Appointments → UserPlans → Payments → PaymentMetadata →
- * AccountDeletion/PasswordReset → Users (não-ADMIN)
+ * AccountDeletion/PasswordReset/AdminAuditLog → Users (não-ADMIN)
  */
 async function executeAtomicCleanup(
   prisma: PrismaClient,
@@ -236,6 +239,7 @@ async function executeAtomicCleanup(
 
       deleted.accountDeletionLogs = (await tx.accountDeletionLog.deleteMany({})).count;
       deleted.passwordResetCodes = (await tx.passwordResetCode.deleteMany({})).count;
+      deleted.adminAuditLogs = (await tx.adminAuditLog.deleteMany({})).count;
 
       if (otherIds.length) {
         deleted.users = (
@@ -355,6 +359,7 @@ export async function runLaunchReset(
     deleted.paymentMetadata = before.paymentMetadata;
     deleted.accountDeletionLogs = before.accountDeletionLogs;
     deleted.passwordResetCodes = before.passwordResetCodes;
+    deleted.adminAuditLogs = before.adminAuditLogs;
     deleted.users = otherUsers.length;
   }
 

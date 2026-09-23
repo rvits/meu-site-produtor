@@ -63,6 +63,8 @@ export default function CarrinhoPage() {
   const [erros, setErros] = useState<Record<string, string>>({});
   const [cpfSomenteLeitura, setCpfSomenteLeitura] = useState(false);
   const [nascimentoSomenteLeitura, setNascimentoSomenteLeitura] = useState(false);
+  const [cpfCorrecaoAutorizada, setCpfCorrecaoAutorizada] = useState(false);
+  const [nascimentoCorrecaoAutorizada, setNascimentoCorrecaoAutorizada] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -102,6 +104,10 @@ export default function CarrinhoPage() {
             const cpfEstabelecido = isCpfEstablished(data.cpf);
             setCpfSomenteLeitura(cpfEstabelecido);
             setNascimentoSomenteLeitura(Boolean(dataNascStr));
+            setCpfCorrecaoAutorizada(cpfEstabelecido && data.cpfEditavelPeloUsuario === true);
+            setNascimentoCorrecaoAutorizada(
+              Boolean(dataNascStr) && data.dataNascimentoEditavelPeloUsuario === true
+            );
             setFormData((prev) => ({
               ...prev,
               nome: data.nomeCompleto || data.nomeArtistico || user.nomeArtistico || prev.nome || "",
@@ -416,9 +422,20 @@ export default function CarrinhoPage() {
                 <Field
                   label="Data de nascimento *"
                   hint={
-                    nascimentoSomenteLeitura
-                      ? "Não pode ser alterada após o cadastro."
-                      : erros.dataNascimento
+                    nascimentoSomenteLeitura ? (
+                      nascimentoCorrecaoAutorizada ? (
+                        <>
+                          Correção autorizada pelo administrador.{" "}
+                          <Link href="/minha-conta?tab=perfil" className="underline text-zinc-300">
+                            Altere este dado em Minha Conta.
+                          </Link>
+                        </>
+                      ) : (
+                        "Não pode ser alterada após o cadastro."
+                      )
+                    ) : (
+                      erros.dataNascimento
+                    )
                   }
                 >
                   <Input
@@ -444,9 +461,20 @@ export default function CarrinhoPage() {
                 <Field
                   label="CPF *"
                   hint={
-                    cpfSomenteLeitura
-                      ? "Não pode ser alterado após o cadastro."
-                      : erros.cpf
+                    cpfSomenteLeitura ? (
+                      cpfCorrecaoAutorizada ? (
+                        <>
+                          Correção autorizada pelo administrador.{" "}
+                          <Link href="/minha-conta?tab=perfil" className="underline text-zinc-300">
+                            Altere este dado em Minha Conta.
+                          </Link>
+                        </>
+                      ) : (
+                        "Não pode ser alterado após o cadastro."
+                      )
+                    ) : (
+                      erros.cpf
+                    )
                   }
                 >
                   <Input

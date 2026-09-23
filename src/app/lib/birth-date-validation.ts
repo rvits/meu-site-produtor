@@ -41,22 +41,50 @@ export function civilDateUtc(value: Date | string | null | undefined): string | 
 
 export type BirthDateUpdateDecision =
   | { action: "omit" }
+  | { action: "set"; civil: string }
   | { action: "reject"; message: string };
 
 /**
- * Data já gravada não é substituída.
+ * Data já gravada não é substituída, salvo quando `allowChange` está ligado.
  * O mesmo dia civil é no-op. null/undefined significam campo omitido.
  */
 export function decideBirthDateUpdate(
   current: Date | string | null | undefined,
-  incoming: string | null | undefined
+  incoming: string | null | undefined,
+  options?: { allowChange?: boolean }
 ): BirthDateUpdateDecision {
   if (incoming === undefined || incoming === null) return { action: "omit" };
 
   const existingCivil = civilDateUtc(current);
   const incomingCivil = civilDateUtc(incoming);
   if (existingCivil && incomingCivil === existingCivil) return { action: "omit" };
-  return { action: "reject", message: BIRTH_DATE_IMMUTABLE_MESSAGE };
+
+  if (!options?.allowChange) {
+    return { action: "reject", message: BIRTH_DATE_IMMUTABLE_MESSAGE };
+  }
+
+  if (!incomingCivil) {
+    return { action: "reject", message: "Data de nascimento inválida." };
+  }
+
+  const checked = validateBirthDateString(incomingCivil);
+  if (!checked.valid) {
+    return { action: "reject", message: checked.error };
+  }
+
+  return { action: "set", civil: incomingCivil };
+}
+
+export function civilDateToUtcDate(civil: string): Date {
+  return new Date(`${civil}T00:00:00.000Z`);
+}
+
+/** DD/MM/YYYY a partir do dia civil. Não usa o fuso do navegador. */
+export function formatCivilDateBr(value: Date | string | null | undefined): string {
+  const civil = civilDateUtc(value);
+  if (!civil) return "";
+  const [year, month, day] = civil.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 export function validateBirthDateString(

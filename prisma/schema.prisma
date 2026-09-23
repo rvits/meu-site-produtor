@@ -27,6 +27,8 @@ model User {
   generoOutro           String?
   orientacaoSexual      String?
   orientacaoSexualOutro String?
+  cpfEditavelPeloUsuario            Boolean @default(false)
+  dataNascimentoEditavelPeloUsuario Boolean @default(false)
   estilosMusicais String?
   nacionalidade   String?
   foto            String?
@@ -51,12 +53,31 @@ model User {
   assignedCoupons Coupon[]       @relation("AssignedCoupons") // Cupons associados manualmente pelo admin à Minha Conta
   notifications   UserNotification[]
   createdPartnershipCoupons Coupon[] @relation("PartnershipCouponCreator")
+  auditLogsAsAdmin  AdminAuditLog[] @relation("AdminAuditActor")
+  auditLogsAsTarget AdminAuditLog[] @relation("AdminAuditTarget")
 
   createdAt DateTime @default(now())
 
   @@index([email])
   @@index([role])
   @@index([blocked])
+}
+
+/// Ações administrativas sobre cadastro. Não guarda CPF, nascimento nem senha.
+/// Excluir o admin ou o usuário alvo zera a FK e preserva action, field e createdAt.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  adminId      String?
+  admin        User?    @relation("AdminAuditActor", fields: [adminId], references: [id], onDelete: SetNull)
+  targetUserId String?
+  targetUser   User?    @relation("AdminAuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  action       String
+  field        String?
+  createdAt    DateTime @default(now())
+
+  @@index([adminId])
+  @@index([targetUserId])
+  @@index([createdAt])
 }
 
 /// GO-H12 — Central de notificações da conta (persistente, lida/não lida).
