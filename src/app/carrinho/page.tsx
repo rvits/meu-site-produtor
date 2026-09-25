@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import { sanitizeCartItemsForCheckoutApi } from "@/app/lib/cart-checkout-item";
+import { formatCartScheduleHeading } from "@/app/lib/appointment-confirmation";
 import { isCpfEstablished } from "@/app/lib/cpf-validation";
 import {
   Button,
@@ -334,7 +335,7 @@ export default function CarrinhoPage() {
 
                   <ul className="space-y-4">
                     {cart.map((item, idx) => {
-                      const dataStr = item.data ? new Date(item.data + "T12:00:00").toLocaleDateString("pt-BR") : "—";
+                      const scheduleHeading = formatCartScheduleHeading(item);
                       const itens = [...(item.servicos || []), ...(item.beats || [])];
                       return (
                         <li
@@ -343,7 +344,7 @@ export default function CarrinhoPage() {
                         >
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-zinc-200">
-                              {dataStr} às {item.hora || "—"}
+                              {scheduleHeading}
                             </p>
                             <ul className="text-sm text-zinc-400 mt-1">
                               {itens.map((s, i) => (

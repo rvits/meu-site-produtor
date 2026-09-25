@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { CouponScheduleFields } from "@/app/agendamento/components/CouponScheduleFields";
 import { PRODUCTION_SCHEDULE_DEFAULT_HOUR } from "@/app/lib/agendamento-payment-rules";
+import {
+  buildCouponRedemptionConfirmation,
+  claimSingleConfirmation,
+  confirmChoiceExecutesContinuation,
+} from "@/app/lib/appointment-confirmation";
+import { AppointmentConfirmModal } from "@/app/agendamento/components/AppointmentConfirmModal";
 import { serviceNeedsStudioHours } from "@/app/agendamento/scheduling-shared";
 import {
   Button,
@@ -43,6 +49,8 @@ export default function AgendamentoCupomPage() {
   const [horaSelecionada, setHoraSelecionada] = useState<string>("");
   const [observacoes, setObservacoes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmOnce = useRef(false);
 
   const load = useCallback(async () => {
     if (!codigo) return;
@@ -92,6 +100,33 @@ export default function AgendamentoCupomPage() {
     () => serviceNeedsStudioHours(coupon?.serviceType),
     [coupon]
   );
+
+  function pedirConfirmacao() {
+    if (!coupon?.catalogItem || !coupon.serviceType) {
+      notifyError("Cupom sem serviço vinculado.");
+      return;
+    }
+    if (!dataSelecionada) {
+      notify(precisaHora ? "Selecione data e horário." : "Selecione a data de entrega desejada.");
+      return;
+    }
+    if (precisaHora && !horaSelecionada) {
+      notify("Selecione o horário.");
+      return;
+    }
+    confirmOnce.current = false;
+    setConfirmOpen(true);
+  }
+
+  const couponDraft = useMemo(() => {
+    if (!coupon?.catalogItem) return null;
+    return buildCouponRedemptionConfirmation({
+      serviceType: coupon.serviceType,
+      serviceName: coupon.catalogItem.nome,
+      dateIso: dataSelecionada,
+      civilHour: precisaHora ? horaSelecionada : null,
+    });
+  }, [coupon, dataSelecionada, horaSelecionada, precisaHora]);
 
   async function confirmar() {
     if (!coupon?.catalogItem || !coupon.serviceType) {
@@ -218,10 +253,27 @@ export default function AgendamentoCupomPage() {
               placeholder="Detalhes do projeto…"
             />
           </Field>
+          <AppointmentConfirmModal
+            open={confirmOpen}
+            draft={couponDraft}
+            confirming={submitting}
+            onBack={() => {
+              if (!confirmChoiceExecutesContinuation("voltar")) {
+                confirmOnce.current = false;
+                setConfirmOpen(false);
+              }
+            }}
+            onConfirm={() => {
+              if (!confirmChoiceExecutesContinuation("confirmar") || submitting) return;
+              if (!claimSingleConfirmation(confirmOnce)) return;
+              setConfirmOpen(false);
+              void confirmar();
+            }}
+          />
           <Button
             type="button"
             disabled={submitting || coupon.used}
-            onClick={() => void confirmar()}
+            onClick={pedirConfirmacao}
             variant="primary"
             fullWidth
             loading={submitting}

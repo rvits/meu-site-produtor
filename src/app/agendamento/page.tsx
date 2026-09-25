@@ -23,6 +23,13 @@ import {
   CHECKOUT_CATALOG,
 } from "@/app/lib/service-catalog";
 import { toPersistedCartItem } from "@/app/lib/cart-checkout-item";
+import {
+  buildPurchaseConfirmation,
+  buildScheduleSummaryLines,
+  claimSingleConfirmation,
+  purchaseNeedsAppointmentConfirmation,
+} from "@/app/lib/appointment-confirmation";
+import { AppointmentConfirmModal } from "./components/AppointmentConfirmModal";
 import { PLAN_DEFINITIONS, type PlanTierId } from "@/app/lib/plan-definitions";
 import { PLAN_CARD_DESCRIPTION_CLASS } from "@/app/lib/plan-card-layout";
 import {
@@ -473,6 +480,22 @@ function AgendamentoContent() {
     }
   }, [totalGeral, cupomAplicado]);
 
+  const confirmBypass = useRef(false);
+  const confirmOnce = useRef(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingContinue, setPendingContinue] = useState<"add" | "go" | null>(null);
+  const confirmationDraft = useMemo(
+    () =>
+      buildPurchaseConfirmation({
+        services: linhasCheckout.servicos,
+        beats: linhasCheckout.beats,
+        dateIso: dataSelecionada,
+        civilHour: precisaHora ? horaSelecionada : null,
+        value: totalComDesconto,
+      }),
+    [linhasCheckout, dataSelecionada, precisaHora, horaSelecionada, totalComDesconto]
+  );
+
   const dataFormatada = useMemo(() => {
     if (!dataSelecionada) return null;
     const [ano, mes, dia] = dataSelecionada.split("-");
@@ -507,6 +530,18 @@ function AgendamentoContent() {
     // Verificar se os termos foram aceitos
     if (!aceiteTermos) {
       notify("É preciso marcar a declaração dos Termos de Contrato antes de confirmar o pagamento.");
+      return;
+    }
+
+    const armed = confirmBypass.current;
+    if (armed) confirmBypass.current = false;
+    if (
+      !armed &&
+      purchaseNeedsAppointmentConfirmation(linhasCheckout.servicos, linhasCheckout.beats)
+    ) {
+      confirmOnce.current = false;
+      setPendingContinue("go");
+      setConfirmOpen(true);
       return;
     }
     
@@ -666,6 +701,17 @@ function AgendamentoContent() {
     }
     if (!aceiteTermos) {
       notify("É preciso marcar a declaração dos Termos de Contrato antes de adicionar ao carrinho.");
+      return;
+    }
+    const armed = confirmBypass.current;
+    if (armed) confirmBypass.current = false;
+    if (
+      !armed &&
+      purchaseNeedsAppointmentConfirmation(linhasCheckout.servicos, linhasCheckout.beats)
+    ) {
+      confirmOnce.current = false;
+      setPendingContinue("add");
+      setConfirmOpen(true);
       return;
     }
     const servicos = SERVICOS_ESTUDIO
@@ -1244,23 +1290,16 @@ function AgendamentoContent() {
 
           {/* COLUNA DIREITA – DATA / HORA / TOTAL */}
           <div className="flex flex-col items-end gap-2 text-right">
-            <p className="text-base md:text-xl font-extrabold text-zinc-300 whitespace-nowrap">
-              Horário:{" "}
-              <span className="font-extrabold">
-                {horaSelecionada || "—"}
-              </span>
-            </p>
-
-            <p className="text-base md:text-xl font-extrabold text-zinc-300 whitespace-nowrap">
-              Data:{" "}
-              <span className="font-extrabold">
-                {dataSelecionada
-                  ? new Date(`${dataSelecionada}T12:00:00`).toLocaleDateString(
-                      "pt-BR"
-                    )
-                  : "—"}
-              </span>
-            </p>
+            {buildScheduleSummaryLines({
+              services: linhasCheckout.servicos,
+              beats: linhasCheckout.beats,
+              dateLabel: dataFormatada,
+              hourLabel: horaSelecionada,
+            }).map((line) => (
+              <p key={line} className="text-base md:text-xl font-extrabold text-zinc-300 whitespace-nowrap">
+                {line}
+              </p>
+            ))}
 
             <div className="mt-2 space-y-1">
               <p className="text-base md:text-xl font-extrabold text-zinc-200 whitespace-nowrap">
@@ -1353,6 +1392,24 @@ function AgendamentoContent() {
               </div>
             ) : (
               <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <AppointmentConfirmModal
+                  open={confirmOpen}
+                  draft={confirmationDraft}
+                  onBack={() => {
+                    confirmOnce.current = false;
+                    setConfirmOpen(false);
+                    setPendingContinue(null);
+                  }}
+                  onConfirm={() => {
+                    if (!claimSingleConfirmation(confirmOnce)) return;
+                    const kind = pendingContinue;
+                    setConfirmOpen(false);
+                    setPendingContinue(null);
+                    confirmBypass.current = true;
+                    if (kind === "add") handleAdicionarAoCarrinho();
+                    else void handleConfirmar();
+                  }}
+                />
                 <Button
                   type="button"
                   onClick={handleAdicionarAoCarrinho}
