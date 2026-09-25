@@ -34,8 +34,6 @@ export async function GET() {
             sexo: true,
             orientacaoSexual: true,
             orientacaoSexualOutro: true,
-            genero: true,
-            generoOutro: true,
             nacionalidade: true,
             createdAt: true,
           },

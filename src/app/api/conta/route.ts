@@ -19,7 +19,10 @@ export async function GET() {
     }
 
     // Selecionar apenas os campos necessários (evita enviar senha)
-    const { senha, ...safeUserData } = userData;
+    const { senha, genero, generoOutro, ...safeUserData } = userData;
+    void senha;
+    void genero;
+    void generoOutro;
 
     // Serializar datas para strings ISO
     const serializedData = {

@@ -11,10 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isCpfEstablished, normalizeCpfDigits } from "@/app/lib/cpf-validation";
-import {
-  legacyOrientationPresentation,
-  SEXUAL_ORIENTATION_OPTIONS,
-} from "@/app/lib/sexual-orientation";
+import { SEXUAL_ORIENTATION_OPTIONS } from "@/app/lib/sexual-orientation";
 import {
   Avatar,
   Button,
@@ -44,8 +41,6 @@ type ContaData = {
   sexo: string | null;
   orientacaoSexual: string | null;
   orientacaoSexualOutro: string | null;
-  genero: string | null;
-  generoOutro: string | null;
   estilosMusicais: string | null;
   nacionalidade: string | null;
   foto: string | null;
@@ -226,9 +221,6 @@ export function ProfileSection() {
   }
 
   const precisaSenhaAtual = form.email !== emailOriginal;
-  const legado = !form.orientacaoSexual
-    ? legacyOrientationPresentation(form.genero)
-    : { kind: "none" as const };
 
   return (
     <Section title="Perfil" icon="user">
@@ -396,14 +388,6 @@ export function ProfileSection() {
                   ...SEXUAL_ORIENTATION_OPTIONS,
                 ]}
               />
-              {legado.kind === "unambiguous" && (
-                <p className="mt-1 text-[11px] text-zinc-500">Registro anterior: {legado.label}</p>
-              )}
-              {legado.kind === "unconverted" && (
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Há um dado de cadastro anterior que não foi convertido para orientação sexual.
-                </p>
-              )}
             </Field>
             {form.orientacaoSexual === "outro" && (
               <Field label="Especifique sua orientação sexual">

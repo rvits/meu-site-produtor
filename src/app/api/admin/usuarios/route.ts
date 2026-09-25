@@ -26,8 +26,6 @@ export async function GET() {
         sexo: true,
         orientacaoSexual: true,
         orientacaoSexualOutro: true,
-        genero: true,
-        generoOutro: true,
         cpfEditavelPeloUsuario: true,
         dataNascimentoEditavelPeloUsuario: true,
         estilosMusicais: true,

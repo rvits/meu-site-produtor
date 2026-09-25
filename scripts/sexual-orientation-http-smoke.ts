@@ -75,20 +75,27 @@ function assertAdminIsReadOnlyStructure() {
     path.join(process.cwd(), "src/app/admin/pagamentos/page.tsx"),
     "utf8"
   );
-  for (const field of [
-    "sexo: true",
-    "orientacaoSexual: true",
-    "orientacaoSexualOutro: true",
-    "genero: true",
-    "generoOutro: true",
-  ]) {
+  for (const field of ["sexo: true", "orientacaoSexual: true", "orientacaoSexualOutro: true"]) {
     assert.equal(route.includes(field), true, `admin select sem ${field}`);
   }
+  assert.equal(route.includes("genero: true"), false);
+  assert.equal(route.includes("generoOutro: true"), false);
   assert.equal(route.includes("payment.create"), false);
   assert.equal(route.includes("payment.update"), false);
   assert.match(page, /Orientação sexual:/);
-  assert.match(page, /Gênero \(cadastro anterior\):/);
+  assert.doesNotMatch(page, /Gênero \(cadastro anterior\)/);
   assert.match(page, /sexualOrientationLabel/);
+  const usuariosPage = fs.readFileSync(
+    path.join(process.cwd(), "src/app/admin/usuarios/page.tsx"),
+    "utf8"
+  );
+  const perfil = fs.readFileSync(
+    path.join(process.cwd(), "src/app/minha-conta/portal-ui/ProfileSection.tsx"),
+    "utf8"
+  );
+  assert.doesNotMatch(usuariosPage, /Gênero \(cadastro anterior\)/);
+  assert.doesNotMatch(perfil, /Registro anterior/);
+  assert.doesNotMatch(perfil, /cadastro anterior/);
 }
 
 type Result = { id: string; ok: boolean; detail: string };
@@ -394,8 +401,10 @@ async function main() {
         `LEGACY ${item.key}`,
         logged.status === 200 &&
           conta.status === 200 &&
-          contaJson?.genero === item.genero &&
-          contaJson?.orientacaoSexual == null &&
+          contaJson != null &&
+          !("genero" in contaJson) &&
+          !("generoOutro" in contaJson) &&
+          contaJson.orientacaoSexual == null &&
           updated.status === 200 &&
           after.genero === item.genero &&
           after.generoOutro === item.generoOutro &&

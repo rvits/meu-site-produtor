@@ -70,8 +70,6 @@ interface Usuario {
   sexo?: string | null;
   orientacaoSexual?: string | null;
   orientacaoSexualOutro?: string | null;
-  genero?: string | null;
-  generoOutro?: string | null;
   cpfEditavelPeloUsuario?: boolean;
   dataNascimentoEditavelPeloUsuario?: boolean;
   estilosMusicais?: string | null;
@@ -102,22 +100,6 @@ interface Usuario {
 
 function dataCivil(value: string): string {
   return civilDateUtc(value) ?? "";
-}
-
-const GENERO_LEGADO: Record<string, string> = {
-  heterossexual: "Heterossexual",
-  homossexual: "Homossexual",
-  bissexual: "Bissexual",
-  transsexual: "Transsexual",
-  nao_binario: "Não binário",
-  outro: "Outro",
-  prefiro_nao_informar: "Prefiro não informar",
-};
-
-function generoLegadoTexto(genero: string | null | undefined, generoOutro: string | null | undefined) {
-  if (!genero) return "";
-  if (genero === "outro" && generoOutro) return generoOutro;
-  return GENERO_LEGADO[genero] || genero;
 }
 
 type CadastroForm = {
@@ -695,11 +677,6 @@ export default function AdminUsuariosPage() {
                   value={formCadastro.orientacaoSexualOutro}
                   onChange={(e) => setCadastro("orientacaoSexualOutro", e.target.value)}
                 />
-              </Field>
-            )}
-            {editando.genero && (
-              <Field label="Gênero (cadastro anterior)">
-                <Input value={generoLegadoTexto(editando.genero, editando.generoOutro)} readOnly disabled />
               </Field>
             )}
           </div>

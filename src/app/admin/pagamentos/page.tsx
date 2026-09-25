@@ -33,8 +33,6 @@ interface UserInfo {
   sexo?: string | null;
   orientacaoSexual?: string | null;
   orientacaoSexualOutro?: string | null;
-  genero?: string | null;
-  generoOutro?: string | null;
   nacionalidade?: string | null;
   createdAt?: string | Date;
 }
@@ -491,16 +489,6 @@ export default function AdminPagamentosPage() {
                                 ? p.user.orientacaoSexualOutro
                                 : sexualOrientationLabel(p.user.orientacaoSexual) ||
                                   p.user.orientacaoSexual.replace(/_/g, " ")}
-                            </p>
-                          </div>
-                        )}
-                        {p.user.genero && (
-                          <div>
-                            <span className="text-zinc-400">Gênero (cadastro anterior):</span>
-                            <p className="text-zinc-200 capitalize">
-                              {p.user.genero === "outro" && p.user.generoOutro
-                                ? p.user.generoOutro
-                                : p.user.genero.replace("_", " ")}
                             </p>
                           </div>
                         )}
