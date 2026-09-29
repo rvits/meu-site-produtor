@@ -20,6 +20,7 @@ import {
   PRODUCTION_SCHEDULE_DEFAULT_HOUR,
 } from "@/app/lib/agendamento-payment-rules";
 import { SYMBOLIC_AGENDAMENTO_BRL, canUseSymbolicSimulation } from "@/app/lib/symbolic-payment";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
 import {
   findFirstSymbolicAgendamentoPayment,
   resolvePaymentMetadata,
@@ -86,6 +87,11 @@ function buildMetadataFromSimulacao(
     (needsCheckout && simulacao.data?.trim() && !needsHour
       ? PRODUCTION_SCHEDULE_DEFAULT_HOUR
       : undefined);
+  const tipoAgendamento = optionalSingleAppointmentTipoForMetadata({
+    services: simulacao.servicos,
+    beats: simulacao.beats,
+    clientTipo: simulacao.tipo,
+  });
   return {
     tipo: "agendamento",
     userId,
@@ -93,7 +99,7 @@ function buildMetadataFromSimulacao(
       ? { data: simulacao.data, hora }
       : {}),
     duracaoMinutos: simulacao.duracaoMinutos ?? 60,
-    tipoAgendamento: simulacao.tipo ?? "sessao",
+    ...(tipoAgendamento ? { tipoAgendamento } : {}),
     observacoes: simulacao.observacoes ?? "",
     servicos: simulacao.servicos ?? [],
     beats: simulacao.beats ?? [],

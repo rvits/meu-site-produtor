@@ -3,8 +3,9 @@
  * Única implementação usada pelo webhook Asaas e por rotas admin (ex.: simular / reprocessar).
  */
 import { prisma } from "@/app/lib/prisma";
-import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { normalizeServiceTypeId, requireAtomicServiceTypeId } from "@/app/lib/service-catalog";
 import { resolveServiceExecutionMaterialization } from "@/app/lib/service-orders";
+import { deriveAppointmentTipoFromPurchase } from "@/app/lib/appointment-service-type";
 import {
   createCouponsForAgendamentoItems,
   isSymbolicAgendamentoCouponStyle,
@@ -113,10 +114,19 @@ export async function createServicesForAppointmentIfMissing(params: {
   const byTipo = svcCount > 0 ? await countServicesByTipo(appointmentId) : new Map<string, number>();
   const servicesToCreate = materialization.services;
   const beatsToCreate = materialization.beats;
+  const lineTipo = (line: ItemLine) => {
+    const raw = String(line.id || line.nome || "");
+    if (materialization.mode === "legacy-composite") {
+      const normalized = normalizeServiceTypeId(raw);
+      if (!normalized) throw new Error("TIPO_SERVICO_INVALIDO:");
+      return normalized;
+    }
+    return requireAtomicServiceTypeId(raw);
+  };
 
   if (Array.isArray(servicesToCreate) && servicesToCreate.length > 0) {
     for (const svc of servicesToCreate) {
-      const tipoSvc = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
+      const tipoSvc = lineTipo(svc);
       const desc =
         [svc.nome, svc.quantidade && svc.quantidade > 1 ? `Qtd: ${svc.quantidade}` : null]
           .filter(Boolean)
@@ -145,7 +155,7 @@ export async function createServicesForAppointmentIfMissing(params: {
   }
   if (Array.isArray(beatsToCreate) && beatsToCreate.length > 0) {
     for (const b of beatsToCreate) {
-      const tipoBeat = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
+      const tipoBeat = lineTipo(b);
       const descBeat =
         [b.nome, b.quantidade && b.quantidade > 1 ? `Qtd: ${b.quantidade}` : null]
           .filter(Boolean)
@@ -218,7 +228,6 @@ export async function processAgendamentoPaymentEffects(params: {
 
   const userId = pay.userId;
   const { services, beats } = parseAgendamentoMetadataItems(metadata);
-  const tipoAgendamento = (metadata.tipoAgendamento || metadata.tipo || "sessao") as string;
   const observacoes = (metadata.observacoes as string | null) || null;
   const duracaoMinutos = parseInt(String(metadata.duracaoMinutos || "60"), 10);
   const couponsOnly = isCouponsOnlyAgendamentoPayment(metadata, services, beats);
@@ -282,7 +291,7 @@ export async function processAgendamentoPaymentEffects(params: {
             user.nomeArtistico,
             user.telefone,
             new Date(),
-            tipoAgendamento,
+            String(metadata.tipoAgendamento || "agendamento"),
             duracaoMinutos,
             observacoes,
             value,
@@ -307,6 +316,23 @@ export async function processAgendamentoPaymentEffects(params: {
   }
 
   let agendamentoFinalId: number | null = null;
+  let tipoAgendamento: string;
+  try {
+    tipoAgendamento = deriveAppointmentTipoFromPurchase({
+      services,
+      beats,
+      clientTipo: metadata.tipoAgendamento != null ? String(metadata.tipoAgendamento) : undefined,
+    });
+  } catch {
+    return {
+      agendamentoFinalId: null,
+      paymentLinked: false,
+      couponsCount: 0,
+      servicesCreatedThisRun: 0,
+      emailsSent: false,
+      skippedReason: "Tipo de serviço inválido no metadata do pagamento",
+    };
+  }
 
   if (pay.appointmentId) {
     const linked = await prisma.appointment.findFirst({

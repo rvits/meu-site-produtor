@@ -15,10 +15,15 @@ import {
   recordApprovedPaymentCouponUse,
 } from "@/app/lib/promotional-coupon";
 import {
-  normalizeServiceTypeId,
+  requireAtomicServiceTypeId,
   type PricedCheckoutItem,
 } from "@/app/lib/service-catalog";
 import { resolveServiceExecutionMaterialization } from "@/app/lib/service-orders";
+import {
+  deriveAppointmentTipoFromPurchase,
+  InvalidAtomicServiceTypeError,
+  MultipleAtomicOrdersError,
+} from "@/app/lib/appointment-service-type";
 
 export type ZeroCheckoutUser = {
   id: string;
@@ -81,6 +86,30 @@ export async function fulfillZeroTotalCouponAppointment(params: {
     }
   }
 
+  let tipoNorm;
+  try {
+    tipoNorm = deriveAppointmentTipoFromPurchase({
+      services: params.services,
+      beats: params.beats,
+      couponServiceType: coupon.serviceType,
+      clientTipo: params.tipo,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (e instanceof MultipleAtomicOrdersError || msg === "TIPO_SERVICO_MULTIPLO") {
+      return {
+        ok: false,
+        status: 400,
+        error:
+          "Este pacote gera vários direitos. Conclua pelo checkout; não é possível criar um único agendamento.",
+      };
+    }
+    if (e instanceof InvalidAtomicServiceTypeError || msg.startsWith("TIPO_SERVICO_INVALIDO:")) {
+      return { ok: false, status: 400, error: "Tipo de serviço inválido." };
+    }
+    throw e;
+  }
+
   const dataHoraISO = parseStudioDateTime(params.data, params.hora);
   const duracao = params.duracaoMinutos || 60;
   const materialization = resolveServiceExecutionMaterialization({
@@ -114,9 +143,6 @@ export async function fulfillZeroTotalCouponAppointment(params: {
           },
           select: { id: true },
         });
-        const tipoNorm = normalizeServiceTypeId(
-          String(params.tipo || coupon.serviceType || "sessao")
-        );
         const isPresencial = tipoNorm === "sessao" || tipoNorm === "captacao";
         if (isPresencial && conflito) {
           const err = new Error("SLOT_CONFLICT");
@@ -129,7 +155,7 @@ export async function fulfillZeroTotalCouponAppointment(params: {
             userId: user.id,
             data: dataHoraISO,
             duracaoMinutos: duracao,
-            tipo: params.tipo || "sessao",
+            tipo: tipoNorm,
             observacoes: params.observacoes || null,
             status: "pendente",
           },
@@ -178,7 +204,7 @@ export async function fulfillZeroTotalCouponAppointment(params: {
         };
 
         for (const svc of servicos) {
-          const tipoSvc = normalizeServiceTypeId(String(svc.id || svc.nome || "sessao"));
+          const tipoSvc = requireAtomicServiceTypeId(String(svc.id || svc.nome || ""));
           const qty = Math.max(1, Number(svc.quantidade) || 1);
           const desc =
             [svc.nome, qty > 1 ? `Qtd: ${qty}` : null].filter(Boolean).join(" — ") ||
@@ -198,7 +224,7 @@ export async function fulfillZeroTotalCouponAppointment(params: {
         }
 
         for (const b of beats) {
-          const tipoB = normalizeServiceTypeId(String(b.id || b.nome || "beat1"));
+          const tipoB = requireAtomicServiceTypeId(String(b.id || b.nome || ""));
           const qtyB = Math.max(1, Number(b.quantidade) || 1);
           const descB =
             [b.nome, qtyB > 1 ? `Qtd: ${qtyB}` : null].filter(Boolean).join(" — ") || tipoB;
@@ -246,6 +272,23 @@ export async function fulfillZeroTotalCouponAppointment(params: {
     const msg = (e as Error)?.message;
     if (code === "SLOT_CONFLICT" || msg === "SLOT_CONFLICT") {
       return { ok: false, status: 409, error: "Já existe um agendamento neste horário." };
+    }
+    if (
+      e instanceof MultipleAtomicOrdersError ||
+      msg === "TIPO_SERVICO_MULTIPLO"
+    ) {
+      return {
+        ok: false,
+        status: 400,
+        error:
+          "Este pacote gera vários direitos. Conclua pelo checkout; não é possível criar um único agendamento.",
+      };
+    }
+    if (
+      e instanceof InvalidAtomicServiceTypeError ||
+      (typeof msg === "string" && msg.startsWith("TIPO_SERVICO_INVALIDO:"))
+    ) {
+      return { ok: false, status: 400, error: "Tipo de serviço inválido." };
     }
     if (code === "COUPON_CLAIM_CONFLICT" || msg === "COUPON_CLAIM_CONFLICT") {
       return {

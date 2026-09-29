@@ -9,6 +9,8 @@ import { calculateServerCheckout } from "@/app/lib/checkout-calculation";
 import { goLiveBlockIfNeeded } from "@/app/lib/go-live-maintenance";
 import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
 import type { PricedCheckoutItem } from "@/app/lib/service-catalog";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
+import { exigeAgendamentoNoCheckout } from "@/app/lib/agendamento-payment-rules";
 import {
   carrinhoCheckoutSchema,
   checkoutZodIssueSummaries,
@@ -79,12 +81,31 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: safeError }, { status: 400 });
       }
       total = Math.round((total + calculation.total) * 100) / 100;
+      const multiRight = !exigeAgendamentoNoCheckout(
+        calculation.services,
+        calculation.beats
+      );
+      let tipoItem: string | undefined;
+      if (!multiRight) {
+        try {
+          tipoItem = optionalSingleAppointmentTipoForMetadata({
+            services: calculation.services,
+            beats: calculation.beats,
+            clientTipo: item.tipo,
+          });
+        } catch {
+          return NextResponse.json(
+            { error: "Tipo de serviço inválido no carrinho." },
+            { status: 400 }
+          );
+        }
+      }
       safeItems.push({
         data: item.data,
         hora: item.hora,
-        somenteCupons: item.somenteCupons,
+        somenteCupons: item.somenteCupons === true || multiRight,
         duracaoMinutos: item.duracaoMinutos ?? 60,
-        tipo: item.tipo,
+        ...(tipoItem ? { tipo: tipoItem } : {}),
         servicos: calculation.services,
         beats: calculation.beats,
         subtotal: calculation.subtotal,

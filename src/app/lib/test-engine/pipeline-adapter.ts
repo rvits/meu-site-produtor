@@ -7,6 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 import { processPaymentWebhook } from "@/app/lib/process-payment-webhook";
 import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-services";
 import { SYMBOLIC_AGENDAMENTO_BRL } from "@/app/lib/symbolic-payment";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
 
 export type SeedUserInput = {
   email: string;
@@ -75,16 +76,24 @@ export async function writeAgendamentoPaymentMetadata(
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
+  const servicosMeta = input.servicos || [{ id: "sessao", nome: "Sessão", quantidade: 1 }];
+  const beatsMeta = input.beats || [];
+  const tipoAgendamento = optionalSingleAppointmentTipoForMetadata({
+    services: servicosMeta,
+    beats: beatsMeta,
+    clientTipo: input.tipoAgendamento,
+  });
+
   const metadataCompleto: Record<string, unknown> = {
     tipo: "agendamento",
     userId: input.userId,
     data: input.data,
     hora: input.hora,
     duracaoMinutos: input.duracaoMinutos ?? 60,
-    tipoAgendamento: input.tipoAgendamento || "sessao",
+    ...(tipoAgendamento ? { tipoAgendamento } : {}),
     observacoes: "TE-01B scenario",
-    servicos: input.servicos || [{ id: "sessao", nome: "Sessão", quantidade: 1 }],
-    beats: input.beats || [],
+    servicos: servicosMeta,
+    beats: beatsMeta,
     total: String(input.total ?? 40),
     chargedAmount: String(SYMBOLIC_AGENDAMENTO_BRL),
     paymentMethod: "pix",

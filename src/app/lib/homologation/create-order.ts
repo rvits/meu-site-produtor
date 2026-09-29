@@ -20,6 +20,7 @@ import {
 import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import { parsePaymentAppointmentIds } from "@/app/lib/symbolic-payment";
 import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
 
 export const HOMOLOGATION_ORIGIN = "HOMOLOGATION" as const;
 
@@ -321,6 +322,12 @@ export async function createHomologationOrder(
     .filter(Boolean)
     .join(" · ");
 
+  const tipoAgendamento = optionalSingleAppointmentTipoForMetadata({
+    services: servicos,
+    beats,
+    clientTipo: input.tipo,
+  });
+
   const metadataCompleto: Record<string, unknown> = {
     tipo: "agendamento",
     userId: input.userId,
@@ -328,7 +335,7 @@ export async function createHomologationOrder(
       ? { data: input.data, hora: horaEfetiva }
       : {}),
     duracaoMinutos: duracao,
-    tipoAgendamento: input.tipo || servicos[0]?.id || beats[0]?.id || "sessao",
+    ...(tipoAgendamento ? { tipoAgendamento } : {}),
     observacoes,
     servicos,
     beats,

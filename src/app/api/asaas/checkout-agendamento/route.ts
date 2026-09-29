@@ -23,6 +23,7 @@ import {
   publicCheckoutFailureMessage,
   publicCheckoutZodMessage,
 } from "@/app/lib/checkout-request-schema";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
 
 const ASAAS_API_KEY = getAsaasApiKey();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -99,6 +100,19 @@ export async function POST(req: Request) {
     servicos = calculation.services;
     beats = calculation.beats;
     const total = calculation.total;
+    let tipoAgendamento: string | undefined;
+    try {
+      tipoAgendamento = optionalSingleAppointmentTipoForMetadata({
+        services: servicos,
+        beats,
+        clientTipo: tipo,
+      });
+    } catch {
+      return NextResponse.json(
+        { error: "Tipo de serviço inválido." },
+        { status: 400 }
+      );
+    }
     if (total <= 0 && !symbolicAgendamento) {
       return NextResponse.json(
         { error: "Use o fluxo de resgate para concluir um agendamento sem cobrança." },
@@ -202,7 +216,7 @@ export async function POST(req: Request) {
       userId: user.id,
       ...(data?.trim() && horaEfetiva ? { data, hora: horaEfetiva } : {}),
       duracaoMinutos: duracaoMinutos || 60,
-      tipoAgendamento: tipo || "sessao",
+      ...(tipoAgendamento ? { tipoAgendamento } : {}),
       observacoes: observacoes || "",
       servicos: servicos || [],
       beats: beats || [],

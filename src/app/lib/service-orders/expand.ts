@@ -21,23 +21,10 @@ export type ServiceOrderSpec = {
   suggestedRank: number;
 };
 
+import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+
 function normalizeTypeId(raw: string): string {
-  const s = String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
-  if (!s) return "sessao";
-  const aliases: Record<string, string> = {
-    mixagem: "mix",
-    masterizacao: "master",
-    masterização: "master",
-    mix_e_master: "mix_master",
-    "mix+master": "mix_master",
-    sessão: "sessao",
-    captacao: "captacao",
-    captação: "captacao",
-  };
-  return aliases[s] || s;
+  return normalizeServiceTypeId(raw);
 }
 
 const PRODUCT_LABEL_ALIASES: Record<string, string> = {
@@ -67,7 +54,7 @@ export function resolveCommercialProductId(
     if (fromLabel) return fromLabel;
     if (normalized) return normalized;
   }
-  return normalizeTypeId(String(rawId || rawName || "sessao"));
+  return normalizeTypeId(String(rawId || rawName || ""));
 }
 
 /** Expande uma linha comercial em tipos atômicos (qty × composição). */
@@ -105,7 +92,7 @@ export function expandPurchaseToServiceOrders(
   for (const line of lines) {
     const commercialSource = resolveCommercialProductId(line.id, line.nome);
     const atomics = expandLineToAtomicServiceTypes(
-      String(line.id || line.nome || "sessao"),
+      String(line.id || line.nome || ""),
       line.quantidade,
       line.nome
     );

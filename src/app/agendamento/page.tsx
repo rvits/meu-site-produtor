@@ -22,6 +22,7 @@ import {
 import {
   CHECKOUT_CATALOG,
 } from "@/app/lib/service-catalog";
+import { tryDeriveAppointmentTipoFromPurchase } from "@/app/lib/appointment-service-type";
 import { toPersistedCartItem } from "@/app/lib/cart-checkout-item";
 import {
   buildPurchaseConfirmation,
@@ -595,7 +596,7 @@ function AgendamentoContent() {
             data: dataSelecionada,
             hora: horaEfetiva,
             duracaoMinutos,
-            tipo: "sessao",
+            tipo: tryDeriveAppointmentTipoFromPurchase({ services: servicos, beats }) ?? undefined,
             servicos,
             beats,
             observacoes: comentarios,
@@ -637,7 +638,7 @@ function AgendamentoContent() {
       data: dataSelecionada,
       hora: horaEfetiva,
       duracaoMinutos,
-      tipo: "sessao",
+      tipo: tryDeriveAppointmentTipoFromPurchase({ services: servicos, beats }) ?? undefined,
       servicos,
       beats,
       total: totalComDesconto,
@@ -743,7 +744,7 @@ function AgendamentoContent() {
       data: dataSelecionada,
       hora: horaEfetiva,
       duracaoMinutos,
-      tipo: "sessao",
+      tipo: tryDeriveAppointmentTipoFromPurchase({ services: servicos, beats }) ?? undefined,
       servicos,
       beats,
       total: totalComDesconto,

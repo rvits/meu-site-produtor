@@ -4,6 +4,7 @@
 import { prisma } from "@/app/lib/prisma";
 import { SYMBOLIC_AGENDAMENTO_BRL, SYMBOLIC_PLANO_BRL } from "@/app/lib/symbolic-payment";
 import { normalizeServiceTypeId } from "@/app/lib/service-catalog";
+import { deriveAppointmentTipoFromPurchase } from "@/app/lib/appointment-service-type";
 import { agendamentoBloqueiaReusoCupom } from "@/app/lib/coupon-booking-rules";
 import { normalizeStaleCouponAppointmentLink } from "@/app/lib/coupon-stale-appointment";
 import { reconcileAppointmentWithServices } from "@/app/lib/appointment-service-sync";
@@ -146,7 +147,12 @@ export async function redeemServiceCouponOfficial(input: {
 
   const dataHoraISO = new Date(`${input.data}T${input.hora}:00`);
   const duracao = 60;
-  const tipo = input.tipo || input.servicos[0]?.id || "sessao";
+  const tipo = deriveAppointmentTipoFromPurchase({
+    services: input.servicos,
+    beats: input.beats,
+    couponServiceType: couponRow.serviceType,
+    clientTipo: input.tipo,
+  });
   let appointmentId = 0;
   const serviceIds: string[] = [];
 

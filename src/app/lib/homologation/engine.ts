@@ -16,6 +16,7 @@ import type {
   HomologationTimelineEvent,
 } from "@/app/lib/homologation/types";
 import { totalPricedCheckoutItems, priceCheckoutItems } from "@/app/lib/service-catalog";
+import { optionalSingleAppointmentTipoForMetadata } from "@/app/lib/appointment-service-type";
 import { countPlanCycleCoupons } from "@/app/lib/plan-definitions";
 import type { RefundLifecycleStatus } from "@/app/lib/payment-provider/types";
 
@@ -198,12 +199,16 @@ export async function runHomologationSimulation(
       } catch {
         catalogTotal = 40;
       }
+      const tipoAgendamento = optionalSingleAppointmentTipoForMetadata({
+        services: servicos,
+        beats,
+      });
       metadata = {
         tipo: "agendamento",
         userId: input.userId,
         ...(input.data && input.hora ? { data: input.data, hora: input.hora } : {}),
         duracaoMinutos: input.duracaoMinutos || 60,
-        tipoAgendamento: servicos[0]?.id || beats[0]?.id || "sessao",
+        ...(tipoAgendamento ? { tipoAgendamento } : {}),
         observacoes: input.observacoes || `Homologação ${runId}`,
         servicos,
         beats,

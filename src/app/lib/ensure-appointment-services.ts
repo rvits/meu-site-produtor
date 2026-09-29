@@ -78,7 +78,21 @@ export async function ensureServicesForAppointment(appointmentId: number): Promi
   const coupon = pickPrimaryCouponForDisplay(coupons);
   if (existing > 0) return 0;
 
-  const tipo = normalizeServiceTypeId(String(coupon?.serviceType || apt.tipo || "sessao"));
+  const rawTipo = String(coupon?.serviceType || apt.tipo || "").trim();
+  if (!rawTipo) {
+    console.warn("[EnsureServices] Appointment sem tipo/cupom para materializar Service", {
+      appointmentId,
+    });
+    return 0;
+  }
+  const tipo = normalizeServiceTypeId(rawTipo);
+  if (!tipo) {
+    console.warn("[EnsureServices] Tipo de Appointment inválido após normalizar", {
+      appointmentId,
+      rawTipo,
+    });
+    return 0;
+  }
   const mapStatus = mapRequestStatusToServiceStatus(apt.status);
 
   await prisma.service.create({

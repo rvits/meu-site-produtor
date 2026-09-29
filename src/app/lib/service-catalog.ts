@@ -35,8 +35,24 @@ export const CANONICAL_SERVICE_IDS = [
 
 export type CanonicalServiceId = (typeof CANONICAL_SERVICE_IDS)[number];
 
+/** Tipos atômicos graváveis em Appointment.tipo / Service.tipo (não SKUs compostos). */
+export const ATOMIC_SERVICE_TYPE_IDS = [
+  "sessao",
+  "captacao",
+  "sonoplastia",
+  "mix",
+  "master",
+  "beat1",
+] as const;
+
+export type AtomicServiceTypeId = (typeof ATOMIC_SERVICE_TYPE_IDS)[number];
+
 export function isCanonicalServiceId(value: string): value is CanonicalServiceId {
   return (CANONICAL_SERVICE_IDS as readonly string[]).includes(value);
+}
+
+export function isAtomicServiceTypeId(value: string): value is AtomicServiceTypeId {
+  return (ATOMIC_SERVICE_TYPE_IDS as readonly string[]).includes(value);
 }
 
 export type CheckoutCatalogItem = {
@@ -130,7 +146,7 @@ export function normalizeServiceTypeId(raw: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_");
-  if (!s) return "sessao";
+  if (!s) return "";
   const aliases: Record<string, string> = {
     mixagem: "mix",
     masterizacao: "master",
@@ -141,8 +157,22 @@ export function normalizeServiceTypeId(raw: string): string {
     sessao: "sessao",
     captacao: "captacao",
     captação: "captacao",
+    beat: "beat1",
+    "1_beat": "beat1",
+    "1beat": "beat1",
   };
   return aliases[s] || s;
+}
+
+/** Rejeita vazio, composto comercial e desconhecido. Aceita alias beat → beat1. */
+export function requireAtomicServiceTypeId(
+  raw: string | null | undefined
+): AtomicServiceTypeId {
+  const normalized = normalizeServiceTypeId(String(raw ?? ""));
+  if (!isAtomicServiceTypeId(normalized)) {
+    throw new Error(`TIPO_SERVICO_INVALIDO:${raw ?? ""}`);
+  }
+  return normalized;
 }
 
 /**
@@ -196,7 +226,7 @@ export function resolveAgendamentoItemCatalogId(
     const fromLabel = PRODUCT_LABEL_ALIASES[normalized];
     if (fromLabel) return fromLabel;
   }
-  return normalizeServiceTypeId(String(rawId || rawName || "sessao"));
+  return normalizeServiceTypeId(String(rawId || rawName || ""));
 }
 
 /** @deprecated GO-H5: use isCommercialCompositeProductId / countServiceOrders. */

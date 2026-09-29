@@ -13,6 +13,8 @@ import { createCouponsForAgendamentoItems } from "@/app/lib/agendamento-payment-
 import { isSymbolicAgendamentoCouponStyle } from "@/app/lib/symbolic-payment";
 import { decidePaymentSlotAction, shouldSendFulfillmentEmails } from "@/app/lib/payment-appointment-idempotency";
 import { parseStudioDateTime } from "@/app/lib/calendar-day-state";
+import { deriveAppointmentTipoFromPurchase } from "@/app/lib/appointment-service-type";
+import { exigeAgendamentoNoCheckout } from "@/app/lib/agendamento-payment-rules";
 
 /** Instant gravado em Appointment.data para item de carrinho (parede America/Sao_Paulo). */
 export function carrinhoItemToAppointmentDate(data: string, hora: string): Date {
@@ -98,16 +100,31 @@ export async function processCarrinhoPaymentEffects(params: {
   for (const item of items) {
     const data = item.data;
     const hora = item.hora;
+    const itemServices = Array.isArray(item.servicos) ? item.servicos : [];
+    const itemBeats = Array.isArray(item.beats) ? item.beats : [];
     const hasImmediateSchedule =
       Boolean(String(data || "").trim() && String(hora || "").trim()) &&
-      item.somenteCupons !== true;
+      item.somenteCupons !== true &&
+      exigeAgendamentoNoCheckout(itemServices, itemBeats);
     if (!hasImmediateSchedule) {
-      if (Array.isArray(item.servicos)) pendingServices.push(...item.servicos);
-      if (Array.isArray(item.beats)) pendingBeats.push(...item.beats);
+      pendingServices.push(...itemServices);
+      pendingBeats.push(...itemBeats);
       continue;
     }
     const duracaoMinutos = item.duracaoMinutos ?? 60;
-    const tipoAgendamento = item.tipo || "sessao";
+    let tipoAgendamento: string;
+    try {
+      tipoAgendamento = deriveAppointmentTipoFromPurchase({
+        services: itemServices,
+        beats: itemBeats,
+        clientTipo: item.tipo,
+      });
+    } catch {
+      console.error(`${logPrefix} tipo de serviço inválido no item; não criar Appointment sessao`);
+      pendingServices.push(...itemServices);
+      pendingBeats.push(...itemBeats);
+      continue;
+    }
     const observacoes = item.observacoes || null;
     const dataHoraISO = carrinhoItemToAppointmentDate(String(data), String(hora));
 
