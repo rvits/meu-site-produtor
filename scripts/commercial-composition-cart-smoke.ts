@@ -186,7 +186,7 @@ const cartMeta = {
     legacy.services.map((s) => s.id),
     ["captacao", "mix_master"]
   );
-  assert.equal(serviceOrderLabel("mix_master"), "Mixagem");
+  assert.equal(serviceOrderLabel("mix_master"), "Mix + Master (pacote legado)");
   pass("CASO 9 legacy Service.tipo=mix_master permanece legível e não é convertido");
 }
 

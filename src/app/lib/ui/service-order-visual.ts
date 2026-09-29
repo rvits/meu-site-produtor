@@ -7,19 +7,35 @@ export type OperationalCategory = "presencial" | "producao";
 
 const PRESENCIAL = new Set(["sessao", "captacao"]);
 
-const LABELS: Record<string, string> = {
+/** Direitos atômicos — apresentação operacional (não é nome de SKU comercial). */
+export const ATOMIC_OPERATIONAL_LABELS: Record<string, string> = {
   sessao: "Sessão",
   captacao: "Captação",
+  mix: "Mix",
+  mixagem: "Mix",
+  master: "Master",
+  masterizacao: "Master",
   beat: "Beat",
   beat1: "Beat",
-  beat2: "Beat",
-  beat3: "Beat",
-  beat4: "Beat",
-  mix: "Mixagem",
-  master: "Masterização",
-  mix_master: "Mixagem",
   sonoplastia: "Sonoplastia",
-  producao_completa: "Produção",
+};
+
+/**
+ * SKU comercial encontrado em Appointment/Coupon/Service legado (não expandido).
+ * Não colapsar no primeiro direito atômico.
+ */
+export const LEGACY_COMMERCIAL_SKU_OPERATIONAL_LABELS: Record<string, string> = {
+  beat2: "2 Beats (pacote legado)",
+  beat3: "3 Beats (pacote legado)",
+  beat4: "4 Beats (pacote legado)",
+  mix_master: "Mix + Master (pacote legado)",
+  beat_mix_master: "Beat + Mix + Master (pacote legado)",
+  producao_completa: "Produção Completa (pacote legado)",
+};
+
+const LABELS: Record<string, string> = {
+  ...ATOMIC_OPERATIONAL_LABELS,
+  ...LEGACY_COMMERCIAL_SKU_OPERATIONAL_LABELS,
 };
 
 export function operationalCategoryFromServiceType(

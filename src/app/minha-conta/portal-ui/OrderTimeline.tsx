@@ -9,6 +9,7 @@
 import { Timeline, TimelineItemData, formatDateTime } from "@/components/design-system";
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import type { Agendamento } from "./types";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 export function buildOrderTimeline(a: Agendamento): TimelineItemData[] {
   const cancelado = a.status === "cancelado" || a.status === "recusado";
@@ -48,7 +49,7 @@ export function buildOrderTimeline(a: Agendamento): TimelineItemData[] {
         : "pending",
     icon: "calendar",
     meta: formatStudioDateTimePtBR(a.data),
-    description: `${a.tipo} · ${a.duracaoMinutos} min`,
+    description: `${serviceOrderLabel(a.tipo)} · ${a.duracaoMinutos} min`,
   });
 
   if (cancelado) {

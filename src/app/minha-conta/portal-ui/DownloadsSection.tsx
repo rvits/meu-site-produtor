@@ -17,6 +17,7 @@ import {
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
 import type { Agendamento, EntregaServico } from "./types";
 import { deliveryTypeLabel, isAudioDelivery } from "./helpers";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 interface DownloadRow {
   entrega: EntregaServico;
@@ -75,7 +76,7 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
                     <p className="text-sm font-semibold text-zinc-100 break-all">{fileName}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <Tag intent="info">{tipo}</Tag>
-                      <Tag intent="neutral">{e.tipo}</Tag>
+                      <Tag intent="neutral">{serviceOrderLabel(e.tipo)}</Tag>
                       {e.deliveredAt && (
                         <span className="text-[11px] text-zinc-500">
                           {formatDateTime(e.deliveredAt)}
@@ -83,7 +84,7 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
                       )}
                     </div>
                     <p className="text-[11px] text-zinc-600 mt-1 truncate">
-                      Pedido: {a.tipo} · #{a.id}
+                      Pedido: {serviceOrderLabel(a.tipo)} · #{a.id}
                     </p>
                   </div>
                 </div>

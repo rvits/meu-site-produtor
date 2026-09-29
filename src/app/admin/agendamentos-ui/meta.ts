@@ -28,14 +28,16 @@ export function aptStatusKey(status: string): string {
 export const APT_TYPE_FILTERS: { value: string; label: string; match: (a: AdminAgendamento) => boolean }[] = [
   { value: "sessao", label: "Sessão", match: (a) => norm(a.tipo) === "sessao" },
   { value: "captacao", label: "Captação", match: (a) => norm(a.tipo) === "captacao" },
-  { value: "beat", label: "Beat", match: (a) => norm(a.tipo).startsWith("beat") && !norm(a.tipo).includes("mix") },
-  { value: "mix", label: "Mixagem", match: (a) => norm(a.tipo) === "mix" || norm(a.tipo) === "mixagem" },
-  { value: "master", label: "Masterização", match: (a) => norm(a.tipo) === "master" || norm(a.tipo) === "masterizacao" },
+  { value: "beat", label: "Beat", match: (a) => norm(a.tipo) === "beat" || norm(a.tipo) === "beat1" },
+  { value: "mix", label: "Mix", match: (a) => norm(a.tipo) === "mix" || norm(a.tipo) === "mixagem" },
+  { value: "master", label: "Master", match: (a) => norm(a.tipo) === "master" || norm(a.tipo) === "masterizacao" },
   {
     value: "producao",
     label: "Produção",
     match: (a) =>
-      ["sonoplastia", "mix_master", "beat_mix_master", "producao_completa"].includes(norm(a.tipo)),
+      ["sonoplastia", "mix_master", "beat_mix_master", "producao_completa", "beat2", "beat3", "beat4"].includes(
+        norm(a.tipo)
+      ),
   },
   {
     value: "plano",

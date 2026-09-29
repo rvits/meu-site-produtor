@@ -95,8 +95,10 @@ function ok(label: string) {
 }
 
 {
-  assertNoHour(purchase("beat1", 1, "22:00"), "beat1");
-  ok("6 beat1 sem horário");
+  const view = purchase("beat1", 1, "22:00");
+  assertNoHour(view, "beat1");
+  assert.equal(view?.serviceName, "1 Beat");
+  ok("6 beat1 sem horário e label comercial 1 Beat");
 }
 
 for (const id of ["beat2", "beat3", "beat4", "mix_master", "beat_mix_master", "producao_completa"]) {

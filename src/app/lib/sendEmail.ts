@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { formatStudioDatePtBR, formatStudioDateTimePtBR, formatStudioTimePtBR } from "@/app/lib/calendar-time";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 function formatAppointmentSlotEmail(appointmentDate: Date): string {
   return formatStudioDateTimePtBR(appointmentDate);
@@ -883,7 +884,7 @@ export async function sendPaymentNotificationToTHouse(
               <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
                 <h3 style="color: #1f2937; margin-top: 0;">Detalhes do Agendamento</h3>
                 <p style="color: #4b5563; margin: 5px 0;"><strong>Data/Hora:</strong> ${formattedDate}</p>
-                <p style="color: #4b5563; margin: 5px 0;"><strong>Tipo:</strong> ${appointmentType}</p>
+                <p style="color: #4b5563; margin: 5px 0;"><strong>Tipo:</strong> ${serviceOrderLabel(appointmentType)}</p>
                 <p style="color: #4b5563; margin: 5px 0;"><strong>Duração:</strong> ${duration} minutos</p>
                 ${observations ? `<p style="color: #4b5563; margin: 5px 0;"><strong>Observações:</strong> ${observations}</p>` : ""}
               </div>
@@ -977,7 +978,7 @@ export async function sendAppointmentAcceptedEmail(
                 Seu agendamento foi <strong>confirmado</strong>! Estamos ansiosos para trabalhar com você!<br><br>
                 <strong>📅 Data:</strong> ${formattedDate}<br>
                 <strong>🕐 Horário:</strong> ${formattedTime}<br>
-                <strong>🎵 Tipo:</strong> ${appointmentType}<br>
+                <strong>🎵 Tipo:</strong> ${serviceOrderLabel(appointmentType)}<br>
                 <strong>📍 Endereço:</strong> ${address}<br><br>
                 Nos vemos em breve! Se tiver alguma dúvida, entre em contato conosco.
               </p>

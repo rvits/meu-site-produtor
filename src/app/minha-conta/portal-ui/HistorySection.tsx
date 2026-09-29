@@ -24,7 +24,8 @@ import {
 } from "@/components/design-system";
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import type { PortalData } from "./types";
-import { isRefundFamilyCoupon } from "./helpers";
+import { isRefundFamilyCoupon, getServiceName } from "./helpers";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 type HistoryKind =
   | "pagamento"
@@ -83,7 +84,7 @@ export function buildHistory(data: PortalData): HistoryRow[] {
           : a.status === "pendente"
           ? "pending"
           : "info",
-      title: a.tipo,
+      title: serviceOrderLabel(a.tipo),
       detail: `${a.duracaoMinutos} min`,
       status: a.status,
       amount: a.pagamento?.amount,
@@ -95,7 +96,7 @@ export function buildHistory(data: PortalData): HistoryRow[] {
         kind: "reembolso",
         icon: "wallet",
         intent: "info",
-        title: `Reembolso do agendamento ${a.tipo}`,
+        title: `Reembolso do agendamento ${serviceOrderLabel(a.tipo)}`,
         detail: "Reembolso direto solicitado",
         status: "refunded",
         amount: a.pagamento?.amount,
@@ -111,7 +112,7 @@ export function buildHistory(data: PortalData): HistoryRow[] {
       icon: "ticket",
       intent: c.status === "disponivel" ? "success" : c.status === "expirado" ? "error" : "neutral",
       title: `Cupom ${c.code}`,
-      detail: c.serviceType || undefined,
+      detail: c.serviceType ? getServiceName(c.serviceType, data.cupons, c.code) : undefined,
       status: c.status,
       amount: c.discountType === "fixed" ? c.discountValue : undefined,
       date: c.createdAt || new Date(0).toISOString(),

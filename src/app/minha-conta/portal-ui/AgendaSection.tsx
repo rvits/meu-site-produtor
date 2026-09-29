@@ -26,6 +26,7 @@ import {
 } from "@/app/lib/calendar-time";
 import type { Agendamento } from "./types";
 import { AppointmentCard } from "./AppointmentCard";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 function proximos(agendamentos: Agendamento[]): Agendamento[] {
   return agendamentos
@@ -164,7 +165,7 @@ export function AgendaSection({
                     </span>
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-100 truncate">{a.tipo}</p>
+                    <p className="text-sm font-semibold text-zinc-100 truncate">{serviceOrderLabel(a.tipo)}</p>
                     <p className="text-xs text-zinc-500">
                       {formatStudioDatePtBR(a.data)} às {formatStudioTimePtBR(a.data)} · {a.duracaoMinutos} min
                     </p>

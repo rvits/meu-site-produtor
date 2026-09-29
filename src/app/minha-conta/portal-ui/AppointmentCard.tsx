@@ -26,6 +26,7 @@ import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
 import { cancelarAgendamento, escolherReembolso } from "./actions";
 import { copyToClipboard, deliveryTypeLabel, isAudioDelivery } from "./helpers";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 export function AppointmentCard({
   agendamento,
@@ -129,7 +130,7 @@ export function AppointmentCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-zinc-100 truncate">{a.tipo}</h3>
+            <h3 className="text-sm font-semibold text-zinc-100 truncate">{serviceOrderLabel(a.tipo)}</h3>
             <StatusBadge status={a.status} />
           </div>
           <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">

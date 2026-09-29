@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/appointment-confirmation";
 import { AppointmentConfirmModal } from "@/app/agendamento/components/AppointmentConfirmModal";
 import { serviceNeedsStudioHours } from "@/app/agendamento/scheduling-shared";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 import {
   Button,
   Callout,
@@ -122,7 +123,7 @@ export default function AgendamentoCupomPage() {
     if (!coupon?.catalogItem) return null;
     return buildCouponRedemptionConfirmation({
       serviceType: coupon.serviceType,
-      serviceName: coupon.catalogItem.nome,
+      serviceName: serviceOrderLabel(coupon.serviceType),
       dateIso: dataSelecionada,
       civilHour: precisaHora ? horaSelecionada : null,
     });
@@ -218,12 +219,14 @@ export default function AgendamentoCupomPage() {
     );
   }
 
+  const operationalName = serviceOrderLabel(coupon.serviceType);
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8">
       <div className="max-w-xl mx-auto space-y-6">
         <div className="space-y-2">
           <PageHeader
-            title={coupon.catalogItem.nome}
+            title={operationalName}
             subtitle="Agenda exclusiva do cupom"
           />
           <p className="text-sm text-zinc-400">
@@ -239,7 +242,7 @@ export default function AgendamentoCupomPage() {
         <Card className="space-y-4">
           <CouponScheduleFields
             serviceType={coupon.serviceType}
-            serviceName={coupon.catalogItem.nome}
+            serviceName={operationalName}
             dataSelecionada={dataSelecionada}
             horaSelecionada={horaSelecionada}
             onDataChange={setDataSelecionada}

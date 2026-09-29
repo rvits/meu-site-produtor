@@ -4,6 +4,7 @@
  * já expostos pelas APIs admin. KPI sem base segura → null (Indisponível).
  */
 import { inRange, type PeriodRange, previousPeriodRange } from "./period";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 import type {
   DashAppointment,
   DashCoupon,
@@ -274,16 +275,9 @@ export function servicesByCategory(services: DashService[], range: PeriodRange):
 }
 
 function normalizeTipo(tipo: string): string {
-  const t = String(tipo || "").toLowerCase().replace(/\s+/g, "_");
-  if (t === "sessao" || t === "captacao") return "Sessão";
-  if (t.startsWith("beat") && t !== "beat_mix_master") return "Beat";
-  if (t === "mix" || t === "mixagem") return "Mixagem";
-  if (t === "master" || t === "masterizacao") return "Masterização";
-  if (t === "mix_master") return "Mix + Master";
-  if (t === "producao_completa") return "Produção";
-  if (t === "sonoplastia") return "Sonoplastia";
-  if (t === "beat_mix_master" || t.includes("pacote")) return "Pacotes";
-  return tipo || "Outros";
+  const t = String(tipo || "").trim();
+  if (!t) return "Outros";
+  return serviceOrderLabel(t);
 }
 
 export function plansSoldByPeriod(plans: DashPlan[], range: PeriodRange): { label: string; valor: number }[] {

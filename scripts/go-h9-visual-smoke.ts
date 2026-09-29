@@ -30,7 +30,8 @@ assert(operationalCategoryFromServiceType("master") === "producao", "master prod
 assert(operationalCategoryFromServiceType("sonoplastia") === "producao", "sono producao");
 
 assert(serviceOrderLabel("sessao") === "Sessão", "label Sessão");
-assert(serviceOrderLabel("mix") === "Mixagem", "label Mixagem");
+assert(serviceOrderLabel("mix") === "Mix", "label Mix");
+assert(serviceOrderLabel("beat1") === "Beat", "label operacional Beat");
 assert(statusFromServiceOrderPhase("reserved") === "aceito", "phase reserved → aceito");
 assert(statusFromServiceOrderPhase("execution") === "em_andamento", "phase execution");
 assert(statusFromServiceOrderPhase("completed") === "concluido", "phase completed");

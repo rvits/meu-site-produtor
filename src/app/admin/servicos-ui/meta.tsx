@@ -5,6 +5,7 @@
  */
 import type { AdminService } from "./types";
 import { formatStudioDatePtBR, formatStudioTimePtBR } from "@/app/lib/calendar-time";
+import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 /* ---------------------------------- Ícones --------------------------------- */
 
@@ -291,39 +292,26 @@ export function paymentMeta(status: string | undefined | null): {
 
 /* ---------------------------- Tipo de serviço ------------------------------- */
 
-const TYPE_LABELS: Record<string, string> = {
-  sessao: "Sessão",
-  captacao: "Captação",
-  sonoplastia: "Sonoplastia",
-  mix: "Mixagem",
-  master: "Masterização",
-  mix_master: "Mix + Master",
-  beat1: "1 Beat",
-  beat2: "2 Beats",
-  beat3: "3 Beats",
-  beat4: "4 Beats",
-  beat: "Beat",
-  beat_mix_master: "Beat + Mix + Master",
-  producao_completa: "Produção Completa",
-};
-
 export function serviceTypeLabel(tipo: string): string {
   const norm = String(tipo || "").trim().toLowerCase().replace(/\s+/g, "_");
-  return TYPE_LABELS[norm] || tipo;
+  if (!norm) return tipo;
+  return serviceOrderLabel(norm);
 }
 
 /** Grupos do filtro rápido de tipo (PARTE 4). */
 export const TYPE_FILTERS: { value: string; label: string; match: (tipo: string) => boolean }[] = [
   { value: "sessao", label: "Sessão", match: (t) => norm(t) === "sessao" },
   { value: "captacao", label: "Captação", match: (t) => norm(t) === "captacao" },
-  { value: "beat", label: "Beat", match: (t) => norm(t).startsWith("beat") && !norm(t).includes("mix") },
-  { value: "mix", label: "Mixagem", match: (t) => norm(t) === "mix" || norm(t) === "mixagem" },
-  { value: "master", label: "Masterização", match: (t) => norm(t) === "master" || norm(t) === "masterizacao" },
+  { value: "beat", label: "Beat", match: (t) => norm(t) === "beat" || norm(t) === "beat1" },
+  { value: "mix", label: "Mix", match: (t) => norm(t) === "mix" || norm(t) === "mixagem" },
+  { value: "master", label: "Master", match: (t) => norm(t) === "master" || norm(t) === "masterizacao" },
   {
     value: "producao",
     label: "Produção",
     match: (t) =>
-      ["sonoplastia", "mix_master", "beat_mix_master", "producao_completa"].includes(norm(t)),
+      ["sonoplastia", "mix_master", "beat_mix_master", "producao_completa", "beat2", "beat3", "beat4"].includes(
+        norm(t)
+      ),
   },
 ];
 
