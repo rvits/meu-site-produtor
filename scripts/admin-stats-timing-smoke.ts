@@ -79,6 +79,17 @@ const captacao = mapTimingHistoryItem({
 });
 must(captacao != null && captacao.tipoLabel === "Captação", "9 captação individual");
 
+must(
+  mapTimingHistoryItem({
+    id: "mix-noise",
+    tipo: "mix",
+    status: "concluido",
+    actualDurationSeconds: 9999,
+    suggestedOvertimeAmountCents: 999,
+  }) == null,
+  "mix não entra no histórico de cronômetro"
+);
+
 must(mapTimingHistoryItem({
   id: "legacy",
   tipo: "sessao",

@@ -9,7 +9,7 @@ import {
   parseStudioDateTime,
   todayIsoStudio,
 } from "@/app/lib/calendar-time";
-import { excessSecondsOf } from "@/app/lib/service-timing";
+import { excessSecondsOf, hasOperationalTimer } from "@/app/lib/service-timing";
 import { OPERATIONAL_CONTRACTED_DURATION_SECONDS } from "@/app/lib/service-types";
 import { resolveCanonicalServiceId } from "@/app/lib/service-catalog";
 
@@ -127,6 +127,7 @@ export function mapTimingHistoryItem(row: {
   user?: { nomeArtistico?: string | null; email?: string | null } | null;
   appointment?: { id: number; data: Date | string } | null;
 }): TimingHistoryItem | null {
+  if (!hasOperationalTimer(row.tipo)) return null;
   if (typeof row.actualDurationSeconds !== "number" || row.actualDurationSeconds < 0) {
     return null;
   }

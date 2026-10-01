@@ -51,6 +51,7 @@ export function AppointmentCard({
         : [];
   const plano = cupons.find((c) => String(c.couponType || "").toLowerCase().includes("plano"));
   const timerServices = (relatedServices || []).filter((s) => hasOperationalTimer(s.tipo));
+  const showOperationalReservedTime = hasOperationalTimer(a.tipo);
   const podeExcluir = canDeleteClosedAppointment(a).allowed;
 
   return (
@@ -110,8 +111,12 @@ export function AppointmentCard({
         </div>
       )}
 
-      {/* Agendamento: data, horário, tempo reservado, serviços */}
-      <div className="grid grid-cols-2 gap-2 border-t border-zinc-800 px-4 py-3 text-xs sm:grid-cols-4">
+      {/* Data de prazo sempre; horário/tempo reservado só sessão/captação */}
+      <div
+        className={`grid grid-cols-2 gap-2 border-t border-zinc-800 px-4 py-3 text-xs ${
+          showOperationalReservedTime ? "sm:grid-cols-4" : "sm:grid-cols-2"
+        }`}
+      >
         <div>
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Data</p>
           <p className="flex items-center gap-1 text-zinc-300">
@@ -119,17 +124,21 @@ export function AppointmentCard({
             {formatDate(a.data)}
           </p>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Horário</p>
-          <p className="flex items-center gap-1 text-zinc-300">
-            <Icons.clock className="w-3 h-3 text-zinc-500" />
-            {formatTime(a.data)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Reservado</p>
-          <p className="text-zinc-300">{formatDuracao(a.duracaoMinutos)}</p>
-        </div>
+        {showOperationalReservedTime && (
+          <>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-500">Horário</p>
+              <p className="flex items-center gap-1 text-zinc-300">
+                <Icons.clock className="w-3 h-3 text-zinc-500" />
+                {formatTime(a.data)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-500">Reservado</p>
+              <p className="text-zinc-300">{formatDuracao(a.duracaoMinutos)}</p>
+            </div>
+          </>
+        )}
         <div>
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Serviços</p>
           <p className="tabular-nums text-zinc-300">{servicesCount ?? "—"}</p>

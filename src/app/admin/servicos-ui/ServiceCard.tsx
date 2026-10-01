@@ -10,6 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
 import { isOperationalNoFileService } from "@/app/lib/service-catalog";
+import { hasOperationalTimer } from "@/app/lib/service-timing";
 import type { AdminService } from "./types";
 import { DeliveryBadge, PaymentBadge, StatusBadge } from "./Badges";
 import { Icons, formatDate, formatTime, serviceTypeLabel, timeAgo } from "./meta";
@@ -33,6 +34,7 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
   const busy = actions.busyId === s.id;
   const delivered = Boolean(s.deliveryAudioUrl);
   const operationalNoFile = isOperationalNoFileService(s.tipo);
+  const showOperationalReservedTime = hasOperationalTimer(s.tipo);
   const isAudio =
     delivered &&
     (s.deliveryAudioFormat === "wav" || s.deliveryAudioFormat === "mp3") &&
@@ -69,10 +71,14 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
         <FinancialSummaryCompact financial={s.financial} />
       </div>
 
-      <ServiceTimingInfo service={s} />
+      {showOperationalReservedTime && <ServiceTimingInfo service={s} />}
 
-      {/* Agendamento */}
-      <div className="grid grid-cols-2 gap-2 border-t border-zinc-800 px-4 py-3 text-xs sm:grid-cols-4">
+      {/* Agendamento: data de prazo sempre; horário/duração reservados só sessão/captação */}
+      <div
+        className={`grid grid-cols-2 gap-2 border-t border-zinc-800 px-4 py-3 text-xs ${
+          showOperationalReservedTime ? "sm:grid-cols-4" : "sm:grid-cols-2"
+        }`}
+      >
         <div>
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Agendamento</p>
           {s.appointment ? (
@@ -93,19 +99,23 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
             {s.appointment?.data ? formatDate(s.appointment.data) : "—"}
           </p>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Horário</p>
-          <p className="flex items-center gap-1 text-zinc-300">
-            <Icons.clock className="w-3 h-3 text-zinc-500" />
-            {s.appointment?.data ? formatTime(s.appointment.data) : "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">Duração</p>
-          <p className="text-zinc-300">
-            {s.appointment?.duracaoMinutos != null ? `${s.appointment.duracaoMinutos} min` : "—"}
-          </p>
-        </div>
+        {showOperationalReservedTime && (
+          <>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-500">Horário</p>
+              <p className="flex items-center gap-1 text-zinc-300">
+                <Icons.clock className="w-3 h-3 text-zinc-500" />
+                {s.appointment?.data ? formatTime(s.appointment.data) : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-500">Duração</p>
+              <p className="text-zinc-300">
+                {s.appointment?.duracaoMinutos != null ? `${s.appointment.duracaoMinutos} min` : "—"}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Entrega (quando existir) */}

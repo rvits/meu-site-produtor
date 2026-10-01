@@ -24,6 +24,7 @@ import { AppointmentTimeline } from "./AppointmentTimeline";
 import { aptPaymentSummary, aptStatusKey, formatDuracao } from "./meta";
 import { FinancialSummaryDetails } from "@/app/admin/servicos-ui/FinancialSummary";
 import { ServiceTimingInfo } from "@/app/admin/servicos-ui/ServiceTimingInfo";
+import { hasOperationalTimer } from "@/app/lib/service-timing";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -78,6 +79,7 @@ export function AppointmentDrawer({
   const plano = cupons.find((c) => String(c.couponType || "").toLowerCase().includes("plano"));
   const arquivos = relatedServices.filter((s) => Boolean(s.deliveryAudioUrl));
   const podeExcluir = canDeleteClosedAppointment(a).allowed;
+  const showOperationalReservedTime = hasOperationalTimer(a.tipo);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -137,8 +139,12 @@ export function AppointmentDrawer({
 
           <Section title="Agendamento">
             <Row label="Data" value={formatDate(a.data)} />
-            <Row label="Horário" value={formatTime(a.data)} />
-            <Row label="Tempo reservado" value={formatDuracao(a.duracaoMinutos)} />
+            {showOperationalReservedTime && (
+              <>
+                <Row label="Horário" value={formatTime(a.data)} />
+                <Row label="Tempo reservado" value={formatDuracao(a.duracaoMinutos)} />
+              </>
+            )}
             <Row label="Criado em" value={formatDateTime(a.createdAt)} />
             {a.blocked && (
               <Row
@@ -205,7 +211,7 @@ export function AppointmentDrawer({
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium text-zinc-200">{serviceTypeLabel(s.tipo)}</p>
                       <p className="truncate text-[11px] text-zinc-500">{s.id}</p>
-                      <ServiceTimingInfo service={s} compact />
+                      {hasOperationalTimer(s.tipo) && <ServiceTimingInfo service={s} compact />}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <StatusBadge status={s.status} />

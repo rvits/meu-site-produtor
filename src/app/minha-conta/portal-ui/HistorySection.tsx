@@ -25,6 +25,7 @@ import {
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import type { PortalData } from "./types";
 import { isRefundFamilyCoupon, getServiceName } from "./helpers";
+import { hasOperationalTimer } from "@/app/lib/service-timing";
 import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 type HistoryKind =
@@ -85,7 +86,7 @@ export function buildHistory(data: PortalData): HistoryRow[] {
           ? "pending"
           : "info",
       title: serviceOrderLabel(a.tipo),
-      detail: `${a.duracaoMinutos} min`,
+      detail: hasOperationalTimer(a.tipo) ? `${a.duracaoMinutos} min` : undefined,
       status: a.status,
       amount: a.pagamento?.amount,
       date: a.data,

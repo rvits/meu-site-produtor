@@ -26,6 +26,7 @@ import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
 import { cancelarAgendamento, escolherReembolso } from "./actions";
 import { copyToClipboard, deliveryTypeLabel, isAudioDelivery } from "./helpers";
+import { hasOperationalTimer } from "@/app/lib/service-timing";
 import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 
 export function AppointmentCard({
@@ -135,7 +136,8 @@ export function AppointmentCard({
           </div>
           <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1.5">
             <Icon name="calendar" className="w-3.5 h-3.5" />
-            {formatStudioDateTimePtBR(a.data)} · {a.duracaoMinutos} min
+            {formatStudioDateTimePtBR(a.data)}
+            {hasOperationalTimer(a.tipo) ? ` · ${a.duracaoMinutos} min` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
