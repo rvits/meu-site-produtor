@@ -40,7 +40,6 @@ export async function POST(request: Request) {
         const inspected = inspectPortfolioPathname(pathname);
         if (!inspected) throw new Error("Caminho de mídia inválido.");
         return {
-          maximumSizeInBytes: inspected.maxBytes,
           allowedContentTypes: inspected.contentTypes,
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ kind: inspected.kind }),

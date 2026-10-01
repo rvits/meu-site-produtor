@@ -254,7 +254,7 @@ export function PortfolioExperience({ initialPublished }: { initialPublished: Po
     if (message.includes(PORTFOLIO_STORAGE_UNAVAILABLE)) {
       return PORTFOLIO_STORAGE_UNAVAILABLE;
     }
-    if (message.startsWith("Use ") || message.startsWith("O arquivo passa") || message === "Arquivo vazio.") return message;
+    if (message.startsWith("Use ") || message === "Arquivo vazio.") return message;
     return "Não foi possível enviar o arquivo.";
   }
 

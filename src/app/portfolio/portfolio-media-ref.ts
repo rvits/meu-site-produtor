@@ -13,12 +13,6 @@ export type PortfolioMediaRef = {
 export const PORTFOLIO_STORAGE_UNAVAILABLE =
   "Armazenamento permanente de mídia não está configurado neste ambiente.";
 
-export const PORTFOLIO_MEDIA_LIMITS: Record<PortfolioMediaKind, number> = {
-  image: 8 * 1024 * 1024,
-  audio: 40 * 1024 * 1024,
-  video: 80 * 1024 * 1024,
-};
-
 const PREFIX: Record<PortfolioMediaKind, string> = {
   image: "portfolio/images/",
   audio: "portfolio/audio/",
@@ -29,11 +23,12 @@ const RULES: Array<{ kind: PortfolioMediaKind; mime: string; ext: string }> = [
   { kind: "image", mime: "image/jpeg", ext: ".jpg" },
   { kind: "image", mime: "image/jpeg", ext: ".jpeg" },
   { kind: "image", mime: "image/png", ext: ".png" },
-  { kind: "image", mime: "image/webp", ext: ".webp" },
   { kind: "video", mime: "video/mp4", ext: ".mp4" },
+  { kind: "video", mime: "video/quicktime", ext: ".mov" },
   { kind: "audio", mime: "audio/mpeg", ext: ".mp3" },
   { kind: "audio", mime: "audio/wav", ext: ".wav" },
   { kind: "audio", mime: "audio/x-wav", ext: ".wav" },
+  { kind: "audio", mime: "audio/wave", ext: ".wav" },
 ];
 
 export function portfolioMediaKind(kind: BlockKind): PortfolioMediaKind | null {
@@ -42,12 +37,26 @@ export function portfolioMediaKind(kind: BlockKind): PortfolioMediaKind | null {
 }
 
 export function portfolioAccept(kind: PortfolioMediaKind): string {
-  return [...new Set(RULES.filter((rule) => rule.kind === kind).map((rule) => rule.ext))].join(",");
+  const rules = RULES.filter((rule) => rule.kind === kind);
+  return [...new Set([...rules.map((rule) => rule.ext), ...rules.map((rule) => rule.mime)])].join(",");
+}
+
+export function portfolioFormatHint(kind: PortfolioMediaKind): string {
+  if (kind === "image") return "PNG, JPG ou JPEG";
+  if (kind === "audio") return "MP3 ou WAV";
+  return "MP4 ou MOV";
 }
 
 function extensionOf(name: string): string {
   const match = /\.[A-Za-z0-9]+$/.exec(name.trim());
   return match ? match[0].toLowerCase() : "";
+}
+
+function normalizeMime(raw: string): string {
+  return String(raw || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
 }
 
 export function isVercelBlobHost(hostname: string): boolean {
@@ -57,7 +66,6 @@ export function isVercelBlobHost(hostname: string): boolean {
 
 export function inspectPortfolioPathname(pathname: string): {
   kind: PortfolioMediaKind;
-  maxBytes: number;
   contentTypes: string[];
 } | null {
   if (!pathname || pathname.includes("..") || pathname.includes("\\")) return null;
@@ -76,24 +84,16 @@ export function inspectPortfolioPathname(pathname: string): {
   if (matches.length === 0) return null;
   return {
     kind: folder,
-    maxBytes: PORTFOLIO_MEDIA_LIMITS[folder],
     contentTypes: [...new Set(matches.map((rule) => rule.mime))],
   };
 }
 
 export function checkPortfolioFile(file: { name: string; type: string; size: number }, kind: PortfolioMediaKind): string | null {
   const ext = extensionOf(file.name);
-  const rule = RULES.find((item) => item.kind === kind && item.ext === ext && item.mime === file.type);
-  if (!rule) return kind === "image"
-    ? "Use JPG, PNG ou WEBP."
-    : kind === "audio"
-      ? "Use MP3 ou WAV."
-      : "Use MP4.";
+  const mime = normalizeMime(file.type);
+  const rule = RULES.find((item) => item.kind === kind && item.ext === ext && item.mime === mime);
+  if (!rule) return `Use ${portfolioFormatHint(kind)}.`;
   if (!Number.isFinite(file.size) || file.size <= 0) return "Arquivo vazio.";
-  if (file.size > PORTFOLIO_MEDIA_LIMITS[kind]) {
-    const mb = PORTFOLIO_MEDIA_LIMITS[kind] / (1024 * 1024);
-    return `O arquivo passa de ${mb} MB.`;
-  }
   return null;
 }
 
@@ -138,8 +138,9 @@ export function parsePortfolioMedia(
   if (!Number.isInteger(raw.size) || (raw.size as number) <= 0) return { ok: false, error: "Tamanho de arquivo inválido." };
   const inspected = inspectPortfolioPathname(raw.pathname);
   if (!inspected || inspected.kind !== mediaKind) return { ok: false, error: "Caminho de mídia inválido." };
-  if (!inspected.contentTypes.includes(raw.mimeType)) return { ok: false, error: "Tipo de arquivo inválido." };
-  if ((raw.size as number) > inspected.maxBytes) return { ok: false, error: "Arquivo grande demais." };
+  if (!inspected.contentTypes.includes(normalizeMime(raw.mimeType))) {
+    return { ok: false, error: "Tipo de arquivo inválido." };
+  }
   let parsed: URL;
   try {
     parsed = new URL(raw.url);

@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { clampImagePosition, imageCoverLayout } from "../portfolio-data";
-import { checkPortfolioFile } from "../portfolio-media-ref";
+import { checkPortfolioFile, portfolioFormatHint } from "../portfolio-media-ref";
 
 export type MediaKind = "image" | "audio" | "video";
 
@@ -42,9 +42,7 @@ export function fileMatchesKind(file: File, kind: MediaKind): boolean {
 }
 
 export function rejectMessage(kind: MediaKind): string {
-  if (kind === "image") return "Este bloco aceita apenas imagens.";
-  if (kind === "audio") return "Este bloco aceita apenas áudios.";
-  return "Este bloco aceita apenas vídeos.";
+  return `Use ${portfolioFormatHint(kind)}.`;
 }
 
 export function canPlayHint(kind: "audio" | "video", mime: string): string {
@@ -414,7 +412,7 @@ export function PortfolioVideoFrame({
             }
             const base = "Este vídeo não pôde ser reproduzido pelo navegador.";
             const hint = code === 3 || code === 4
-              ? " Arquivo selecionado, mas o formato/codec de vídeo não é compatível com este navegador. Para melhor compatibilidade, use MP4 com vídeo H.264 e áudio AAC."
+              ? " Arquivo selecionado, mas o formato/codec de vídeo não é compatível com este navegador. MP4 (H.264 + AAC) costuma reproduzir melhor; MOV pode depender do navegador."
               : "";
             const message = `${base}${hint}`;
             setFailure({ src, message });
