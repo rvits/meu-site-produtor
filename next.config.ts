@@ -23,11 +23,12 @@ const nextConfig: NextConfig = {
               "frame-src 'self' https://www.youtube.com https://youtube.com https://*.youtube.com https://*.google.com",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://*.youtube.com https://*.google.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https:",
+              "img-src 'self' data: blob: https:",
               // GO-H2D: client upload (@vercel/blob) PUT → vercel.com/api/blob;
               // store público: *.public.blob.vercel-storage.com (upload/playback)
+              // blob: aqui é object URL local do editor, não o host da Vercel.
               "connect-src 'self' https://www.youtube.com https://*.youtube.com https://*.google.com https://vercel.com https://*.vercel.com https://blob.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
-              "media-src 'self' https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
+              "media-src 'self' blob: https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
             ].join("; "),
           },
         ],

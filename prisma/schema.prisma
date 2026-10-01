@@ -603,3 +603,16 @@ model HomologationRunRecord {
   @@index([createdAt])
   @@index([ok])
 }
+
+/// Portfólio: um rascunho e uma versão publicada. Salvar não altera o site público.
+model PortfolioState {
+  id                String    @id
+  draftDocument     Json
+  publishedDocument Json
+  draftVersion      Int       @default(0)
+  publishedVersion  Int       @default(0)
+  draftUpdatedAt    DateTime  @default(now())
+  publishedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
