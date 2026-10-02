@@ -13,6 +13,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useAuth } from "@/app/context/AuthContext";
 import type { SyncEnvelope, SyncSurface } from "@/app/lib/synchronization/types";
 
 type RefreshHandler = () => void | Promise<void>;
@@ -35,6 +36,8 @@ function surfacesKey(surfaces: SyncSurface[]): string {
 }
 
 export function DomainSyncProvider({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const authenticatedUserId = user?.id ?? null;
   const [connected, setConnected] = useState(false);
   const [lastCursor, setLastCursor] = useState<string | null>(null);
   const [lastEvent, setLastEvent] = useState<SyncEnvelope | null>(null);
@@ -128,6 +131,7 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (loading || !authenticatedUserId) return;
 
     let es: EventSource | null = null;
     let stopped = false;
@@ -197,8 +201,9 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
       bc?.close();
       setConnected(false);
     };
+    // connected fica de fora de propósito: o fallback de 15s lê o valor inicial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleEnvelope, recoveryFetch, runRefresh]);
+  }, [handleEnvelope, recoveryFetch, runRefresh, loading, authenticatedUserId]);
 
   const subscribeSurface = useCallback(
     (surface: SyncSurface | SyncSurface[], onRefresh: RefreshHandler) => {
