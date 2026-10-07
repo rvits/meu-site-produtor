@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import { isOperationalNoFileService } from "@/app/lib/service-catalog";
 import { hasOperationalTimer } from "@/app/lib/service-timing";
 import type { AdminService } from "./types";
@@ -226,14 +227,14 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
         )}
 
         {s.status === "concluido" && delivered && (
-          <a
+          <DeliveryDownloadLink
             href={s.deliveryAudioUrl || "#"}
             download={deliveryDisplayName(s.deliveryAudioUrl)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-purple-500"
           >
             <Icons.download className="w-3 h-3" />
             Download
-          </a>
+          </DeliveryDownloadLink>
         )}
 
         {s.status === "cancelado" && actions.onExcluir && (

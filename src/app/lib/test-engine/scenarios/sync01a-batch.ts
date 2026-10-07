@@ -41,7 +41,7 @@ import type {
   ScenarioId,
 } from "@/app/lib/test-engine/types";
 
-const DELIVERY_URL = "https://example.com/sync01a-delivery.wav";
+const DELIVERY_URL = "/uploads/deliveries/sync01a-delivery.wav";
 
 export const SYNC01A_IDS: ScenarioId[] = [
   "SYNC-001",

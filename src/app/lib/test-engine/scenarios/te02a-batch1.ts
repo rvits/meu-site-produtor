@@ -47,7 +47,7 @@ import { toPersistedCouponType } from "@/app/lib/domain/coupon-types";
 import { generateCouponCode } from "@/app/lib/coupons";
 import { SYMBOLIC_PLANO_BRL } from "@/app/lib/symbolic-payment";
 
-const DELIVERY_URL = "https://example.com/te02a-delivery.wav";
+const DELIVERY_URL = "/uploads/deliveries/te02a-delivery.wav";
 
 type RunBody = Awaited<ReturnType<ScenarioDefinition["run"]>>;
 

@@ -229,8 +229,8 @@ export const rc02Scenarios: ScenarioDefinition[] = [
         const svc = await prisma.service.findFirst({
           where: { appointmentId: apt!.id },
         });
-        const url1 = "https://example.com/rc02-delivery-v1.wav";
-        const url2 = "https://example.com/rc02-delivery-v2.wav";
+        const url1 = "/uploads/deliveries/rc02-delivery-v1.wav";
+        const url2 = "/uploads/deliveries/rc02-delivery-v2.wav";
         await updateServiceFields({
           serviceId: svc!.id,
           deliveryAudioUrl: url1,

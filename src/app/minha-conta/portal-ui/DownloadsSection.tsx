@@ -15,6 +15,7 @@ import {
   formatDateTime,
 } from "@/components/design-system";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento, EntregaServico } from "./types";
 import { deliveryTypeLabel, isAudioDelivery } from "./helpers";
 import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
@@ -93,14 +94,14 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
                     Seu navegador não reproduz áudio.
                   </audio>
                 )}
-                <a
+                <DeliveryDownloadLink
                   href={e.deliveryAudioUrl}
                   download={fileName}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
                 >
                   <Icon name="download" className="w-3.5 h-3.5" />
                   Baixar arquivo
-                </a>
+                </DeliveryDownloadLink>
               </Card>
             );
           })}

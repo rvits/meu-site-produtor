@@ -5,7 +5,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/app/lib/prisma";
-import { validateDeliveryAudioUrl } from "@/app/lib/delivery-url-validation";
+import { validateDeliveryAudioUrl } from "@/app/lib/delivery-storage";
 import { ensureServicesForAppointment } from "@/app/lib/ensure-appointment-services";
 import {
   assertTransitionAllowed,
@@ -152,21 +152,17 @@ async function persistStatus(
       } else {
         const url = String(meta.deliveryAudioUrl || "").trim();
         const fmt = meta.deliveryAudioFormat;
-        if (fmt !== "wav" && fmt !== "mp3" && fmt !== "zip") {
+        if (typeof fmt !== "string" || (fmt !== "wav" && fmt !== "mp3" && fmt !== "zip")) {
           throw Object.assign(new Error("Formato de entrega obrigatório (wav|mp3|zip)"), {
             httpStatus: 400,
             code: "VALIDATION",
           });
         }
-        const probe =
-          process.env.DELIVERY_AUDIO_URL_PROBE === "1" ||
-          process.env.DELIVERY_AUDIO_URL_PROBE === "true" ||
-          Boolean(meta.probe);
-        const urlValidation = await validateDeliveryAudioUrl(url, { probe });
+        const urlValidation = await validateDeliveryAudioUrl(url, { format: fmt });
         if (!urlValidation.ok) {
           throw Object.assign(new Error(urlValidation.error || "URL de entrega inválida"), {
-            httpStatus: 400,
-            code: "VALIDATION",
+            httpStatus: urlValidation.httpStatus,
+            code: urlValidation.httpStatus === 503 ? "STORAGE_UNAVAILABLE" : urlValidation.code === "missing" ? "NOT_FOUND" : "VALIDATION",
           });
         }
         data.deliveryAudioUrl = url;

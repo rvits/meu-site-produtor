@@ -502,7 +502,7 @@ export const rc03Scenarios: ScenarioDefinition[] = [
         const svc = await prisma.service.findFirst({ where: { appointmentId: apt!.id } });
         await completeService({
           serviceId: svc!.id,
-          deliveryAudioUrl: "https://example.com/rc03.wav",
+          deliveryAudioUrl: "/uploads/deliveries/rc03.wav",
           deliveryAudioFormat: "wav",
           actor: { type: "admin" },
         });

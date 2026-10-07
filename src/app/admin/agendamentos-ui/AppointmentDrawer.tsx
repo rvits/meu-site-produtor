@@ -9,6 +9,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import { canDeleteClosedAppointment } from "@/app/lib/appointment-delete-gate";
 import { adminResolutionLabel } from "@/app/lib/manual-compensation";
 import { StatusBadge, PaymentBadge, DeliveryBadge } from "@/app/admin/servicos-ui/Badges";
@@ -250,14 +251,14 @@ export function AppointmentDrawer({
                           Seu navegador não reproduz áudio.
                         </audio>
                       )}
-                      <a
+                      <DeliveryDownloadLink
                         href={s.deliveryAudioUrl || "#"}
                         download={deliveryDisplayName(s.deliveryAudioUrl)}
                         className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-purple-300 underline-offset-2 hover:underline"
                       >
                         <Icons.download className="w-3 h-3" />
                         Download
-                      </a>
+                      </DeliveryDownloadLink>
                     </li>
                   );
                 })}

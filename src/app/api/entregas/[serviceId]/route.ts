@@ -1,22 +1,32 @@
 /**
  * GET /api/entregas/[serviceId]
- * GO-H11A — Proxy autenticado de arquivos de entrega (owner ou ADMIN).
+ * Proxy autenticado de arquivos de entrega (owner ou ADMIN).
+ * 404 é ausência real. 403/store suspenso é 503, não "arquivo ausente".
  */
 import { NextResponse } from "next/server";
 import { createReadStream, existsSync } from "fs";
 import path from "path";
 import { Readable } from "stream";
-import { get } from "@vercel/blob";
 import { getSessionUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { isLocalDeliveryPath, isVercelBlobUrl } from "@/app/lib/delivery-access";
 import {
-  blobPathnameFromUrl,
-  isLocalDeliveryPath,
-  isVercelBlobUrl,
-} from "@/app/lib/delivery-access";
+  DELIVERY_NOT_FOUND,
+  DELIVERY_UNAVAILABLE,
+  classifyHttpStatus,
+  inspectDeliveryBlob,
+  openDeliveryBlobStream,
+  releaseUnreadBody,
+  type DeliveryReadFailure,
+} from "@/app/lib/delivery-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function safeDownloadName(name: string): string {
+  const base = path.basename(name).replace(/[\r\n"\\]/g, "").slice(0, 180);
+  return base || "entrega";
+}
 
 function mimeFromName(name: string): string {
   const ext = path.extname(name).toLowerCase();
@@ -46,8 +56,20 @@ function localDeliveryAbs(urlOrPath: string): string | null {
   return null;
 }
 
+function jsonError(failure: DeliveryReadFailure) {
+  return NextResponse.json({ error: failure.clientMessage }, { status: failure.httpStatus });
+}
+
+function logDelivery(serviceId: string, failure: DeliveryReadFailure) {
+  console.error("[entregas/proxy]", {
+    serviceId,
+    category: failure.code,
+    blobStatus: failure.blobStatus ?? null,
+  });
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ serviceId: string }> }
 ) {
   try {
@@ -72,7 +94,7 @@ export async function GET(
     });
 
     if (!service?.deliveryAudioUrl) {
-      return NextResponse.json({ error: "Entrega não encontrada" }, { status: 404 });
+      return NextResponse.json({ error: DELIVERY_NOT_FOUND }, { status: 404 });
     }
 
     if (user.role !== "ADMIN" && service.userId !== user.id) {
@@ -80,16 +102,26 @@ export async function GET(
     }
 
     const stored = service.deliveryAudioUrl.trim();
-    const fileName = path.basename(stored.split("?")[0] || "entrega");
+    const fileName = safeDownloadName(stored.split("?")[0] || "entrega");
     const contentType = mimeFromName(
       service.deliveryAudioFormat ? `x.${service.deliveryAudioFormat}` : fileName
     );
+    const probe = req.headers.get("x-delivery-probe") === "1";
 
     if (isLocalDeliveryPath(stored) || (!stored.startsWith("http") && !isVercelBlobUrl(stored))) {
       const abs = localDeliveryAbs(stored);
       if (!abs) {
-        return NextResponse.json({ error: "Arquivo local ausente" }, { status: 404 });
+        const failure: DeliveryReadFailure = {
+          ok: false,
+          httpStatus: 404,
+          clientMessage: DELIVERY_NOT_FOUND,
+          adminMessage: DELIVERY_NOT_FOUND,
+          code: "missing",
+        };
+        logDelivery(serviceId, failure);
+        return jsonError(failure);
       }
+      if (probe) return NextResponse.json({ ok: true });
       const nodeStream = createReadStream(abs);
       const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
       return new NextResponse(webStream, {
@@ -102,78 +134,66 @@ export async function GET(
       });
     }
 
-    if (isVercelBlobUrl(stored) || stored.startsWith("deliveries/")) {
-      const pathname = stored.startsWith("deliveries/")
-        ? stored
-        : blobPathnameFromUrl(stored) || stored;
-      const access =
-        process.env.BLOB_DELIVERY_ACCESS === "private" ? "private" : "public";
-
-      try {
-        const result = await get(pathname, {
-          access: access as "public" | "private",
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-        if (!result || result.statusCode !== 200 || !result.stream) {
-          // Fallback: blob antigo em store público — fetch direto só no servidor
-          if (stored.startsWith("http")) {
-            const upstream = await fetch(stored);
-            if (!upstream.ok || !upstream.body) {
-              return NextResponse.json({ error: "Arquivo Blob ausente" }, { status: 404 });
-            }
-            return new NextResponse(upstream.body, {
-              headers: {
-                "Content-Type": upstream.headers.get("content-type") || contentType,
-                "Content-Disposition": `inline; filename="${fileName}"`,
-                "Cache-Control": "private, no-store",
-                "X-Content-Type-Options": "nosniff",
-              },
-            });
-          }
-          return NextResponse.json({ error: "Arquivo Blob ausente" }, { status: 404 });
-        }
-        return new NextResponse(result.stream, {
-          headers: {
-            "Content-Type": result.blob.contentType || contentType,
-            "Content-Disposition": `inline; filename="${fileName}"`,
-            "Cache-Control": "private, no-store",
-            "X-Content-Type-Options": "nosniff",
-          },
-        });
-      } catch {
-        if (stored.startsWith("http")) {
-          const upstream = await fetch(stored);
-          if (!upstream.ok || !upstream.body) {
-            return NextResponse.json({ error: "Arquivo Blob ausente" }, { status: 404 });
-          }
-          return new NextResponse(upstream.body, {
-            headers: {
-              "Content-Type": upstream.headers.get("content-type") || contentType,
-              "Content-Disposition": `inline; filename="${fileName}"`,
-              "Cache-Control": "private, no-store",
-              "X-Content-Type-Options": "nosniff",
-            },
-          });
-        }
-        throw new Error("Falha ao ler Blob");
+    if (isVercelBlobUrl(stored)) {
+      const inspected = await inspectDeliveryBlob(stored);
+      if (!inspected.ok) {
+        logDelivery(serviceId, inspected);
+        return jsonError(inspected);
       }
+      if (probe) return NextResponse.json({ ok: true });
+      const opened = await openDeliveryBlobStream(inspected.pathname || "");
+      if (!opened.ok) {
+        logDelivery(serviceId, opened);
+        return jsonError(opened);
+      }
+      return new NextResponse(opened.stream, {
+        headers: {
+          "Content-Type": opened.contentType || contentType,
+          "Content-Disposition": `inline; filename="${fileName}"`,
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
     }
 
-    // URL externa residual: só via proxy autenticado (não redireciona)
-    const upstream = await fetch(stored);
-    if (!upstream.ok || !upstream.body) {
-      return NextResponse.json({ error: "Arquivo ausente" }, { status: 404 });
+    const upstream = await fetch(stored, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      redirect: "manual",
+    });
+    await releaseUnreadBody(upstream.body);
+    const classified = classifyHttpStatus(upstream.status);
+    if (!classified.ok) {
+      logDelivery(serviceId, classified);
+      return jsonError(classified);
     }
-    return new NextResponse(upstream.body, {
+    if (probe) return NextResponse.json({ ok: true });
+    const full = await fetch(stored, { redirect: "manual" });
+    if (!full.ok || !full.body) {
+      const again = classifyHttpStatus(full.status);
+      const failure = again.ok
+        ? ({
+            ok: false as const,
+            httpStatus: 502 as const,
+            clientMessage: DELIVERY_UNAVAILABLE,
+            adminMessage: DELIVERY_UNAVAILABLE,
+            code: "blob_unexpected" as const,
+            blobStatus: full.status,
+          })
+        : again;
+      logDelivery(serviceId, failure);
+      return jsonError(failure);
+    }
+    return new NextResponse(full.body, {
       headers: {
-        "Content-Type": upstream.headers.get("content-type") || contentType,
+        "Content-Type": full.headers.get("content-type") || contentType,
         "Content-Disposition": `inline; filename="${fileName}"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (err) {
-    console.error("[entregas/proxy]", err);
-    return NextResponse.json({ error: "Erro ao servir entrega" }, { status: 500 });
+  } catch {
+    console.error("[entregas/proxy]", { category: "unexpected" });
+    return NextResponse.json({ error: DELIVERY_UNAVAILABLE }, { status: 503 });
   }
 }

@@ -190,7 +190,7 @@ export const ph01Scenarios: ScenarioDefinition[] = [
         const svc = await prisma.service.findFirst({ where: { appointmentId: apt!.id } });
         await completeService({
           serviceId: svc!.id,
-          deliveryAudioUrl: "https://example.com/ph01.wav",
+          deliveryAudioUrl: "/uploads/deliveries/ph01.wav",
           deliveryAudioFormat: "wav",
           actor: { type: "test-engine" },
         });

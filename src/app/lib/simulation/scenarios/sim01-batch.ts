@@ -50,7 +50,7 @@ import {
   findSyncObserverEvents,
 } from "@/app/lib/synchronization/observer";
 
-const DELIVERY_URL = "https://example.com/sim01-delivery.wav";
+const DELIVERY_URL = "/uploads/deliveries/sim01-delivery.wav";
 
 /** Slot único por cenário — evita colisão entre SIM-001…010 e suites TE paralelas. */
 function simSlot(id: SimulationId, extraDayOffset = 0): { data: string; hora: string } {

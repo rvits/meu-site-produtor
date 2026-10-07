@@ -22,6 +22,7 @@ import {
 } from "@/components/design-system";
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
 import { cancelarAgendamento, escolherReembolso } from "./actions";
@@ -224,14 +225,14 @@ export function AppointmentCard({
                               Seu navegador não reproduz áudio.
                             </audio>
                           )}
-                          <a
+                          <DeliveryDownloadLink
                             href={e.deliveryAudioUrl}
                             download={fileName}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
                           >
                             <Icon name="download" className="w-3.5 h-3.5" />
                             Download
-                          </a>
+                          </DeliveryDownloadLink>
                         </li>
                       );
                     })}
