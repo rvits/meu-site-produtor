@@ -284,6 +284,11 @@ export function AppointmentCard({
                     </Button>
                   </div>
                 )}
+                {a.cancelRefundOption === "manual" && (
+                  <p className="text-xs text-zinc-300">
+                    Solicitação compensada administrativamente.
+                  </p>
+                )}
                 {a.cancelRefundOption === "reembolso" && (
                   <p className="text-xs text-sky-300">
                     Reembolso direto solicitado em{" "}

@@ -80,6 +80,13 @@ export function buildOrderTimeline(a: Agendamento): TimelineItemData[] {
         icon: "ticket",
         description: a.cancelCouponCode,
       });
+    } else if (a.cancelRefundOption === "manual") {
+      items.push({
+        key: "compensacao-manual",
+        title: "Solicitação compensada administrativamente.",
+        state: "done",
+        icon: "info",
+      });
     } else {
       items.push({
         key: "escolha",

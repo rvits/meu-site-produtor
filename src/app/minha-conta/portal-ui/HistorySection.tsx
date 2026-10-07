@@ -91,6 +91,17 @@ export function buildHistory(data: PortalData): HistoryRow[] {
       amount: a.pagamento?.amount,
       date: a.data,
     });
+    if (a.cancelRefundOption === "manual") {
+      rows.push({
+        key: `apt-manual-${a.id}`,
+        kind: "agendamento",
+        icon: "info",
+        intent: "neutral",
+        title: "Solicitação compensada administrativamente.",
+        status: a.status,
+        date: a.data,
+      });
+    }
     if (a.refundProcessedAt && a.cancelRefundOption === "reembolso") {
       rows.push({
         key: `apt-refund-${a.id}`,

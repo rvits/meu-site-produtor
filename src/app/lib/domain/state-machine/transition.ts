@@ -16,6 +16,7 @@ import {
 import { buildDomainEvent, emitDomainEvent } from "@/app/lib/domain/state-machine/events";
 import { recordTransitionHistory } from "@/app/lib/domain/state-machine/history";
 import { planTransitionEffects } from "@/app/lib/domain/state-machine/effects";
+import { appointmentReopenResolutionClear } from "@/app/lib/manual-compensation";
 import type {
   TransitionInput,
   TransitionResult,
@@ -73,11 +74,7 @@ async function persistStatus(
       data.cancelledAt = new Date();
     }
     if (persisted === "aceito" && (fromNorm === "cancelado" || fromNorm === "remarcado")) {
-      data.cancelReason = null;
-      data.cancelledAt = null;
-      data.cancelRefundOption = null;
-      data.refundProcessedAt = null;
-      data.refundCouponId = null;
+      Object.assign(data, appointmentReopenResolutionClear);
     }
 
     // confirmado é alias legado de aceite admin

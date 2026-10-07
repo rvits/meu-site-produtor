@@ -70,6 +70,13 @@ export function canDeleteClosedAppointment(
     };
   }
 
+  if (apt.cancelRefundOption === "manual") {
+    return {
+      allowed: false,
+      reason: "Compensação administrativa preservada. O histórico deste agendamento não pode ser excluído.",
+    };
+  }
+
   if (apt.cancelRefundOption === "reembolso") {
     if (!apt.refundProcessedAt) {
       return {

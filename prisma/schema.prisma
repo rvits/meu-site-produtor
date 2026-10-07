@@ -141,12 +141,15 @@ model Appointment {
   readAt                DateTime? // Quando o usuário visualizou o agendamento confirmado
   cancelReason          String? // Justificativa do cancelamento (admin)
   cancelledAt           DateTime? // Data do cancelamento
-  cancelRefundOption    String? // "reembolso" | "cupom" após usuário escolher
+  cancelRefundOption    String? // "reembolso" | "cupom" | "manual" após escolha do usuário ou compensação administrativa
   refundProcessedAt     DateTime? // Quando reembolso direto foi processado
   refundAsaasStatus     String?
   refundUserConfirmedAt DateTime?
   refundUserDisputedAt  DateTime?
   refundCouponId        String? // ID do cupom gerado se opção cupom
+  manualCompensationAt  DateTime? // Quando um admin marcou compensação manual (sem cupom e sem reembolso)
+  manualCompensationBy  String? // Id do admin; sem FK nesta etapa
+  manualCompensationReason String? // Motivo opcional informado pelo admin
   userHiddenAt          DateTime? // Quando o usuário removeu da Minha Conta (mantém no admin)
   adminArchivedAt       DateTime? // Arquivamento administrativo (soft-delete; preserva histórico)
   adminArchivedReason   String? // Justificativa do arquivamento admin

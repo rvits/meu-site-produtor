@@ -3,7 +3,7 @@ import { prisma } from "@/app/lib/prisma";
 import { requireAuth } from "@/app/lib/auth";
 import { refundAsaasPayment } from "@/app/lib/asaas-refund";
 import { fetchAsaasPayment, asaasPaymentIsRefundedStatus } from "@/app/lib/asaas-get-payment";
-import { listAsaasPaymentsReceived } from "@/app/lib/asaas-list-payments";
+import { isManualCompensation } from "@/app/lib/manual-compensation";
 import {
   createDomainCoupon,
   invalidateUnusedCouponsForAppointment,
@@ -47,6 +47,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Esta opção só está disponível para agendamentos cancelados ou recusados." },
         { status: 400 }
+      );
+    }
+
+    if (isManualCompensation(agendamento.cancelRefundOption)) {
+      return NextResponse.json(
+        { error: "Esta solicitação já foi compensada administrativamente." },
+        { status: 409 }
       );
     }
 
@@ -122,6 +129,7 @@ export async function POST(req: Request) {
     void cupomPlanoDoAgendamento;
 
     // Buscar pagamento: por appointmentId ou por appointmentIds (carrinho)
+    let paymentLink: "direct" | "coupon_root" = "direct";
     let payment = await prisma.payment.findFirst({
       where: {
         userId: user.id,
@@ -156,84 +164,27 @@ export async function POST(req: Request) {
               where: { userId: user.id, status: "approved", asaasId: meta.asaasId },
             });
             if (found) {
-              payment = found;
-              await prisma.payment.update({
+              payment = await prisma.payment.update({
                 where: { id: found.id },
                 data: { appointmentId: id, type: "agendamento" },
               });
+              paymentLink = "direct";
               break;
             }
-            // Payment não existe no nosso banco mas temos asaasId no metadata: criar registro (valor será reembolsado total pelo Asaas)
-            payment = await prisma.payment.create({
-              data: {
-                userId: user.id,
-                amount: 0,
-                currency: "BRL",
-                status: "approved",
-                type: "agendamento",
-                asaasId: meta.asaasId,
-                appointmentId: id,
-              },
-            });
-            break;
           }
         } catch (_) {}
       }
     }
 
-    // Último recurso para reembolso: buscar cobranças RECEIVED no Asaas por externalReference (userId)
-    if (opcao === "reembolso" && (!payment || !payment.asaasId)) {
-      try {
-        const asaasList = await listAsaasPaymentsReceived(user.id, 30);
-        const appointmentCreated = agendamento.createdAt.getTime();
-        const twoDaysMs = 48 * 60 * 60 * 1000;
-        // Encontrar cobrança cuja data de criação está próxima do agendamento (até 48h antes/depois)
-        let best: { id: string; value: number; dateCreated: string } | null = null;
-        for (const p of asaasList) {
-          const created = new Date(p.dateCreated).getTime();
-          if (Math.abs(created - appointmentCreated) <= twoDaysMs) {
-            if (!best || Math.abs(created - appointmentCreated) < Math.abs(new Date(best.dateCreated).getTime() - appointmentCreated)) {
-              best = { id: p.id, value: p.value, dateCreated: p.dateCreated };
-            }
-          }
-        }
-        if (best) {
-          let existing = await prisma.payment.findFirst({
-            where: { userId: user.id, asaasId: best.id },
-          });
-          if (existing) {
-            await prisma.payment.update({
-              where: { id: existing.id },
-              data: { appointmentId: id, type: "agendamento", amount: best.value },
-            });
-            const updated = await prisma.payment.findUnique({ where: { id: existing.id } });
-            if (updated) payment = updated;
-          } else {
-            payment = await prisma.payment.create({
-              data: {
-                userId: user.id,
-                amount: best.value,
-                currency: "BRL",
-                status: "approved",
-                type: "agendamento",
-                asaasId: best.id,
-                appointmentId: id,
-              },
-            });
-          }
-        }
-      } catch (asaasErr: any) {
-        console.error("[Escolher Reembolso] Fallback Asaas list:", asaasErr);
-      }
-    }
-
-    // GO-H8: se o agendamento veio de cupom, localizar Pedido Raiz para Asaas
+    // GO-H8: se o agendamento veio de cupom, localizar Pedido Raiz para Asaas.
+    // Não associa cobrança por proximidade de data.
     if (!payment && cupomDoAgendamento) {
       const rootId = cupomDoAgendamento.rootPaymentId || cupomDoAgendamento.paymentId;
       if (rootId) {
         payment = await prisma.payment.findFirst({
           where: { id: rootId, userId: user.id, status: "approved" },
         });
+        if (payment) paymentLink = "coupon_root";
       }
     }
 
@@ -242,50 +193,15 @@ export async function POST(req: Request) {
     let couponCode: string | null = null;
 
     if (opcao === "reembolso") {
-      if (!payment?.asaasId && !payment?.providerPaymentId) {
-        // Homologação / Simulation: ainda permite registrar intenção se houver payment
-        if (!payment) {
-          return NextResponse.json(
-            {
-              error:
-                "Pagamento original não encontrado para reembolso. Use a opção \"Cupom para remarcar\" ou contate o suporte.",
-            },
-            { status: 400 }
-          );
-        }
-      }
-
-      if (!payment?.asaasId) {
-        // Sem Asaas (HOMOLOGATION/SIMULATION): registra opção localmente
-        if (payment && String(payment.provider || "").toUpperCase() !== "ASAAS") {
-          await prisma.appointment.update({
-            where: { id },
-            data: {
-              cancelRefundOption: "reembolso",
-              refundProcessedAt: now,
-              refundAsaasStatus: "simulated",
-            },
-          });
-          return NextResponse.json({
-            message:
-              "Reembolso registrado no domínio (pagamento sem Asaas). Para cobranças Asaas o estorno segue o gateway.",
-            opcao: "reembolso",
-            refundAsaasStatus: "simulated",
-          });
-        }
+      if (!payment) {
         return NextResponse.json(
           {
             error:
-              "Pagamento não encontrado ou sem vínculo com Asaas para reembolso direto. Use a opção \"Cupom para remarcar\".",
+              "Não foi possível localizar automaticamente o pagamento correspondente. Este caso exige revisão administrativa ou outra opção disponível.",
           },
-          { status: 400 }
+          { status: 409 }
         );
       }
-
-      const ids = payment.appointmentIds != null
-        ? (Array.isArray(payment.appointmentIds) ? payment.appointmentIds : JSON.parse(String(payment.appointmentIds)))
-        : [payment.appointmentId].filter(Boolean);
-      const isMultiItem = Array.isArray(ids) && ids.length > 1;
 
       const partial = await resolveCartPartialRefundAmount({
         payment: {
@@ -296,7 +212,59 @@ export async function POST(req: Request) {
           appointmentIds: payment.appointmentIds,
         },
         appointmentId: id,
+        link: paymentLink,
       });
+      if (partial.blocked) {
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível determinar com segurança o valor deste serviço para reembolso automático. Este caso exige revisão administrativa ou outra opção disponível.",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (!payment.asaasId) {
+        if (String(payment.provider || "").toUpperCase() !== "ASAAS") {
+          const simulated = await prisma.appointment.updateMany({
+            where: {
+              id,
+              cancelRefundOption: null,
+              status: { in: ["cancelado", "recusado"] },
+            },
+            data: {
+              cancelRefundOption: "reembolso",
+              refundProcessedAt: now,
+              refundAsaasStatus: "simulated",
+            },
+          });
+          if (simulated.count === 0) {
+            return NextResponse.json(
+              { error: "Não foi possível iniciar o reembolso. Atualize a página ou entre em contato com o suporte." },
+              { status: 409 }
+            );
+          }
+          return NextResponse.json({
+            message:
+              "Reembolso registrado no domínio (pagamento sem Asaas). Para cobranças Asaas o estorno segue o gateway.",
+            opcao: "reembolso",
+            refundAsaasStatus: "simulated",
+          });
+        }
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível localizar automaticamente o pagamento correspondente. Este caso exige revisão administrativa ou outra opção disponível.",
+          },
+          { status: 409 }
+        );
+      }
+
+      const linkedIds = payment.appointmentIds != null
+        ? (Array.isArray(payment.appointmentIds) ? payment.appointmentIds : JSON.parse(String(payment.appointmentIds)))
+        : [payment.appointmentId].filter(Boolean);
+      const isMultiItem = Array.isArray(linkedIds) && linkedIds.length > 1;
+
       refundAmount = partial.amount;
 
       if (refundAmount <= 0) {

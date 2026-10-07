@@ -7,6 +7,7 @@ import { resolveCanonicalCouponType } from "@/app/lib/domain/coupon-types";
 import { resolveCouponCategoryFromRow } from "@/app/lib/domain/coupon-category";
 import { serviceOrderLabel } from "@/app/lib/ui/service-order-visual";
 import { userHasPromotionAccess } from "@/app/lib/plan-promotion-access";
+import { omitManualCompensationAudit } from "@/app/lib/manual-compensation";
 
 export async function GET() {
   try {
@@ -357,12 +358,13 @@ export async function GET() {
         }) ?? undefined;
       }
       const cancelCouponCode = agendamento.refundCouponId ? refundCouponsMap.get(agendamento.refundCouponId)?.code : null;
+      const agendamentoPublico = omitManualCompensationAudit(agendamento);
       // Cupom de plano: cupom ainda vinculado OU cancelado sem pagamento (cupom foi liberado ao cancelar)
       const foiComCupomPlano =
         agendamentosIdsComCupomPlano.has(agendamento.id) ||
         ((agendamento.status === "cancelado" || agendamento.status === "recusado") && !pagamento);
       return {
-        ...agendamento,
+        ...agendamentoPublico,
         pagamento: pagamento ? {
           id: pagamento.id,
           amount: pagamento.amount,

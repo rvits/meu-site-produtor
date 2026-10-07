@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
 import { canDeleteClosedAppointment } from "@/app/lib/appointment-delete-gate";
+import { adminResolutionLabel } from "@/app/lib/manual-compensation";
 import { StatusBadge, PaymentBadge, DeliveryBadge } from "@/app/admin/servicos-ui/Badges";
 import {
   Icons,
@@ -50,6 +51,7 @@ export interface AppointmentDrawerActions {
   onComecar?: (id: number) => void;
   onCancelar?: (id: number) => void;
   onReverter?: (id: number) => void;
+  onCompensarManual?: (id: number) => void;
   onExcluir?: (id: number) => void;
   busyId?: number | null;
 }
@@ -275,9 +277,15 @@ export function AppointmentDrawer({
               {a.cancelledAt && <Row label="Cancelado em" value={formatDateTime(a.cancelledAt)} />}
               {a.cancelRefundOption && (
                 <Row
-                  label="Opção do cliente"
-                  value={a.cancelRefundOption === "reembolso" ? "Reembolso direto (Asaas)" : "Cupom de remarcação"}
+                  label="Resolução"
+                  value={adminResolutionLabel(a.cancelRefundOption) ?? a.cancelRefundOption}
                 />
+              )}
+              {a.cancelRefundOption === "manual" && a.manualCompensationAt && (
+                <Row label="Compensado em" value={formatDateTime(a.manualCompensationAt)} />
+              )}
+              {a.cancelRefundOption === "manual" && a.manualCompensationReason && (
+                <Row label="Motivo" value={a.manualCompensationReason} />
               )}
               {a.refundProcessedAt && <Row label="Reembolso processado" value={formatDateTime(a.refundProcessedAt)} />}
               {a.refundAsaasStatus && <Row label="Status no gateway" value={a.refundAsaasStatus} />}
@@ -333,6 +341,18 @@ export function AppointmentDrawer({
             >
               <Icons.slash className="w-3 h-3" />
               Cancelar
+            </button>
+          )}
+          {(status === "cancelado" || status === "recusado") &&
+            !a.cancelRefundOption &&
+            actions.onCompensarManual && (
+            <button
+              type="button"
+              onClick={() => actions.onCompensarManual?.(a.id)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-zinc-400 hover:text-white disabled:opacity-50"
+            >
+              Marcar como compensado manualmente
             </button>
           )}
           {status === "cancelado" && actions.onReverter && (

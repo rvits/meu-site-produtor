@@ -47,6 +47,9 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
   const [cancelModal, setCancelModal] = useState<{ id: number } | null>(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [manualModal, setManualModal] = useState<{ id: number } | null>(null);
+  const [manualMotivo, setManualMotivo] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
 
   // Serviços relacionados (drawer): carregados sob demanda da API já existente.
   const [services, setServices] = useState<RelatedService[] | null>(null);
@@ -232,6 +235,51 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
       notifyError("Erro ao cancelar agendamento.");
     } finally {
       setCancelSubmitting(false);
+    }
+  }
+
+  function abrirModalCompensacao(id: number) {
+    setManualModal({ id });
+    setManualMotivo("");
+  }
+
+  function fecharModalCompensacao() {
+    setManualModal(null);
+    setManualMotivo("");
+    setManualSubmitting(false);
+  }
+
+  async function confirmarCompensacaoManual() {
+    if (!manualModal) return;
+    setManualSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/agendamentos/compensacao-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appointmentId: manualModal.id,
+          reason: manualMotivo.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        fecharModalCompensacao();
+        await carregar();
+        notifyAppDataChanged("admin-agendamento-updated");
+        notifySuccess(
+          data.alreadyCompensated
+            ? "Esta solicitação já estava compensada administrativamente."
+            : "Compensado administrativamente."
+        );
+      } else {
+        const msg = typeof data?.error === "string" ? data.error : "Erro ao registrar compensação manual.";
+        notifyError(msg);
+      }
+    } catch (err) {
+      console.error("Erro ao registrar compensação manual", err);
+      notifyError("Erro ao registrar compensação manual.");
+    } finally {
+      setManualSubmitting(false);
     }
   }
 
@@ -439,6 +487,7 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
                 onComecar: (id) => void patchStatus(id, "em_andamento", "iniciar"),
                 onCancelar: (id) => abrirModalCancelar(id),
                 onReverter: (id) => void reverterCancelamento(id),
+                onCompensarManual: (id) => abrirModalCompensacao(id),
                 onExcluir: (id) => void excluirAgendamento(id),
               }}
             />
@@ -462,9 +511,46 @@ export function AppointmentsBoard({ status }: { status: StatusKey }) {
             onComecar: (id) => void patchStatus(id, "em_andamento", "iniciar"),
             onCancelar: (id) => abrirModalCancelar(id),
             onReverter: (id) => void reverterCancelamento(id),
+            onCompensarManual: (id) => abrirModalCompensacao(id),
             onExcluir: (id) => void excluirAgendamento(id),
           }}
         />
+      )}
+
+      {manualModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-zinc-600 bg-zinc-800 p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold text-zinc-100">Marcar como compensado manualmente</h3>
+            <p className="mb-4 text-sm text-zinc-400">
+              Nenhum reembolso será realizado. Nenhum novo cupom será criado. O cliente deixará de
+              poder escolher reembolso ou cupom para esta solicitação.
+            </p>
+            <textarea
+              value={manualMotivo}
+              onChange={(e) => setManualMotivo(e.target.value)}
+              placeholder="Motivo opcional, visível só no admin"
+              maxLength={500}
+              className="min-h-[100px] w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-zinc-200 placeholder-zinc-500"
+              rows={4}
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={confirmarCompensacaoManual}
+                disabled={manualSubmitting}
+                className="flex-1 rounded-lg bg-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {manualSubmitting ? "Registrando…" : "Confirmar compensação"}
+              </button>
+              <button
+                onClick={fecharModalCompensacao}
+                disabled={manualSubmitting}
+                className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-500"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal Justificativa Cancelamento (mesma API já certificada) */}

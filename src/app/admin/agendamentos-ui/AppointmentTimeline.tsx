@@ -9,6 +9,39 @@ import { TimelineSteps, type TimelineStep } from "@/app/admin/servicos-ui/Servic
 import { formatDateTime } from "@/app/admin/servicos-ui/meta";
 import type { AdminAgendamento, RelatedService } from "./types";
 import { aptStatusKey } from "./meta";
+import { ADMIN_MANUAL_COMPENSATION_LABEL } from "@/app/lib/manual-compensation";
+
+function pushResolutionSteps(steps: TimelineStep[], a: AdminAgendamento, showPendingChoice: boolean) {
+  if (a.cancelRefundOption === "reembolso") {
+    steps.push({
+      label: "Reembolso financeiro",
+      detail: a.refundProcessedAt ? formatDateTime(a.refundProcessedAt) : "aguardando",
+      state: a.refundProcessedAt ? "done" : "pending",
+    });
+    return;
+  }
+  if (a.cancelRefundOption === "cupom") {
+    steps.push({
+      label: "Cupom de remarcação",
+      detail: a.refundCouponId ? "gerado" : "aguardando",
+      state: a.refundCouponId ? "done" : "pending",
+    });
+    return;
+  }
+  if (a.cancelRefundOption === "manual") {
+    steps.push({
+      label: ADMIN_MANUAL_COMPENSATION_LABEL,
+      detail: a.manualCompensationAt
+        ? formatDateTime(a.manualCompensationAt)
+        : a.manualCompensationReason || undefined,
+      state: "done",
+    });
+    return;
+  }
+  if (showPendingChoice && a.pagamentoConfirmado) {
+    steps.push({ label: "Aguardando escolha do cliente", detail: "reembolso ou cupom", state: "pending" });
+  }
+}
 
 const ORDER = ["pendente", "aceito", "em_andamento", "concluido"];
 
@@ -50,21 +83,7 @@ export function buildAppointmentTimeline(
       detail: a.cancelledAt ? formatDateTime(a.cancelledAt) : a.cancelReason || undefined,
       state: "terminal-bad",
     });
-    if (a.cancelRefundOption === "reembolso") {
-      steps.push({
-        label: "Reembolso financeiro",
-        detail: a.refundProcessedAt ? formatDateTime(a.refundProcessedAt) : "aguardando",
-        state: a.refundProcessedAt ? "done" : "pending",
-      });
-    } else if (a.cancelRefundOption === "cupom") {
-      steps.push({
-        label: "Cupom de remarcação",
-        detail: a.refundCouponId ? "gerado" : "aguardando",
-        state: a.refundCouponId ? "done" : "pending",
-      });
-    } else if (a.pagamentoConfirmado) {
-      steps.push({ label: "Aguardando escolha do cliente", detail: "reembolso ou cupom", state: "pending" });
-    }
+    pushResolutionSteps(steps, a, true);
     return steps;
   }
   if (status === "recusado") {
@@ -73,6 +92,7 @@ export function buildAppointmentTimeline(
       detail: a.cancelReason || undefined,
       state: "terminal-bad",
     });
+    pushResolutionSteps(steps, a, false);
     return steps;
   }
 

@@ -369,6 +369,13 @@ export async function revertAppointmentCancellation(
       "REBOOK_CHAIN"
     );
   }
+  if (before.cancelRefundOption === "manual") {
+    return fail(
+      "Não é possível reabrir esta solicitação porque ela já foi compensada administrativamente.",
+      409,
+      "MANUAL_COMPENSATION"
+    );
+  }
   if (before.cancelRefundOption) {
     return fail(
       "Não é possível reverter este cancelamento porque já existem remarcações ou cupons vinculados ao pedido.",

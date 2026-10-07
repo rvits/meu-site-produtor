@@ -49,6 +49,8 @@ export interface AdminAgendamento {
   cancelReason?: string | null;
   cancelledAt?: string | null;
   cancelRefundOption?: string | null;
+  manualCompensationAt?: string | null;
+  manualCompensationReason?: string | null;
   refundProcessedAt?: string | null;
   refundAsaasStatus?: string | null;
   refundCouponId?: string | null;
