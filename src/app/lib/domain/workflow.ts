@@ -10,6 +10,7 @@ import type { TransitionActor } from "@/app/lib/domain/state-machine/types";
 import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operational-filter";
 import { isSchedulableServiceType } from "@/app/lib/service-catalog";
 import { hasOperationalTimer } from "@/app/lib/service-timing";
+import { validateDeliveryFieldReplacement } from "@/app/lib/delivery-storage";
 
 export type WorkflowOk<T> = { ok: true; alreadyProcessed?: boolean; data: T };
 export type WorkflowFail = { ok: false; error: string; httpStatus: number; code?: string };
@@ -665,7 +666,10 @@ export async function updateServiceFields(params: {
     });
     if (!result.ok) return fail(result.error, result.httpStatus, result.code);
   } else if (deliveryAudioUrl !== undefined || deliveryAudioFormat !== undefined) {
-    // Ajuste de delivery sem mudança de status — ainda sem atravessar SM de status
+    if (deliveryAudioUrl !== undefined) {
+      const gate = validateDeliveryFieldReplacement(deliveryAudioUrl, deliveryAudioFormat);
+      if (!gate.ok) return fail(gate.error, gate.httpStatus, "VALIDATION");
+    }
     await prisma.service.update({
       where: { id: serviceId },
       data: {

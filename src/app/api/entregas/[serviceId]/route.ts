@@ -14,9 +14,11 @@ import {
   DELIVERY_NOT_FOUND,
   DELIVERY_UNAVAILABLE,
   classifyHttpStatus,
+  deliveryR2ReadFailure,
   inspectDeliveryBlob,
   openDeliveryBlobStream,
   releaseUnreadBody,
+  resolveDeliveryDownloadTarget,
   type DeliveryReadFailure,
 } from "@/app/lib/delivery-storage";
 
@@ -102,6 +104,12 @@ export async function GET(
     }
 
     const stored = service.deliveryAudioUrl.trim();
+    const downloadTarget = resolveDeliveryDownloadTarget(stored);
+    if (downloadTarget.kind === "r2") {
+      const failure = deliveryR2ReadFailure();
+      logDelivery(serviceId, failure);
+      return jsonError(failure);
+    }
     const fileName = safeDownloadName(stored.split("?")[0] || "entrega");
     const contentType = mimeFromName(
       service.deliveryAudioFormat ? `x.${service.deliveryAudioFormat}` : fileName

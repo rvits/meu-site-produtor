@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import { BlobStoreSuspendedError } from "@vercel/blob";
+import { classifyDeliveryStorageReference } from "../src/app/lib/delivery-access";
 import {
   DELIVERY_NOT_FOUND,
   DELIVERY_STORAGE_BLOCK,
@@ -11,7 +12,9 @@ import {
   classifyHttpStatus,
   inspectDeliveryBlob,
   releaseUnreadBody,
+  resolveDeliveryDownloadTarget,
   validateDeliveryAudioUrl,
+  validateDeliveryFieldReplacement,
   type DeliveryByteReader,
   type DeliveryHead,
 } from "../src/app/lib/delivery-storage";
@@ -211,6 +214,133 @@ async function main() {
     assert.equal(fakeLocal.ok, false);
     if (!fakeLocal.ok) assert.equal(fakeLocal.httpStatus, 400);
   } finally {
+    setProcessEnv("NODE_ENV", savedNodeEnv);
+    setProcessEnv("VERCEL_ENV", savedVercelEnv);
+  }
+
+  const blobRef = classifyDeliveryStorageReference(WAV);
+  assert.equal(blobRef.kind, "vercel_blob");
+  if (blobRef.kind === "vercel_blob") assert.equal(blobRef.pathname, PATH);
+
+  for (const ref of ["r2:deliveries/file.wav", "r2:deliveries/file.mp3", "r2:deliveries/file.zip"]) {
+    const classified = classifyDeliveryStorageReference(ref);
+    assert.equal(classified.kind, "r2", ref);
+  }
+  assert.equal(classifyDeliveryStorageReference("/uploads/deliveries/faixa.wav").kind, "local");
+
+  for (const ref of [
+    "https://example.com/faixa.wav",
+    "javascript:alert(1)",
+    "data:audio/wav,abc",
+    "r2:portfolio/file.wav",
+    "r2:deliveries/",
+    "r2:deliveries/../secret.wav",
+    "r2:deliveries/%2e%2e/secret.wav",
+    "r2:deliveries/foo//bar.wav",
+    "r2:deliveries/foo\\bar.wav",
+    "r2:deliveries/file.exe",
+    "r2:http://example.com/file.wav",
+  ]) {
+    assert.equal(classifyDeliveryStorageReference(ref).kind, "invalid", ref);
+  }
+
+  const r2Target = resolveDeliveryDownloadTarget("r2:deliveries/file.wav");
+  assert.equal(r2Target.kind, "r2");
+  if (r2Target.kind === "r2") assert.equal(r2Target.objectKey, "deliveries/file.wav");
+  assert.notEqual(resolveDeliveryDownloadTarget("https://example.com/faixa.wav").kind, "r2");
+
+  const arbitraryField = validateDeliveryFieldReplacement("https://example.com/faixa.wav", "wav");
+  assert.equal(arbitraryField.ok, false);
+  const r2Field = validateDeliveryFieldReplacement("r2:deliveries/file.wav", "wav");
+  assert.equal(r2Field.ok, true);
+  const blobField = validateDeliveryFieldReplacement(WAV, "wav");
+  assert.equal(blobField.ok, true);
+
+  const r2Env = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_DELIVERIES_BUCKET"] as const;
+  const savedR2: Record<string, string | undefined> = {};
+  for (const key of r2Env) savedR2[key] = process.env[key];
+  try {
+    for (const key of r2Env) delete process.env[key];
+    let r2HeadCalls = 0;
+    const closed = await validateDeliveryAudioUrl("r2:deliveries/file.wav", {
+      format: "wav",
+      r2Reader: {
+        head: async () => {
+          r2HeadCalls += 1;
+          return { ok: false, code: "unconfigured" };
+        },
+      },
+    });
+    assert.equal(r2HeadCalls, 1);
+    assert.equal(closed.ok, false);
+    if (!closed.ok) {
+      assert.equal(closed.httpStatus, 503);
+      assert.notEqual(closed.httpStatus, 404);
+      assert.equal(closed.error, DELIVERY_STORAGE_BLOCK);
+      assert.equal(closed.error.includes("não encontrado"), false);
+    }
+
+    const withoutReader = await validateDeliveryAudioUrl("r2:deliveries/file.wav", { format: "wav" });
+    assert.equal(withoutReader.ok, false);
+    if (!withoutReader.ok) {
+      assert.equal(withoutReader.httpStatus, 503);
+      assert.equal(withoutReader.code, "unconfigured");
+    }
+
+    setProcessEnv("NODE_ENV", "production");
+    setProcessEnv("VERCEL_ENV", "production");
+    const productionStringOnly = await validateDeliveryAudioUrl("r2:deliveries/file.wav", { format: "wav" });
+    assert.equal(productionStringOnly.ok, false);
+    if (!productionStringOnly.ok) assert.equal(productionStringOnly.httpStatus, 503);
+
+    let seenKey = "";
+    const present = await validateDeliveryAudioUrl("r2:deliveries/file.wav", {
+      format: "wav",
+      r2Reader: {
+        head: async (objectKey) => {
+          seenKey = objectKey;
+          return { ok: true, size: 12, contentType: "audio/wav" };
+        },
+      },
+    });
+    assert.equal(present.ok, true);
+    assert.equal(seenKey, "deliveries/file.wav");
+
+    const missingR2 = await validateDeliveryAudioUrl("r2:deliveries/file.mp3", {
+      format: "mp3",
+      r2Reader: { head: async () => ({ ok: false, httpStatus: 404 }) },
+    });
+    assert.equal(missingR2.ok, false);
+    if (!missingR2.ok) {
+      assert.equal(missingR2.httpStatus, 404);
+      assert.equal(missingR2.error, DELIVERY_NOT_FOUND);
+    }
+
+    const forbiddenR2 = await validateDeliveryAudioUrl("r2:deliveries/file.zip", {
+      format: "zip",
+      r2Reader: { head: async () => ({ ok: false, httpStatus: 403 }) },
+    });
+    assert.equal(forbiddenR2.ok, false);
+    if (!forbiddenR2.ok) {
+      assert.equal(forbiddenR2.httpStatus, 503);
+      assert.equal(forbiddenR2.code, "blob_forbidden");
+      assert.equal(forbiddenR2.error.includes("não encontrado"), false);
+    }
+
+    const upstreamR2 = await validateDeliveryAudioUrl("r2:deliveries/file.wav", {
+      format: "wav",
+      r2Reader: { head: async () => ({ ok: false, httpStatus: 503 }) },
+    });
+    assert.equal(upstreamR2.ok, false);
+    if (!upstreamR2.ok) {
+      assert.equal(upstreamR2.httpStatus, 503);
+      assert.notEqual(upstreamR2.code, "missing");
+    }
+  } finally {
+    for (const key of r2Env) {
+      if (savedR2[key] === undefined) delete process.env[key];
+      else process.env[key] = savedR2[key];
+    }
     setProcessEnv("NODE_ENV", savedNodeEnv);
     setProcessEnv("VERCEL_ENV", savedVercelEnv);
   }

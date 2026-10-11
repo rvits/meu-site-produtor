@@ -1,7 +1,7 @@
 /**
- * Leitura e validação de entregas no store de deliveries.
- * Metadata + no máximo 1 byte. O corpo nunca é acumulado em Buffer.
- * A troca futura de provedor entra por DeliveryByteReader, sem mudar a state machine.
+ * Leitura e validação de entregas.
+ * Blob legado: metadata + no máximo 1 byte. O corpo nunca é acumulado em Buffer.
+ * R2: head injetável nesta fase. A URL assinada não é gravada aqui.
  */
 import {
   BlobNotFoundError,
@@ -9,7 +9,16 @@ import {
   get,
   head,
 } from "@vercel/blob";
-import { blobPathnameFromUrl, isLocalDeliveryPath, isVercelBlobUrl } from "./delivery-access";
+import {
+  blobPathnameFromUrl,
+  classifyDeliveryStorageReference,
+  isVercelBlobUrl,
+  safeDeliveryPathname,
+  type DeliveryAudioExtension,
+} from "./delivery-access";
+import { headDeliveryObject } from "./storage/r2-delivery";
+
+export { deliveryExtension } from "./delivery-access";
 
 if (typeof window !== "undefined") {
   throw new Error("delivery-storage só pode ser usado no servidor.");
@@ -21,8 +30,6 @@ export const DELIVERY_UNAVAILABLE =
 export const DELIVERY_STORAGE_BLOCK =
   "Não foi possível validar o arquivo de entrega porque o armazenamento está temporariamente indisponível. Tente novamente mais tarde.";
 export const DELIVERY_INVALID = "Faça upload do arquivo (WAV/MP3/ZIP). Caminho inválido.";
-
-const ALLOWED_EXT = new Set(["wav", "mp3", "zip"]);
 
 /**
  * `/uploads/deliveries/` só é gravado quando não há Blob (dev/teste).
@@ -40,7 +47,8 @@ export type DeliveryFailureCode =
   | "store_suspended"
   | "blob_forbidden"
   | "blob_upstream"
-  | "blob_unexpected";
+  | "blob_unexpected"
+  | "unconfigured";
 
 export type DeliveryReadFailure = {
   ok: false;
@@ -53,9 +61,26 @@ export type DeliveryReadFailure = {
 
 export type DeliveryReadOk = {
   ok: true;
-  kind: "local" | "blob";
+  kind: "local" | "blob" | "r2";
   pathname: string | null;
 };
+
+/** Resultado de Head do R2. httpStatus só entra quando a chamada foi tentada. */
+export type R2DeliveryHeadResult =
+  | { ok: true; size?: number | null; contentType?: string | null }
+  | { ok: false; httpStatus: number }
+  | { ok: false; code: "unconfigured" | "invalid_reference" };
+
+export type R2DeliveryReader = {
+  head: (objectKey: string) => Promise<R2DeliveryHeadResult>;
+};
+
+export type DeliveryDownloadTarget =
+  | { kind: "vercel_blob"; pathname: string }
+  | { kind: "r2"; objectKey: string; mode: "presign_later" }
+  | { kind: "local" }
+  | { kind: "legacy_https" }
+  | { kind: "local_or_missing" };
 
 export type DeliveryHead = {
   url: string;
@@ -122,31 +147,7 @@ function failUnexpected(blobStatus?: number): DeliveryReadFailure {
   };
 }
 
-export function deliveryExtension(pathname: string): string | null {
-  const base = pathname.split("/").pop() || "";
-  const dot = base.lastIndexOf(".");
-  if (dot < 0) return null;
-  const ext = base.slice(dot + 1).toLowerCase();
-  return ALLOWED_EXT.has(ext) ? ext : null;
-}
-
-/** Pathname de entrega. Rejeita outro namespace, segmento `..` e extensão fora de wav/mp3/zip. */
-export function safeDeliveryPathname(url: string): string | null {
-  const raw = blobPathnameFromUrl(url);
-  if (!raw) return null;
-  let path = raw;
-  try {
-    path = decodeURIComponent(raw);
-  } catch {
-    return null;
-  }
-  if (path.includes("\\") || path.includes("\0")) return null;
-  const parts = path.split("/");
-  if (parts.some((part) => part.length === 0 || part === "." || part === "..")) return null;
-  if (!path.startsWith("deliveries/")) return null;
-  if (!deliveryExtension(path)) return null;
-  return path;
-}
+export { safeDeliveryPathname };
 
 export function classifyBlobThrown(error: unknown): DeliveryReadFailure {
   const name = error instanceof Error ? error.name : "";
@@ -247,44 +248,119 @@ export async function inspectDeliveryBlob(
   return { ok: true, kind: "blob", pathname };
 }
 
+export function resolveDeliveryDownloadTarget(reference: string): DeliveryDownloadTarget {
+  const classified = classifyDeliveryStorageReference(reference);
+  if (classified.kind === "r2") {
+    return { kind: "r2", objectKey: classified.objectKey, mode: "presign_later" };
+  }
+  if (classified.kind === "vercel_blob") return { kind: "vercel_blob", pathname: classified.pathname };
+  if (classified.kind === "local") return { kind: "local" };
+  if (/^https?:\/\//i.test(reference.trim())) return { kind: "legacy_https" };
+  return { kind: "local_or_missing" };
+}
+
+/** Download R2 ainda não está ligado ao cliente. Não assina e não chama a rede. */
+export function deliveryR2ReadFailure(): DeliveryReadFailure {
+  return failUnavailable("unconfigured");
+}
+
+async function defaultR2Head(objectKey: string): Promise<R2DeliveryHeadResult> {
+  const headed = await headDeliveryObject(objectKey);
+  if (headed.ok) return { ok: true, size: headed.size, contentType: headed.contentType };
+  if (headed.code === "unconfigured" || headed.code === "invalid_reference") {
+    return { ok: false, code: headed.code };
+  }
+  if (headed.code === "missing") return { ok: false, httpStatus: 404 };
+  if (headed.code === "forbidden") return { ok: false, httpStatus: 403 };
+  return { ok: false, httpStatus: 503 };
+}
+
+async function readR2Delivery(
+  objectKey: string,
+  reader?: R2DeliveryReader
+): Promise<DeliveryReadOk | DeliveryReadFailure> {
+  const io = reader ?? { head: defaultR2Head };
+  let result: R2DeliveryHeadResult;
+  try {
+    result = await io.head(objectKey);
+  } catch {
+    return failUnexpected();
+  }
+  if (result.ok) return { ok: true, kind: "r2", pathname: objectKey };
+  if ("code" in result) {
+    return result.code === "invalid_reference" ? failInvalid() : failUnavailable("unconfigured");
+  }
+  const http = classifyHttpStatus(result.httpStatus);
+  if (!http.ok) return http;
+  return { ok: true, kind: "r2", pathname: objectKey };
+}
+
+function formatMismatch(extension: DeliveryAudioExtension, format?: DeliveryAudioExtension): boolean {
+  return Boolean(format && extension !== format);
+}
+
+/**
+ * Troca de deliveryAudioUrl sem conclusão. Só a forma da referência.
+ * Existência no storage continua obrigatória na conclusão.
+ */
+export function validateDeliveryFieldReplacement(
+  rawUrl: string | null,
+  format?: DeliveryAudioExtension | null
+): { ok: true } | { ok: false; error: string; httpStatus: 400; code: "invalid" } {
+  const urlTrim = String(rawUrl ?? "").trim();
+  if (!urlTrim) return { ok: true };
+  const classified = classifyDeliveryStorageReference(urlTrim);
+  if (classified.kind === "invalid") {
+    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
+  }
+  if (classified.kind === "local" && !localDeliveryReferenceAllowed()) {
+    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
+  }
+  if (format && formatMismatch(classified.extension, format)) {
+    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
+  }
+  return { ok: true };
+}
+
 /**
  * Conclusão de serviço. URL https solta é rejeitada.
  * Blob de deliveries só passa com head() e leitura Range 200/206.
+ * R2 só passa com reader/head. Sem configuração, a conclusão falha fechada.
  */
 export async function validateDeliveryAudioUrl(
   rawUrl: string,
-  opts?: { format?: "wav" | "mp3" | "zip"; reader?: DeliveryByteReader }
+  opts?: { format?: DeliveryAudioExtension; reader?: DeliveryByteReader; r2Reader?: R2DeliveryReader }
 ): Promise<DeliveryUrlValidationResult> {
   const urlTrim = String(rawUrl || "").trim();
   if (!urlTrim) {
     return { ok: false, error: "URL do áudio não pode estar vazia.", httpStatus: 400, code: "invalid" };
   }
-  const lower = urlTrim.toLowerCase();
-  if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
+  const classified = classifyDeliveryStorageReference(urlTrim);
+  if (classified.kind === "invalid") {
     return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
   }
-  if (isLocalDeliveryPath(urlTrim) && /^\/uploads\/deliveries\/[a-zA-Z0-9._-]+$/.test(urlTrim)) {
+  if (formatMismatch(classified.extension, opts?.format)) {
+    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
+  }
+  if (classified.kind === "local") {
     if (!localDeliveryReferenceAllowed()) {
-      return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
-    }
-    const ext = deliveryExtension(urlTrim);
-    if (!ext || (opts?.format && ext !== opts.format)) {
       return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
     }
     return { ok: true, isLocalUpload: true };
   }
-  if (!isVercelBlobUrl(urlTrim)) {
-    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
+  if (classified.kind === "vercel_blob") {
+    const inspected = await inspectDeliveryBlob(urlTrim, opts?.reader);
+    if (!inspected.ok) {
+      return {
+        ok: false,
+        error: inspected.adminMessage,
+        httpStatus: inspected.httpStatus,
+        code: inspected.code,
+      };
+    }
+    return { ok: true };
   }
-  const pathname = safeDeliveryPathname(urlTrim);
-  if (!pathname) {
-    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
-  }
-  const ext = deliveryExtension(pathname);
-  if (opts?.format && ext !== opts.format) {
-    return { ok: false, error: DELIVERY_INVALID, httpStatus: 400, code: "invalid" };
-  }
-  const inspected = await inspectDeliveryBlob(urlTrim, opts?.reader);
+  const inspected = await readR2Delivery(classified.objectKey, opts?.r2Reader);
   if (!inspected.ok) {
     return {
       ok: false,
