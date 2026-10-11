@@ -15,7 +15,9 @@ import {
   DELIVERY_NOT_FOUND,
   DELIVERY_UNAVAILABLE,
   classifyHttpStatus,
+  deliveryBlobFailureLog,
   inspectDeliveryBlob,
+  legacyBlobClientError,
   openDeliveryBlobStream,
   releaseUnreadBody,
 } from "@/app/lib/delivery-storage";
@@ -65,9 +67,17 @@ function localDeliveryAbs(urlOrPath: string): string | null {
 function logDelivery(serviceId: string, code: string, blobStatus?: number) {
   console.error("[entregas/proxy]", {
     serviceId,
-    category: code,
-    blobStatus: blobStatus ?? null,
+    ...deliveryBlobFailureLog(code, blobStatus),
   });
+}
+
+function legacyErrorResponse(
+  failure: Parameters<typeof legacyBlobClientError>[0],
+  method: "GET" | "HEAD"
+): Response {
+  const body = legacyBlobClientError(failure, method);
+  if (!body.json) return new NextResponse(null, { status: body.status });
+  return NextResponse.json(body.json, { status: body.status });
 }
 
 async function serveLegacy(input: {
@@ -108,8 +118,7 @@ async function serveLegacy(input: {
     const inspected = await inspectDeliveryBlob(input.stored);
     if (!inspected.ok) {
       logDelivery(input.serviceId, inspected.code, inspected.blobStatus);
-      if (input.method === "HEAD") return new NextResponse(null, { status: inspected.httpStatus });
-      return NextResponse.json({ error: inspected.clientMessage }, { status: inspected.httpStatus });
+      return legacyErrorResponse(inspected, input.method);
     }
     if (availabilityOnly) {
       if (input.method === "HEAD") return new NextResponse(null, { status: 200 });
@@ -118,7 +127,7 @@ async function serveLegacy(input: {
     const opened = await openDeliveryBlobStream(inspected.pathname || "");
     if (!opened.ok) {
       logDelivery(input.serviceId, opened.code, opened.blobStatus);
-      return NextResponse.json({ error: opened.clientMessage }, { status: opened.httpStatus });
+      return legacyErrorResponse(opened, input.method);
     }
     return new NextResponse(opened.stream, {
       headers: {

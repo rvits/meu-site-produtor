@@ -32,6 +32,23 @@ export const DELIVERY_STORAGE_BLOCK =
 export const DELIVERY_INVALID = "Faça upload do arquivo (WAV/MP3/ZIP). Caminho inválido.";
 
 /**
+ * Leitura legada do Blob. HEAD saudável e o Range de 1 byte voltam em bem menos
+ * de 1 s. 8 s fica na faixa de 5–10 s: margem para um store lento e ainda vivo,
+ * longe do limite de 300 s da Function.
+ */
+export const DELIVERY_BLOB_READ_TIMEOUT_MS = 8_000;
+
+/** Timeout da nossa leitura. A mensagem não leva URL, pathname nem token. */
+export class DeliveryBlobTimeoutError extends Error {
+  readonly provider = "vercel_blob" as const;
+
+  constructor() {
+    super("storage_timeout");
+    this.name = "DeliveryBlobTimeoutError";
+  }
+}
+
+/**
  * `/uploads/deliveries/` só é gravado quando não há Blob (dev/teste).
  * Em Production o upload usa o token Blob; o disco da função não prova o arquivo.
  */
@@ -48,6 +65,7 @@ export type DeliveryFailureCode =
   | "blob_forbidden"
   | "blob_upstream"
   | "blob_unexpected"
+  | "storage_timeout"
   | "unconfigured";
 
 export type DeliveryReadFailure = {
@@ -149,8 +167,67 @@ function failUnexpected(blobStatus?: number): DeliveryReadFailure {
 
 export { safeDeliveryPathname };
 
+export function deliveryBlobFailureLog(
+  code: string,
+  blobStatus?: number
+): { category: string; blobStatus: number | null; provider?: "vercel_blob" } {
+  const entry: { category: string; blobStatus: number | null; provider?: "vercel_blob" } = {
+    category: code,
+    blobStatus: blobStatus ?? null,
+  };
+  if (code === "storage_timeout") entry.provider = "vercel_blob";
+  return entry;
+}
+
+/** HEAD fica sem corpo. GET e o probe JSON usam a mensagem pública já existente. */
+export function legacyBlobClientError(
+  failure: DeliveryReadFailure,
+  method: "GET" | "HEAD"
+): { status: number; json: { error: string } | null } {
+  if (method === "HEAD") return { status: failure.httpStatus, json: null };
+  return { status: failure.httpStatus, json: { error: failure.clientMessage } };
+}
+
+/**
+ * Limite de uma leitura Blob. Aborta o AbortSignal de verdade e também
+ * devolve o erro se a SDK não rejeitar a Promise. O timer é limpo nos dois casos.
+ */
+export async function runLegacyBlobRead<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = DELIVERY_BLOB_READ_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new DeliveryBlobTimeoutError());
+    }, timeoutMs);
+  });
+  const guarded = operation(controller.signal).then(
+    (value) => value,
+    (error: unknown) => {
+      if (controller.signal.aborted) throw new DeliveryBlobTimeoutError();
+      throw error;
+    }
+  );
+  void guarded.catch(() => undefined);
+  try {
+    return await Promise.race([guarded, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export function classifyBlobThrown(error: unknown): DeliveryReadFailure {
   const name = error instanceof Error ? error.name : "";
+  if (
+    error instanceof DeliveryBlobTimeoutError ||
+    name === "DeliveryBlobTimeoutError" ||
+    name === "BlobRequestAbortedError"
+  ) {
+    return failUnavailable("storage_timeout");
+  }
   if (error instanceof BlobStoreSuspendedError || name === "BlobStoreSuspendedError") {
     return failUnavailable("store_suspended");
   }
@@ -188,13 +265,25 @@ function pathsMatch(stored: string, foundUrl: string, pathname: string): boolean
   return storedPath === pathname && foundPath === pathname;
 }
 
+export async function readLegacyBlobHead(
+  pathname: string,
+  headCall: (
+    pathname: string,
+    options: { token?: string; abortSignal: AbortSignal }
+  ) => Promise<DeliveryHead>,
+  timeoutMs = DELIVERY_BLOB_READ_TIMEOUT_MS
+): Promise<DeliveryHead> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  return runLegacyBlobRead((signal) => headCall(pathname, { token, abortSignal: signal }), timeoutMs);
+}
+
 async function defaultHead(pathname: string): Promise<DeliveryHead | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     throw Object.assign(new Error("Armazenamento de entrega não configurado."), {
       name: "DeliveryStorageUnconfigured",
     });
   }
-  const meta = await head(pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+  const meta = await readLegacyBlobHead(pathname, (path, options) => head(path, options));
   return {
     url: meta.url,
     pathname: meta.pathname,
@@ -203,14 +292,28 @@ async function defaultHead(pathname: string): Promise<DeliveryHead | null> {
   };
 }
 
-async function defaultRangeStatus(url: string): Promise<number> {
+export async function readLegacyBlobRangeStatus(
+  url: string,
+  fetchImpl: (
+    url: string,
+    init: { method: "GET"; headers: Record<string, string>; redirect: "manual"; signal: AbortSignal }
+  ) => Promise<{ status: number; body: { cancel: () => Promise<void> } | null }>,
+  timeoutMs = DELIVERY_BLOB_READ_TIMEOUT_MS
+): Promise<number> {
   const headers: Record<string, string> = { Range: "bytes=0-0" };
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     headers.authorization = `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`;
   }
-  const response = await fetch(url, { method: "GET", headers, redirect: "manual" });
+  const response = await runLegacyBlobRead(
+    (signal) => fetchImpl(url, { method: "GET", headers, redirect: "manual", signal }),
+    timeoutMs
+  );
   await releaseUnreadBody(response.body);
   return response.status;
+}
+
+async function defaultRangeStatus(url: string): Promise<number> {
+  return readLegacyBlobRangeStatus(url, (input, init) => fetch(input, init));
 }
 
 function readerOrDefault(reader?: DeliveryByteReader): DeliveryByteReader {
@@ -372,7 +475,41 @@ export async function validateDeliveryAudioUrl(
   return { ok: true };
 }
 
+type LegacyBlobGetResult = {
+  statusCode: number;
+  stream: ReadableStream<Uint8Array> | null;
+  blob: { contentType: string | null };
+} | null;
+
 /** Stream oficial depois que a leitura mínima já passou. Não bufferiza o arquivo. */
+export async function openLegacyBlobGet(
+  pathname: string,
+  getCall: (
+    pathname: string,
+    options: { access: "public"; token?: string; abortSignal: AbortSignal }
+  ) => Promise<LegacyBlobGetResult>,
+  timeoutMs = DELIVERY_BLOB_READ_TIMEOUT_MS
+): Promise<
+  | { ok: true; stream: ReadableStream<Uint8Array>; contentType: string | null }
+  | DeliveryReadFailure
+> {
+  try {
+    const result = await runLegacyBlobRead(
+      (signal) =>
+        getCall(pathname, {
+          access: "public",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+          abortSignal: signal,
+        }),
+      timeoutMs
+    );
+    if (!result || result.statusCode !== 200 || !result.stream) return failMissing();
+    return { ok: true, stream: result.stream, contentType: result.blob.contentType || null };
+  } catch (error) {
+    return classifyBlobThrown(error);
+  }
+}
+
 export async function openDeliveryBlobStream(pathname: string): Promise<
   | { ok: true; stream: ReadableStream<Uint8Array>; contentType: string | null }
   | DeliveryReadFailure
@@ -380,14 +517,5 @@ export async function openDeliveryBlobStream(pathname: string): Promise<
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return failUnavailable("blob_upstream");
   }
-  try {
-    const result = await get(pathname, {
-      access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-    if (!result || result.statusCode !== 200 || !result.stream) return failMissing();
-    return { ok: true, stream: result.stream, contentType: result.blob.contentType || null };
-  } catch (error) {
-    return classifyBlobThrown(error);
-  }
+  return openLegacyBlobGet(pathname, (path, options) => get(path, options));
 }
