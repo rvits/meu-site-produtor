@@ -11,6 +11,7 @@ const updateSchema = z.object({
   status: z.string().optional(),
   deliveryAudioUrl: z.string().optional(),
   deliveryAudioFormat: z.enum(["wav", "mp3", "zip"]).optional(),
+  deliveryCommitToken: z.string().min(1).max(4000).optional(),
 });
 
 const NO_STORE = {
@@ -228,8 +229,9 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ servicos: enriched, repaired }, { headers: NO_STORE });
-  } catch (err: any) {
-    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "Acesso negado" || message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
     return NextResponse.json({ error: "Erro ao buscar serviços" }, { status: 500 });
@@ -259,6 +261,7 @@ export async function PATCH(req: Request) {
       status: validation.data.status,
       deliveryAudioUrl: validation.data.deliveryAudioUrl,
       deliveryAudioFormat: validation.data.deliveryAudioFormat,
+      deliveryCommitToken: validation.data.deliveryCommitToken,
     });
 
     if (!result.ok) {
@@ -269,8 +272,9 @@ export async function PATCH(req: Request) {
       servico: result.data.servico,
       alreadyProcessed: result.alreadyProcessed,
     });
-  } catch (err: any) {
-    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "Acesso negado" || message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
     return NextResponse.json({ error: "Erro ao atualizar serviço" }, { status: 500 });
@@ -292,8 +296,9 @@ export async function DELETE() {
       },
       { status: 409 }
     );
-  } catch (err: any) {
-    if (err.message === "Acesso negado" || err.message === "Não autenticado") {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "Acesso negado" || message === "Não autenticado") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
     return NextResponse.json({ error: "Erro ao excluir serviço" }, { status: 500 });

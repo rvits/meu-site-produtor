@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import path from "path";
 import { requireAdmin } from "@/app/lib/auth";
+import { DELIVERY_MAX_BYTES } from "@/app/lib/delivery-access";
 import { randomUUID } from "crypto";
 import { put } from "@vercel/blob";
 import { getStorageProvider } from "@/app/lib/storage";
@@ -23,7 +24,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_EXT = new Set([".wav", ".mp3", ".zip"]);
-const MAX_BYTES = 80 * 1024 * 1024; // 80 MB
+const MAX_BYTES = DELIVERY_MAX_BYTES;
 const BLOB_PATH_PREFIX = "deliveries/";
 /** GO-H11A: default public (store Vercel atual); defina BLOB_DELIVERY_ACCESS=private após store privado. */
 const BLOB_ACCESS =

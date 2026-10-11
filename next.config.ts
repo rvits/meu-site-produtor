@@ -27,7 +27,8 @@ const nextConfig: NextConfig = {
               // GO-H2D: client upload (@vercel/blob) PUT → vercel.com/api/blob;
               // store público: *.public.blob.vercel-storage.com (upload/playback)
               // blob: aqui é object URL local do editor, não o host da Vercel.
-              "connect-src 'self' https://www.youtube.com https://*.youtube.com https://*.google.com https://vercel.com https://*.vercel.com https://blob.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
+              // Fase 3: PUT direto do browser para o endpoint privado do R2.
+              "connect-src 'self' https://www.youtube.com https://*.youtube.com https://*.google.com https://vercel.com https://*.vercel.com https://blob.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.r2.cloudflarestorage.com",
               "media-src 'self' blob: https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
             ].join("; "),
           },

@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import {
   R2_SIGNED_URL_TTL_SECONDS,
+  R2_UPLOAD_URL_TTL_SECONDS,
   classifyR2SdkError,
   createDeliveryDownloadUrl,
   createDeliveryUploadTarget,
@@ -100,10 +101,11 @@ async function main() {
       assert.equal(upload.headers["Content-Type"], "audio/wav");
       assert.equal(upload.headers["x-amz-meta-kind"], "delivery");
       assert.deepEqual(Object.keys(upload.headers).sort(), ["Content-Type", "x-amz-meta-kind"]);
-      assert.equal(upload.expiresIn, R2_SIGNED_URL_TTL_SECONDS);
-      assert.equal(upload.expiresIn, 120);
+      assert.equal(upload.expiresIn, R2_UPLOAD_URL_TTL_SECONDS);
+      assert.equal(upload.expiresIn, 900);
       must(upload.url.startsWith("https://localtest.r2.cloudflarestorage.com/test-deliveries-bucket/"), "url fora do bucket de teste");
-      must(upload.url.includes("X-Amz-Expires=120"), "ttl não é o do servidor");
+      must(upload.url.includes("X-Amz-Expires=900"), "ttl do PUT não é o do servidor");
+      must(!upload.url.includes("X-Amz-Expires=120"), "PUT herdou o ttl de download");
       must(!upload.url.includes("X-Amz-Expires=999999"), "ttl veio do chamador");
       must(!upload.url.includes("example-secret"), "segredo apareceu na url");
       must(!upload.url.includes("other-bucket"), "bucket arbitrário foi aceito");
@@ -154,7 +156,9 @@ async function main() {
     });
     assert.equal(download.ok, true);
     if (download.ok) {
+      assert.equal(download.expiresIn, R2_SIGNED_URL_TTL_SECONDS);
       assert.equal(download.expiresIn, 120);
+      must(download.url.includes("X-Amz-Expires=120"), "ttl de download mudou");
       must(download.url.includes("response-content-type"), "content-type ausente");
       must(download.url.includes("response-content-disposition"), "content-disposition ausente");
       must(!download.url.includes("example-secret"), "segredo apareceu na url de download");

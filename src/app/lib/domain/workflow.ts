@@ -11,6 +11,7 @@ import { appointmentCalendarOccupancyFilter } from "@/app/lib/appointment-operat
 import { isSchedulableServiceType } from "@/app/lib/service-catalog";
 import { hasOperationalTimer } from "@/app/lib/service-timing";
 import { validateDeliveryFieldReplacement } from "@/app/lib/delivery-storage";
+import { assertDeliveryCommitProof } from "@/app/lib/storage/delivery-upload-proof";
 
 export type WorkflowOk<T> = { ok: true; alreadyProcessed?: boolean; data: T };
 export type WorkflowFail = { ok: false; error: string; httpStatus: number; code?: string };
@@ -472,6 +473,7 @@ export async function completeService(params: {
   serviceId: string;
   deliveryAudioUrl: string;
   deliveryAudioFormat: "wav" | "mp3" | "zip";
+  deliveryCommitToken?: string | null;
   probe?: boolean;
   actor?: TransitionActor;
 }): Promise<
@@ -479,6 +481,10 @@ export async function completeService(params: {
     servico: NonNullable<Awaited<ReturnType<typeof loadService>>>;
   }>
 > {
+  const proof = assertDeliveryCommitProof(params.deliveryAudioUrl, params.deliveryCommitToken);
+  if (!proof.ok) {
+    return fail(proof.error, proof.httpStatus, proof.code === "unconfigured" ? "STORAGE_UNAVAILABLE" : "VALIDATION");
+  }
   const actor = params.actor || { type: "admin" as const };
   const current = await prisma.service.findUnique({
     where: { id: params.serviceId },
@@ -624,21 +630,28 @@ export async function updateServiceFields(params: {
   status?: string;
   deliveryAudioUrl?: string | null;
   deliveryAudioFormat?: "wav" | "mp3" | "zip" | null;
+  deliveryCommitToken?: string | null;
 }): Promise<
   WorkflowResult<{
     servico: NonNullable<Awaited<ReturnType<typeof loadService>>>;
   }>
 > {
-  const { serviceId, status, deliveryAudioUrl, deliveryAudioFormat } = params;
+  const { serviceId, status, deliveryAudioUrl, deliveryAudioFormat, deliveryCommitToken } = params;
 
   if (status === "em_andamento") return startService(serviceId);
   if (status === "concluido" || status === "entrega") {
     const { isOperationalNoFileService } = await import("@/app/lib/service-catalog");
+    const url = String(deliveryAudioUrl || "").trim();
+    if (url) {
+      const proof = assertDeliveryCommitProof(url, deliveryCommitToken);
+      if (!proof.ok) {
+        return fail(proof.error, proof.httpStatus, proof.code === "unconfigured" ? "STORAGE_UNAVAILABLE" : "VALIDATION");
+      }
+    }
     const current = await prisma.service.findUnique({
       where: { id: serviceId },
       select: { tipo: true },
     });
-    const url = String(deliveryAudioUrl || "").trim();
     if (current && isOperationalNoFileService(current.tipo) && !url) {
       return completeOperationalService({ serviceId });
     }
@@ -646,6 +659,7 @@ export async function updateServiceFields(params: {
       serviceId,
       deliveryAudioUrl: url,
       deliveryAudioFormat: (deliveryAudioFormat as "wav" | "mp3" | "zip") || "wav",
+      deliveryCommitToken,
       probe:
         process.env.DELIVERY_AUDIO_URL_PROBE === "1" ||
         process.env.DELIVERY_AUDIO_URL_PROBE === "true",
@@ -669,6 +683,10 @@ export async function updateServiceFields(params: {
     if (deliveryAudioUrl !== undefined) {
       const gate = validateDeliveryFieldReplacement(deliveryAudioUrl, deliveryAudioFormat);
       if (!gate.ok) return fail(gate.error, gate.httpStatus, "VALIDATION");
+      const proof = assertDeliveryCommitProof(deliveryAudioUrl, deliveryCommitToken);
+      if (!proof.ok) {
+        return fail(proof.error, proof.httpStatus, proof.code === "unconfigured" ? "STORAGE_UNAVAILABLE" : "VALIDATION");
+      }
     }
     await prisma.service.update({
       where: { id: serviceId },

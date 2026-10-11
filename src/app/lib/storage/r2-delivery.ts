@@ -5,7 +5,11 @@
 
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { acceptedDeliveryObjectKey, type DeliveryAudioExtension } from "../delivery-access";
+import {
+  acceptedDeliveryObjectKey,
+  DELIVERY_CANONICAL_CONTENT_TYPE,
+  type DeliveryAudioExtension,
+} from "../delivery-access";
 import { createR2Client } from "./r2-client";
 import { readR2DeliverySettings } from "./r2-config";
 
@@ -13,14 +17,11 @@ if (typeof window !== "undefined") {
   throw new Error("r2-delivery só pode ser usado no servidor.");
 }
 
-/** Vida da URL assinada. O chamador não escolhe este valor. */
+/** Vida da URL de download. O chamador não escolhe este valor. */
 export const R2_SIGNED_URL_TTL_SECONDS = 120;
 
-const CANONICAL_CONTENT_TYPE: Record<DeliveryAudioExtension, string> = {
-  wav: "audio/wav",
-  mp3: "audio/mpeg",
-  zip: "application/zip",
-};
+/** PUT direto do browser. 80 MB não cabe em 120 s numa conexão lenta. */
+export const R2_UPLOAD_URL_TTL_SECONDS = 15 * 60;
 
 const ACCEPTED_CONTENT_TYPES: Record<DeliveryAudioExtension, ReadonlySet<string>> = {
   wav: new Set(["audio/wav", "audio/x-wav"]),
@@ -32,7 +33,7 @@ const CONTENT_TYPES = new Set(
   Object.values(ACCEPTED_CONTENT_TYPES).flatMap((types) => [...types])
 );
 
-const DELIVERY_METADATA_KIND = "delivery";
+export const DELIVERY_METADATA_KIND = "delivery";
 
 export type R2FailureCode = "unconfigured" | "missing" | "forbidden" | "upstream" | "invalid_reference";
 
@@ -98,10 +99,10 @@ function readMetadataKind(metadata: Record<string, string> | undefined): string 
 function canonicalUploadContentType(objectKey: string, requested: string | undefined): string | null {
   const extension = acceptedDeliveryObjectKey(objectKey);
   if (!extension) return null;
-  if (requested == null) return CANONICAL_CONTENT_TYPE[extension];
+  if (requested == null) return DELIVERY_CANONICAL_CONTENT_TYPE[extension];
   const contentType = requested.split(";")[0].trim().toLowerCase();
   if (!ACCEPTED_CONTENT_TYPES[extension].has(contentType)) return null;
-  return CANONICAL_CONTENT_TYPE[extension];
+  return DELIVERY_CANONICAL_CONTENT_TYPE[extension];
 }
 
 function safeFileName(name: string): string {
@@ -155,7 +156,7 @@ export async function createDeliveryUploadTarget(input: {
     // content-type é unsignable no presigner S3; signableHeaders devolve o MIME à assinatura.
     // x-amz-meta-* iria para a query, e o R2 não grava metadata recebida só assim.
     const url = await getSignedUrl(client, command, {
-      expiresIn: R2_SIGNED_URL_TTL_SECONDS,
+      expiresIn: R2_UPLOAD_URL_TTL_SECONDS,
       signableHeaders: new Set(["content-type"]),
       unhoistableHeaders: new Set(["x-amz-meta-kind"]),
     });
@@ -167,7 +168,7 @@ export async function createDeliveryUploadTarget(input: {
         "Content-Type": contentType,
         "x-amz-meta-kind": DELIVERY_METADATA_KIND,
       },
-      expiresIn: R2_SIGNED_URL_TTL_SECONDS,
+      expiresIn: R2_UPLOAD_URL_TTL_SECONDS,
     };
   } catch (error) {
     return r2Failure(classifyR2SdkError(error));

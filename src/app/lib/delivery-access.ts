@@ -38,6 +38,15 @@ export type ClassifiedDeliveryReference =
     };
 
 const ALLOWED_EXT = new Set<DeliveryAudioExtension>(["wav", "mp3", "zip"]);
+
+/** Limite único do arquivo de entrega. O browser e o PREPARE usam este valor. */
+export const DELIVERY_MAX_BYTES = 80 * 1024 * 1024;
+
+export const DELIVERY_CANONICAL_CONTENT_TYPE: Record<DeliveryAudioExtension, string> = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  zip: "application/zip",
+};
 const R2_REFERENCE_PREFIX = "r2:deliveries/";
 const LOCAL_DELIVERY = /^\/uploads\/deliveries\/[a-zA-Z0-9._-]+$/;
 
