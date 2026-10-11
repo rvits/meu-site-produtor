@@ -29,7 +29,8 @@ const nextConfig: NextConfig = {
               // blob: aqui é object URL local do editor, não o host da Vercel.
               // Fase 3: PUT direto do browser para o endpoint privado do R2.
               "connect-src 'self' https://www.youtube.com https://*.youtube.com https://*.google.com https://vercel.com https://*.vercel.com https://blob.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.r2.cloudflarestorage.com",
-              "media-src 'self' blob: https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
+              // O <audio> segue o redirect de /api/entregas para o R2. Download por navegação não usa esta diretiva.
+              "media-src 'self' blob: https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://*.r2.cloudflarestorage.com",
             ].join("; "),
           },
         ],

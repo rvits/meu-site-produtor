@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { withAttachmentDisposition } from "@/app/lib/delivery-disposition";
 
 type DeliveryDownloadLinkProps = {
   href: string;
@@ -46,7 +47,7 @@ export function DeliveryDownloadLink({ href, download, className, children }: De
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <a
-        href={href}
+        href={armed ? withAttachmentDisposition(href) : href}
         download={download}
         className={className}
         onClick={onClick}

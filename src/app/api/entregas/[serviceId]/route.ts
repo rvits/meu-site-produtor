@@ -1,7 +1,8 @@
 /**
  * GET /api/entregas/[serviceId]
- * Proxy autenticado de arquivos de entrega (owner ou ADMIN).
- * 404 é ausência real. 403/store suspenso é 503, não "arquivo ausente".
+ * Owner ou ADMIN. Blob e local continuam neste processo.
+ * R2: HeadObject e, no GET real, redirect 302 para um presigned GET de 120 s.
+ * A URL assinada não entra em JSON, log nem banco.
  */
 import { NextResponse } from "next/server";
 import { createReadStream, existsSync } from "fs";
@@ -14,13 +15,16 @@ import {
   DELIVERY_NOT_FOUND,
   DELIVERY_UNAVAILABLE,
   classifyHttpStatus,
-  deliveryR2ReadFailure,
   inspectDeliveryBlob,
   openDeliveryBlobStream,
   releaseUnreadBody,
-  resolveDeliveryDownloadTarget,
-  type DeliveryReadFailure,
 } from "@/app/lib/delivery-storage";
+import { createDeliveryDownloadUrl, headDeliveryObject } from "@/app/lib/storage/r2-delivery";
+import {
+  deliveryDownloadResponse,
+  parseDeliveryDisposition,
+  resolveDeliveryDownload,
+} from "@/app/lib/storage/delivery-download";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,26 +62,119 @@ function localDeliveryAbs(urlOrPath: string): string | null {
   return null;
 }
 
-function jsonError(failure: DeliveryReadFailure) {
-  return NextResponse.json({ error: failure.clientMessage }, { status: failure.httpStatus });
-}
-
-function logDelivery(serviceId: string, failure: DeliveryReadFailure) {
+function logDelivery(serviceId: string, code: string, blobStatus?: number) {
   console.error("[entregas/proxy]", {
     serviceId,
-    category: failure.code,
-    blobStatus: failure.blobStatus ?? null,
+    category: code,
+    blobStatus: blobStatus ?? null,
   });
 }
 
-export async function GET(
-  req: Request,
-  ctx: { params: Promise<{ serviceId: string }> }
-) {
+async function serveLegacy(input: {
+  serviceId: string;
+  stored: string;
+  format: string | null;
+  probe: boolean;
+  method: "GET" | "HEAD";
+}): Promise<Response> {
+  const fileName = safeDownloadName(input.stored.split("?")[0] || "entrega");
+  const contentType = mimeFromName(input.format ? `x.${input.format}` : fileName);
+  const availabilityOnly = input.probe || input.method === "HEAD";
+
+  if (isLocalDeliveryPath(input.stored) || (!input.stored.startsWith("http") && !isVercelBlobUrl(input.stored))) {
+    const abs = localDeliveryAbs(input.stored);
+    if (!abs) {
+      logDelivery(input.serviceId, "missing");
+      if (input.method === "HEAD") return new NextResponse(null, { status: 404 });
+      return NextResponse.json({ error: DELIVERY_NOT_FOUND }, { status: 404 });
+    }
+    if (availabilityOnly) {
+      if (input.method === "HEAD") return new NextResponse(null, { status: 200 });
+      return NextResponse.json({ ok: true });
+    }
+    const nodeStream = createReadStream(abs);
+    const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+    return new NextResponse(webStream, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  if (isVercelBlobUrl(input.stored)) {
+    const inspected = await inspectDeliveryBlob(input.stored);
+    if (!inspected.ok) {
+      logDelivery(input.serviceId, inspected.code, inspected.blobStatus);
+      if (input.method === "HEAD") return new NextResponse(null, { status: inspected.httpStatus });
+      return NextResponse.json({ error: inspected.clientMessage }, { status: inspected.httpStatus });
+    }
+    if (availabilityOnly) {
+      if (input.method === "HEAD") return new NextResponse(null, { status: 200 });
+      return NextResponse.json({ ok: true });
+    }
+    const opened = await openDeliveryBlobStream(inspected.pathname || "");
+    if (!opened.ok) {
+      logDelivery(input.serviceId, opened.code, opened.blobStatus);
+      return NextResponse.json({ error: opened.clientMessage }, { status: opened.httpStatus });
+    }
+    return new NextResponse(opened.stream, {
+      headers: {
+        "Content-Type": opened.contentType || contentType,
+        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  const upstream = await fetch(input.stored, {
+    method: "GET",
+    headers: { Range: "bytes=0-0" },
+    redirect: "manual",
+  });
+  await releaseUnreadBody(upstream.body);
+  const classified = classifyHttpStatus(upstream.status);
+  if (!classified.ok) {
+    logDelivery(input.serviceId, classified.code, classified.blobStatus);
+    if (input.method === "HEAD") return new NextResponse(null, { status: classified.httpStatus });
+    return NextResponse.json({ error: classified.clientMessage }, { status: classified.httpStatus });
+  }
+  if (availabilityOnly) {
+    if (input.method === "HEAD") return new NextResponse(null, { status: 200 });
+    return NextResponse.json({ ok: true });
+  }
+  const full = await fetch(input.stored, { redirect: "manual" });
+  if (!full.ok || !full.body) {
+    const again = classifyHttpStatus(full.status);
+    const failure = again.ok
+      ? {
+          httpStatus: 502 as const,
+          clientMessage: DELIVERY_UNAVAILABLE,
+          code: "blob_unexpected",
+          blobStatus: full.status,
+        }
+      : again;
+    logDelivery(input.serviceId, failure.code, failure.blobStatus);
+    return NextResponse.json({ error: failure.clientMessage }, { status: failure.httpStatus });
+  }
+  return new NextResponse(full.body, {
+    headers: {
+      "Content-Type": full.headers.get("content-type") || contentType,
+      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+async function handle(req: Request, ctx: { params: Promise<{ serviceId: string }> }, method: "GET" | "HEAD") {
   try {
     const user = await getSessionUser();
     if (!user) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+      return deliveryDownloadResponse({ type: "json", status: 401, body: { error: "Não autenticado" } });
     }
 
     const { serviceId } = await ctx.params;
@@ -90,118 +187,38 @@ export async function GET(
       select: {
         id: true,
         userId: true,
+        tipo: true,
         deliveryAudioUrl: true,
         deliveryAudioFormat: true,
       },
     });
 
-    if (!service?.deliveryAudioUrl) {
-      return NextResponse.json({ error: DELIVERY_NOT_FOUND }, { status: 404 });
-    }
-
-    if (user.role !== "ADMIN" && service.userId !== user.id) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-    }
-
-    const stored = service.deliveryAudioUrl.trim();
-    const downloadTarget = resolveDeliveryDownloadTarget(stored);
-    if (downloadTarget.kind === "r2") {
-      const failure = deliveryR2ReadFailure();
-      logDelivery(serviceId, failure);
-      return jsonError(failure);
-    }
-    const fileName = safeDownloadName(stored.split("?")[0] || "entrega");
-    const contentType = mimeFromName(
-      service.deliveryAudioFormat ? `x.${service.deliveryAudioFormat}` : fileName
-    );
-    const probe = req.headers.get("x-delivery-probe") === "1";
-
-    if (isLocalDeliveryPath(stored) || (!stored.startsWith("http") && !isVercelBlobUrl(stored))) {
-      const abs = localDeliveryAbs(stored);
-      if (!abs) {
-        const failure: DeliveryReadFailure = {
-          ok: false,
-          httpStatus: 404,
-          clientMessage: DELIVERY_NOT_FOUND,
-          adminMessage: DELIVERY_NOT_FOUND,
-          code: "missing",
-        };
-        logDelivery(serviceId, failure);
-        return jsonError(failure);
-      }
-      if (probe) return NextResponse.json({ ok: true });
-      const nodeStream = createReadStream(abs);
-      const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
-      return new NextResponse(webStream, {
-        headers: {
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${fileName}"`,
-          "Cache-Control": "private, no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      });
-    }
-
-    if (isVercelBlobUrl(stored)) {
-      const inspected = await inspectDeliveryBlob(stored);
-      if (!inspected.ok) {
-        logDelivery(serviceId, inspected);
-        return jsonError(inspected);
-      }
-      if (probe) return NextResponse.json({ ok: true });
-      const opened = await openDeliveryBlobStream(inspected.pathname || "");
-      if (!opened.ok) {
-        logDelivery(serviceId, opened);
-        return jsonError(opened);
-      }
-      return new NextResponse(opened.stream, {
-        headers: {
-          "Content-Type": opened.contentType || contentType,
-          "Content-Disposition": `inline; filename="${fileName}"`,
-          "Cache-Control": "private, no-store",
-          "X-Content-Type-Options": "nosniff",
-        },
-      });
-    }
-
-    const upstream = await fetch(stored, {
-      method: "GET",
-      headers: { Range: "bytes=0-0" },
-      redirect: "manual",
+    const command = await resolveDeliveryDownload({
+      user: { id: user.id, role: user.role },
+      service,
+      method,
+      probe: req.headers.get("x-delivery-probe") === "1",
+      disposition: parseDeliveryDisposition(new URL(req.url).searchParams.get("disposition")),
+      deps: { headObject: headDeliveryObject, createDownloadUrl: createDeliveryDownloadUrl },
     });
-    await releaseUnreadBody(upstream.body);
-    const classified = classifyHttpStatus(upstream.status);
-    if (!classified.ok) {
-      logDelivery(serviceId, classified);
-      return jsonError(classified);
-    }
-    if (probe) return NextResponse.json({ ok: true });
-    const full = await fetch(stored, { redirect: "manual" });
-    if (!full.ok || !full.body) {
-      const again = classifyHttpStatus(full.status);
-      const failure = again.ok
-        ? ({
-            ok: false as const,
-            httpStatus: 502 as const,
-            clientMessage: DELIVERY_UNAVAILABLE,
-            adminMessage: DELIVERY_UNAVAILABLE,
-            code: "blob_unexpected" as const,
-            blobStatus: full.status,
-          })
-        : again;
-      logDelivery(serviceId, failure);
-      return jsonError(failure);
-    }
-    return new NextResponse(full.body, {
-      headers: {
-        "Content-Type": full.headers.get("content-type") || contentType,
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
+    if (command.type !== "legacy") return deliveryDownloadResponse(command);
+    return serveLegacy({
+      serviceId,
+      stored: command.stored,
+      format: service?.deliveryAudioFormat ?? null,
+      probe: req.headers.get("x-delivery-probe") === "1",
+      method,
     });
   } catch {
     console.error("[entregas/proxy]", { category: "unexpected" });
     return NextResponse.json({ error: DELIVERY_UNAVAILABLE }, { status: 503 });
   }
+}
+
+export async function GET(req: Request, ctx: { params: Promise<{ serviceId: string }> }) {
+  return handle(req, ctx, "GET");
+}
+
+export async function HEAD(req: Request, ctx: { params: Promise<{ serviceId: string }> }) {
+  return handle(req, ctx, "HEAD");
 }
