@@ -14,7 +14,7 @@ import {
   Tag,
   formatDateTime,
 } from "@/components/design-system";
-import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { deliveryPresentedName } from "@/app/lib/delivery-filename";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento, EntregaServico } from "./types";
 import { deliveryTypeLabel, isAudioDelivery } from "./helpers";
@@ -64,7 +64,12 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {downloads.map(({ entrega: e, agendamento: a }) => {
-            const fileName = deliveryDisplayName(e.deliveryAudioUrl);
+            const fileName = deliveryPresentedName({
+              originalName: e.deliveryAudioOriginalName,
+              tipo: e.tipo,
+              format: e.deliveryAudioFormat,
+              url: e.deliveryAudioUrl,
+            });
             const tipo = deliveryTypeLabel(e.deliveryAudioFormat, e.deliveryAudioUrl);
             const audio = isAudioDelivery(e.deliveryAudioFormat, e.deliveryAudioUrl);
             return (
@@ -96,7 +101,6 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
                 )}
                 <DeliveryDownloadLink
                   href={e.deliveryAudioUrl}
-                  download={fileName}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
                 >
                   <Icon name="download" className="w-3.5 h-3.5" />

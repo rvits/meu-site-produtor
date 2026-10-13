@@ -21,7 +21,7 @@ import {
   useToast,
 } from "@/components/design-system";
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
-import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { deliveryPresentedName } from "@/app/lib/delivery-filename";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
@@ -198,7 +198,12 @@ export function AppointmentCard({
                   </p>
                   <ul className="space-y-3">
                     {a.entregas!.map((e) => {
-                      const fileName = deliveryDisplayName(e.deliveryAudioUrl);
+                      const fileName = deliveryPresentedName({
+                        originalName: e.deliveryAudioOriginalName,
+                        tipo: e.tipo,
+                        format: e.deliveryAudioFormat,
+                        url: e.deliveryAudioUrl,
+                      });
                       return (
                         <li key={e.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -227,7 +232,6 @@ export function AppointmentCard({
                           )}
                           <DeliveryDownloadLink
                             href={e.deliveryAudioUrl}
-                            download={fileName}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
                           >
                             <Icon name="download" className="w-3.5 h-3.5" />

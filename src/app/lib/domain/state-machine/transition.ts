@@ -149,6 +149,7 @@ async function persistStatus(
         // GO-H12: Sessão/Captação — conclusão operacional sem arquivo
         data.deliveryAudioUrl = null;
         data.deliveryAudioFormat = null;
+        data.deliveryAudioOriginalName = null;
       } else {
         const url = String(meta.deliveryAudioUrl || "").trim();
         const fmt = meta.deliveryAudioFormat;
@@ -167,6 +168,9 @@ async function persistStatus(
         }
         data.deliveryAudioUrl = url;
         data.deliveryAudioFormat = fmt;
+        const originalName = meta.deliveryAudioOriginalName;
+        data.deliveryAudioOriginalName =
+          typeof originalName === "string" && originalName.trim() ? originalName.trim() : null;
       }
     }
 

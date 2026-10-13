@@ -10,6 +10,7 @@ import {
   DELIVERY_CANONICAL_CONTENT_TYPE,
   type DeliveryAudioExtension,
 } from "../delivery-access";
+import { contentDispositionAttachment, contentDispositionInline } from "../delivery-filename";
 import { createR2Client } from "./r2-client";
 import { readR2DeliverySettings } from "./r2-config";
 
@@ -105,12 +106,6 @@ function canonicalUploadContentType(objectKey: string, requested: string | undef
   return DELIVERY_CANONICAL_CONTENT_TYPE[extension];
 }
 
-function safeFileName(name: string): string {
-  const base = name.split(/[/\\]/).pop() || "entrega";
-  const cleaned = base.replace(/[\r\n"\\]/g, "").replace(/[^\w.\- ]+/g, "_").slice(0, 180);
-  return cleaned || "entrega";
-}
-
 export async function headDeliveryObject(objectKey: string): Promise<R2HeadSuccess | R2Failure> {
   const invalid = rejectKey(objectKey);
   if (invalid) return invalid;
@@ -204,7 +199,9 @@ export async function createDeliveryDownloadUrl(input: {
       Key: input.objectKey,
       ResponseContentType: responseContentType,
       ResponseContentDisposition: input.responseContentDisposition
-        ? `${input.responseContentDisposition}; filename="${safeFileName(input.fileName || "entrega")}"`
+        ? input.responseContentDisposition === "attachment"
+          ? contentDispositionAttachment(input.fileName || "entrega")
+          : contentDispositionInline(input.fileName || "entrega")
         : undefined,
     });
     const url = await getSignedUrl(client, command, { expiresIn: R2_SIGNED_URL_TTL_SECONDS });

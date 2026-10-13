@@ -347,6 +347,8 @@ model Service {
   suggestedOvertimeAmountCents Int? // adicional sugerido congelado (não é cobrança)
   deliveryAudioUrl    String? // Path/URL canônica do arquivo entregue (upload; não colar URL externa)
   deliveryAudioFormat String? // "wav" | "mp3" | "zip"
+  /// Nome sanitizado só para UI e Content-Disposition. Não entra na key R2.
+  deliveryAudioOriginalName String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   coupons             Coupon[]

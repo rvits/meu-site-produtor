@@ -8,7 +8,7 @@
  */
 import { useState } from "react";
 import Link from "next/link";
-import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { deliveryPresentedName } from "@/app/lib/delivery-filename";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import { isOperationalNoFileService } from "@/app/lib/service-catalog";
 import { hasOperationalTimer } from "@/app/lib/service-timing";
@@ -125,7 +125,12 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Entrega</p>
           <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-300">
             <Icons.music className="w-3 h-3 shrink-0 text-purple-400" />
-            <span className="truncate">{deliveryDisplayName(s.deliveryAudioUrl)}</span>
+            <span className="truncate">{deliveryPresentedName({
+              originalName: s.deliveryAudioOriginalName,
+              tipo: s.tipo,
+              format: s.deliveryAudioFormat,
+              url: s.deliveryAudioUrl,
+            })}</span>
           </p>
           {isAudio && (
             <audio controls preload="none" className="mt-2 h-8 w-full" src={s.deliveryAudioUrl || undefined}>
@@ -229,7 +234,6 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
         {s.status === "concluido" && delivered && (
           <DeliveryDownloadLink
             href={s.deliveryAudioUrl || "#"}
-            download={deliveryDisplayName(s.deliveryAudioUrl)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-purple-500"
           >
             <Icons.download className="w-3 h-3" />

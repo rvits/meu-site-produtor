@@ -12,6 +12,7 @@ import {
   DELIVERY_MAX_BYTES,
   type DeliveryAudioExtension,
 } from "../delivery-access";
+import { sanitizeDeliveryOriginalName } from "../delivery-filename";
 import {
   DELIVERY_COMMIT_PROOF_TTL_SECONDS,
   DELIVERY_UPLOAD_PROOF_TTL_SECONDS,
@@ -109,11 +110,13 @@ export async function prepareDeliveryUpload(
   }
 
   const nowMs = deps?.nowMs ?? Date.now();
+  const originalName = sanitizeDeliveryOriginalName(input.fileName, extension);
   const proof = issueDeliveryProof({
     purpose: "delivery-upload",
     reference,
     size: input.size,
     contentType: target.headers["Content-Type"],
+    originalName,
     exp: Math.floor(nowMs / 1000) + DELIVERY_UPLOAD_PROOF_TTL_SECONDS,
   });
   if (!proof.ok) {
@@ -179,6 +182,7 @@ export async function confirmDeliveryUpload(
     reference: verified.claims.reference,
     size: verified.claims.size,
     contentType: verified.claims.contentType,
+    originalName: verified.claims.originalName,
     exp: Math.floor(nowMs / 1000) + DELIVERY_COMMIT_PROOF_TTL_SECONDS,
   });
   if (!commit.ok) {

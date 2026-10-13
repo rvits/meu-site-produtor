@@ -60,6 +60,7 @@ export interface AdminService {
   appointment: AdminAppointment | null;
   deliveryAudioUrl?: string | null;
   deliveryAudioFormat?: string | null;
+  deliveryAudioOriginalName?: string | null;
   payment?: AdminPaymentInfo | null;
   financial?: AdminFinancialSummaryView | null;
   coupons?: AdminCouponInfo[];

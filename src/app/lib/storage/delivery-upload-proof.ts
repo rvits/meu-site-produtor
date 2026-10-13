@@ -31,6 +31,7 @@ export type DeliveryProofClaims = {
   reference: string;
   size: number;
   contentType: string;
+  originalName: string;
   exp: number;
   nonce: string;
 };
@@ -49,7 +50,7 @@ function signPayload(payload: string, key: Buffer): string {
   return createHmac("sha256", key).update(payload).digest("base64url");
 }
 
-const CLAIM_KEYS = ["v", "purpose", "reference", "size", "contentType", "exp", "nonce"] as const;
+const CLAIM_KEYS = ["v", "purpose", "reference", "size", "contentType", "originalName", "exp", "nonce"] as const;
 
 function isClaims(value: unknown): value is DeliveryProofClaims {
   if (!value || typeof value !== "object") return false;
@@ -65,6 +66,16 @@ function isClaims(value: unknown): value is DeliveryProofClaims {
     return false;
   }
   if (typeof record.contentType !== "string") return false;
+  if (typeof record.originalName !== "string") return false;
+  if (record.originalName.length < 1 || record.originalName.length > 120) return false;
+  if (/[\u0000-\u001F\u007F\u2028\u2029]/.test(record.originalName)) return false;
+  if (
+    record.originalName.includes("/") ||
+    record.originalName.includes("\\") ||
+    record.originalName.includes("..")
+  ) {
+    return false;
+  }
   if (!Number.isSafeInteger(record.exp)) return false;
   if (typeof record.nonce !== "string" || record.nonce.length < 16 || record.nonce.length > 64) return false;
   const classified = classifyDeliveryStorageReference(record.reference);
@@ -84,6 +95,7 @@ export function issueDeliveryProof(
     reference: claims.reference,
     size: claims.size,
     contentType: claims.contentType,
+    originalName: claims.originalName,
     exp: claims.exp,
     nonce: claims.nonce || randomBytes(16).toString("hex"),
   };
@@ -124,12 +136,20 @@ export function verifyDeliveryProof(
 export function assertDeliveryCommitProof(
   reference: string | null | undefined,
   token: string | null | undefined,
+  clientOriginalName?: string | null,
   nowMs = Date.now()
-): { ok: true } | { ok: false; error: string; httpStatus: 400 | 503; code: "invalid" | "unconfigured" } {
+):
+  | { ok: true; originalName: string | null }
+  | { ok: false; error: string; httpStatus: 400 | 503; code: "invalid" | "unconfigured" } {
   const url = String(reference ?? "").trim();
-  if (!url) return { ok: true };
+  if (!url) return { ok: true, originalName: null };
   const classified = classifyDeliveryStorageReference(url);
-  if (classified.kind !== "r2") return { ok: true };
+  if (classified.kind !== "r2") {
+    if (String(clientOriginalName || "").trim()) {
+      return { ok: false, error: CONFIRM_ERROR, httpStatus: 400, code: "invalid" };
+    }
+    return { ok: true, originalName: null };
+  }
   const verified = verifyDeliveryProof(String(token ?? ""), "delivery-commit", nowMs);
   if (!verified.ok) {
     if (verified.code === "unconfigured") {
@@ -146,5 +166,9 @@ export function assertDeliveryCommitProof(
   if (verified.claims.size <= 0) {
     return { ok: false, error: CONFIRM_ERROR, httpStatus: 400, code: "invalid" };
   }
-  return { ok: true };
+  const supplied = clientOriginalName == null ? "" : String(clientOriginalName).trim();
+  if (supplied && supplied !== verified.claims.originalName) {
+    return { ok: false, error: CONFIRM_ERROR, httpStatus: 400, code: "invalid" };
+  }
+  return { ok: true, originalName: verified.claims.originalName };
 }

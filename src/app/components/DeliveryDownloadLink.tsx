@@ -1,62 +1,79 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { withAttachmentDisposition } from "@/app/lib/delivery-disposition";
+import {
+  DELIVERY_DOWNLOAD_UNAVAILABLE,
+  probeDownloadDecision,
+} from "@/app/lib/delivery-download-ui";
 
 type DeliveryDownloadLinkProps = {
   href: string;
-  download?: string;
   className?: string;
   children: ReactNode;
 };
 
-/**
- * O primeiro toque só consulta a rota (probe JSON).
- * O segundo toque é um clique nativo no mesmo <a>, ainda dentro do gesto do usuário.
- * Não usa window.open nem click() sintético depois do await: o Safari bloqueia os dois.
- */
-export function DeliveryDownloadLink({ href, download, className, children }: DeliveryDownloadLinkProps) {
-  const statusId = useId();
-  const [message, setMessage] = useState<string | null>(null);
-  const [armed, setArmed] = useState(false);
+const FRAME_LIFETIME_MS = 180_000;
 
-  async function onClick(event: React.MouseEvent<HTMLAnchorElement>) {
-    if (armed) {
-      setArmed(false);
-      setMessage(null);
-      return;
-    }
+/**
+ * Um clique: probe autenticado e, se ok, navegação do download num iframe oculto.
+ * A aba atual não muda. O corpo do arquivo não entra em JS nem na função da Vercel.
+ */
+export function DeliveryDownloadLink({ href, className, children }: DeliveryDownloadLinkProps) {
+  const statusId = useId();
+  const busy = useRef(false);
+  const [checking, setChecking] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function onClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    if (busy.current) return;
+    busy.current = true;
+    setChecking(true);
     setMessage(null);
     try {
-      const probe = await fetch(href, { headers: { "x-delivery-probe": "1" } });
+      const probe = await fetch(href, {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "x-delivery-probe": "1" },
+      });
       const data = (await probe.json().catch(() => ({}))) as { error?: string; ok?: boolean };
-      if (!probe.ok || !data.ok) {
-        setArmed(false);
-        setMessage(data.error || "Arquivo temporariamente indisponível. Tente novamente mais tarde.");
+      const decision = probeDownloadDecision(probe.status, data);
+      if (decision.action === "error") {
+        setMessage(decision.message);
         return;
       }
-      setArmed(true);
-      setMessage("Arquivo disponível. Toque novamente para baixar.");
+      const frame = document.createElement("iframe");
+      frame.tabIndex = -1;
+      frame.setAttribute("aria-hidden", "true");
+      frame.style.cssText =
+        "position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
+      frame.src = withAttachmentDisposition(href);
+      document.body.appendChild(frame);
+      window.setTimeout(() => frame.remove(), FRAME_LIFETIME_MS);
     } catch {
-      setArmed(false);
-      setMessage("Arquivo temporariamente indisponível. Tente novamente mais tarde.");
+      setMessage(DELIVERY_DOWNLOAD_UNAVAILABLE);
+    } finally {
+      busy.current = false;
+      setChecking(false);
     }
   }
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
-      <a
-        href={armed ? withAttachmentDisposition(href) : href}
-        download={download}
-        className={className}
-        onClick={onClick}
+      <button
+        type="button"
+        className={`${className || ""} disabled:opacity-60`}
+        onClick={(event) => void onClick(event)}
+        disabled={checking}
+        aria-busy={checking}
         aria-describedby={message ? statusId : undefined}
       >
         {children}
-      </a>
+      </button>
       {message ? (
-        <p id={statusId} role="status" className="text-xs text-amber-200">
+        <p id={statusId} role="alert" className="text-xs text-amber-200">
           {message}
         </p>
       ) : null}

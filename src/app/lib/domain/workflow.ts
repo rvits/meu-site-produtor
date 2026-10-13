@@ -527,6 +527,7 @@ export async function completeService(params: {
     metadata: {
       deliveryAudioUrl: params.deliveryAudioUrl,
       deliveryAudioFormat: params.deliveryAudioFormat,
+      deliveryAudioOriginalName: proof.originalName,
       probe: params.probe,
     },
   });
@@ -687,16 +688,26 @@ export async function updateServiceFields(params: {
       if (!proof.ok) {
         return fail(proof.error, proof.httpStatus, proof.code === "unconfigured" ? "STORAGE_UNAVAILABLE" : "VALIDATION");
       }
+      await prisma.service.update({
+        where: { id: serviceId },
+        data: {
+          ...(deliveryAudioUrl !== undefined ? { deliveryAudioUrl: deliveryAudioUrl || null } : {}),
+          ...(deliveryAudioFormat !== undefined
+            ? { deliveryAudioFormat: deliveryAudioFormat || null }
+            : {}),
+          deliveryAudioOriginalName: proof.originalName,
+        },
+      });
+    } else {
+      await prisma.service.update({
+        where: { id: serviceId },
+        data: {
+          ...(deliveryAudioFormat !== undefined
+            ? { deliveryAudioFormat: deliveryAudioFormat || null }
+            : {}),
+        },
+      });
     }
-    await prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        ...(deliveryAudioUrl !== undefined ? { deliveryAudioUrl: deliveryAudioUrl || null } : {}),
-        ...(deliveryAudioFormat !== undefined
-          ? { deliveryAudioFormat: deliveryAudioFormat || null }
-          : {}),
-      },
-    });
     if (deliveryAudioUrl) {
       try {
         const { notifyFilesAvailable } = await import("@/app/lib/account-notifications");

@@ -537,6 +537,7 @@ export async function GET() {
         description: string | null;
         deliveryAudioUrl: string;
         deliveryAudioFormat: string | null;
+        deliveryAudioOriginalName: string | null;
         deliveredAt: string | null;
         status: string;
       }[]
@@ -585,6 +586,7 @@ export async function GET() {
             description: true,
             deliveryAudioUrl: true,
             deliveryAudioFormat: true,
+            deliveryAudioOriginalName: true,
             updatedAt: true,
           },
         });
@@ -602,6 +604,7 @@ export async function GET() {
               // GO-H11A: nunca expor URL bruta de Blob/local ao cliente
               deliveryAudioUrl: `/api/entregas/${s.id}`,
               deliveryAudioFormat: s.deliveryAudioFormat,
+              deliveryAudioOriginalName: s.deliveryAudioOriginalName,
               deliveredAt: s.updatedAt ? s.updatedAt.toISOString() : null,
               status: s.status,
             };

@@ -165,7 +165,8 @@ async function main() {
       must(!("url" in payload), "token carrega url");
       must(!JSON.stringify(payload).includes("X-Amz"), "token carrega assinatura");
       must(!JSON.stringify(payload).includes("example-secret"), "token carrega segredo");
-      must(!JSON.stringify(payload).includes(fileName), "token carrega filename");
+      assert.equal(payload.originalName, fileName);
+      must(!prepared.reference.includes(String(payload.originalName)), "nome entrou na key");
     }
     must(new Set(references).size === references.length, "keys repetidas");
 
@@ -186,6 +187,9 @@ async function main() {
     must(!("url" in claimsOf(confirmed.commitToken)), "prova de commit carrega url");
     const attached = assertDeliveryCommitProof(confirmed.deliveryAudioUrl, confirmed.commitToken);
     assert.equal(attached.ok, true);
+    if (attached.ok) assert.equal(attached.originalName, "faixa.mp3");
+    const renamed = assertDeliveryCommitProof(confirmed.deliveryAudioUrl, confirmed.commitToken, "outro-nome.mp3");
+    assert.equal(renamed.ok, false);
     const uploadClaims = claimsOf(mp3.uploadToken);
     const commitClaims = claimsOf(confirmed.commitToken);
     assert.equal(uploadClaims.purpose, "delivery-upload");
@@ -253,6 +257,7 @@ async function main() {
       reference: "r2:portfolio/arquivo.mp3",
       size: 27,
       contentType: "audio/mpeg",
+      originalName: "arquivo.mp3",
       exp: future,
     });
     assert.equal(outsideIssue.ok, false);
@@ -303,6 +308,7 @@ async function main() {
       reference: mp3.reference,
       size: 27,
       contentType: "audio/mpeg",
+      originalName: "faixa.mp3",
       exp: Math.floor(Date.now() / 1000) - 30,
     });
     assert.equal(expiredIssued.ok, true);

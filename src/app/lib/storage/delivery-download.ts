@@ -34,6 +34,7 @@ export type DeliveryAccessService = {
   userId: string;
   deliveryAudioUrl: string | null;
   deliveryAudioFormat?: string | null;
+  deliveryAudioOriginalName?: string | null;
   tipo?: string | null;
 };
 
@@ -150,11 +151,12 @@ export async function resolveDeliveryDownload(input: {
   const createDownloadUrl = input.deps?.createDownloadUrl ?? createDeliveryDownloadUrl;
   let signed: Awaited<ReturnType<typeof createDeliveryDownloadUrl>>;
   try {
+    const storedName = String(input.service.deliveryAudioOriginalName || "").trim();
     signed = await createDownloadUrl({
       objectKey: classified.objectKey,
       responseContentType: DELIVERY_CANONICAL_CONTENT_TYPE[classified.extension],
       responseContentDisposition: input.disposition,
-      fileName: deliveryDownloadFileName(input.service.tipo, classified.extension),
+      fileName: storedName || deliveryDownloadFileName(input.service.tipo, classified.extension),
     });
   } catch {
     return jsonCommand(503, { error: DELIVERY_UNAVAILABLE });

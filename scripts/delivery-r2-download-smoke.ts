@@ -114,6 +114,29 @@ async function main() {
     assert.deepEqual(open.heads, [KEY]);
     assert.equal(open.downloads.length, 1);
     assert.equal(open.downloads[0]?.fileName, "thouse-mixagem.mp3");
+    const named = harness();
+    const withOriginal = await resolveDeliveryDownload({
+      user: owner,
+      service: service({ deliveryAudioOriginalName: `"Ao Redor"- Rvits.mp3` }),
+      method: "GET",
+      probe: false,
+      disposition: "attachment",
+      deps: named.deps,
+    });
+    must(withOriginal.type === "redirect", "nome original não gerou redirect");
+    assert.equal(named.downloads[0]?.fileName, `"Ao Redor"- Rvits.mp3`);
+    assert.equal(named.downloads[0]?.objectKey, KEY);
+    const legacyName = harness();
+    const withoutOriginal = await resolveDeliveryDownload({
+      user: owner,
+      service: service({ deliveryAudioOriginalName: null }),
+      method: "GET",
+      probe: true,
+      disposition: "attachment",
+      deps: legacyName.deps,
+    });
+    must(withoutOriginal.type === "json" && withoutOriginal.status === 200, "legado sem nome falhou no probe");
+    assert.equal(legacyName.downloads.length, 0);
     assert.equal(open.downloads[0]?.responseContentDisposition, "inline");
     assert.equal(open.downloads[0]?.responseContentType, "audio/mpeg");
     assert.equal(open.downloads[0]?.objectKey, KEY);

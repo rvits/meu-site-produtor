@@ -9,6 +9,7 @@ export interface EntregaServico {
   description: string | null;
   deliveryAudioUrl: string;
   deliveryAudioFormat: string | null;
+  deliveryAudioOriginalName?: string | null;
   deliveredAt?: string | null;
   status?: string;
 }

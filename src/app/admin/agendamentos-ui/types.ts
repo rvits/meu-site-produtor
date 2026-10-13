@@ -74,6 +74,7 @@ export interface RelatedService {
   appointmentId: number | null;
   deliveryAudioUrl?: string | null;
   deliveryAudioFormat?: string | null;
+  deliveryAudioOriginalName?: string | null;
   createdAt: string;
   startedAt?: string | null;
   completedAt?: string | null;

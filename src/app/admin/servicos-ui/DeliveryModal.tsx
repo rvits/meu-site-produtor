@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DELIVERY_MAX_BYTES } from "@/app/lib/delivery-access";
-import { deliveryDisplayName } from "@/app/lib/delivery-url-validation";
+import { deliveryPresentedName } from "@/app/lib/delivery-filename";
 import type { AdminService } from "./types";
 import { StatusBadge } from "./Badges";
 import { Icons, formatBytes, formatDateTime, serviceTypeLabel } from "./meta";
@@ -270,7 +270,12 @@ export function DeliveryModal({
           {service.deliveryAudioUrl && !uploaded && (
             <div className="col-span-2">
               <p className="text-[10px] uppercase tracking-wide text-zinc-500">Arquivo atual</p>
-              <p className="truncate text-zinc-300">{deliveryDisplayName(service.deliveryAudioUrl)}</p>
+              <p className="truncate text-zinc-300">{deliveryPresentedName({
+                originalName: service.deliveryAudioOriginalName,
+                tipo: service.tipo,
+                format: service.deliveryAudioFormat,
+                url: service.deliveryAudioUrl,
+              })}</p>
             </div>
           )}
         </div>

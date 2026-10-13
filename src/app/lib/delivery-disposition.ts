@@ -1,6 +1,6 @@
 /**
  * Intenção de download, sem storage e sem segredo.
- * O player usa a URL sem este parâmetro. O segundo clique do link pede attachment.
+ * O player usa a URL sem este parâmetro. O download pede attachment.
  */
 
 export type DeliveryDownloadDisposition = "inline" | "attachment";

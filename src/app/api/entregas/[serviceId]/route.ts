@@ -21,8 +21,11 @@ import {
   openDeliveryBlobStream,
   releaseUnreadBody,
 } from "@/app/lib/delivery-storage";
+import { contentDispositionAttachment } from "@/app/lib/delivery-filename";
+import type { DeliveryDownloadDisposition } from "@/app/lib/delivery-disposition";
 import { createDeliveryDownloadUrl, headDeliveryObject } from "@/app/lib/storage/r2-delivery";
 import {
+  deliveryDownloadFileName,
   deliveryDownloadResponse,
   parseDeliveryDisposition,
   resolveDeliveryDownload,
@@ -80,15 +83,39 @@ function legacyErrorResponse(
   return NextResponse.json(body.json, { status: body.status });
 }
 
+function legacyDownloadHeader(input: {
+  stored: string;
+  format: string | null;
+  tipo: string | null;
+  originalName: string | null;
+  disposition: DeliveryDownloadDisposition;
+}): string {
+  const fromStored = safeDownloadName(input.stored.split("?")[0] || "entrega");
+  if (input.disposition !== "attachment") return `inline; filename="${fromStored}"`;
+  const storedName = String(input.originalName || "")
+    .replace(/[\u0000-\u001F\u007F\u2028\u2029]/g, "")
+    .trim();
+  const usable =
+    storedName && !storedName.includes("/") && !storedName.includes("\\") && !storedName.includes("..")
+      ? storedName
+      : "";
+  const ext = input.format === "wav" || input.format === "mp3" || input.format === "zip" ? input.format : null;
+  return contentDispositionAttachment(usable || (ext ? deliveryDownloadFileName(input.tipo, ext) : fromStored));
+}
+
 async function serveLegacy(input: {
   serviceId: string;
   stored: string;
   format: string | null;
+  tipo: string | null;
+  originalName: string | null;
+  disposition: DeliveryDownloadDisposition;
   probe: boolean;
   method: "GET" | "HEAD";
 }): Promise<Response> {
   const fileName = safeDownloadName(input.stored.split("?")[0] || "entrega");
   const contentType = mimeFromName(input.format ? `x.${input.format}` : fileName);
+  const contentDisposition = legacyDownloadHeader(input);
   const availabilityOnly = input.probe || input.method === "HEAD";
 
   if (isLocalDeliveryPath(input.stored) || (!input.stored.startsWith("http") && !isVercelBlobUrl(input.stored))) {
@@ -107,7 +134,7 @@ async function serveLegacy(input: {
     return new NextResponse(webStream, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Content-Disposition": contentDisposition,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
@@ -132,7 +159,7 @@ async function serveLegacy(input: {
     return new NextResponse(opened.stream, {
       headers: {
         "Content-Type": opened.contentType || contentType,
-        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Content-Disposition": contentDisposition,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
@@ -172,7 +199,7 @@ async function serveLegacy(input: {
   return new NextResponse(full.body, {
     headers: {
       "Content-Type": full.headers.get("content-type") || contentType,
-      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Content-Disposition": contentDisposition,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
@@ -199,12 +226,21 @@ async function handle(req: Request, ctx: { params: Promise<{ serviceId: string }
         tipo: true,
         deliveryAudioUrl: true,
         deliveryAudioFormat: true,
+        deliveryAudioOriginalName: true,
       },
     });
 
     const command = await resolveDeliveryDownload({
       user: { id: user.id, role: user.role },
-      service,
+      service: service
+        ? {
+            userId: service.userId,
+            deliveryAudioUrl: service.deliveryAudioUrl,
+            deliveryAudioFormat: service.deliveryAudioFormat,
+            deliveryAudioOriginalName: service.deliveryAudioOriginalName,
+            tipo: service.tipo,
+          }
+        : null,
       method,
       probe: req.headers.get("x-delivery-probe") === "1",
       disposition: parseDeliveryDisposition(new URL(req.url).searchParams.get("disposition")),
@@ -215,6 +251,9 @@ async function handle(req: Request, ctx: { params: Promise<{ serviceId: string }
       serviceId,
       stored: command.stored,
       format: service?.deliveryAudioFormat ?? null,
+      tipo: service?.tipo ?? null,
+      originalName: service?.deliveryAudioOriginalName ?? null,
+      disposition: parseDeliveryDisposition(new URL(req.url).searchParams.get("disposition")),
       probe: req.headers.get("x-delivery-probe") === "1",
       method,
     });
