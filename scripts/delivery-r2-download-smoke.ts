@@ -3,7 +3,8 @@
  * A URL fictícia abaixo só existe para conferir o redirect; não é impressa.
  */
 import assert from "node:assert/strict";
-import { withAttachmentDisposition } from "../src/app/lib/delivery-disposition";
+import { withAttachmentDisposition, withPrepareDownload } from "../src/app/lib/delivery-disposition";
+import { classifyBlobThrown, DELIVERY_UNAVAILABLE, legacyBlobClientError } from "../src/app/lib/delivery-storage";
 import {
   deliveryDownloadFileName,
   deliveryDownloadResponse,
@@ -80,6 +81,7 @@ async function main() {
   assert.equal(deliveryDownloadFileName("beat", "zip"), "thouse-beat.zip");
   assert.equal(deliveryDownloadFileName("../cliente nome", "mp3"), "thouse-cliente-nome.mp3");
   must(!deliveryDownloadFileName("mixagem", "mp3").includes(KEY), "nome usou a key");
+  assert.equal(withPrepareDownload("/api/entregas/abc"), "/api/entregas/abc?download=prepare");
   assert.equal(withAttachmentDisposition("/api/entregas/abc"), "/api/entregas/abc?disposition=attachment");
   must(
     withAttachmentDisposition("/api/entregas/abc?x=1").includes("disposition=attachment"),
@@ -261,6 +263,154 @@ async function main() {
       must(!JSON.stringify(probe.body).includes("X-Amz"), "probe devolveu url");
     }
     assert.equal(probed.downloads.length, 0);
+
+    const prepared = harness();
+    const prepare = await resolveDeliveryDownload({
+      user: owner,
+      service: service({ deliveryAudioOriginalName: null }),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "inline",
+      deps: prepared.deps,
+    });
+    must(prepare.type === "json" && prepare.status === 200, "prepare não devolveu JSON");
+    if (prepare.type === "json" && "downloadUrl" in prepare.body) {
+      assert.equal(prepare.body.downloadUrl, SIGNED);
+      const response = deliveryDownloadResponse(prepare);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      const payload = (await response.json()) as { downloadUrl?: string };
+      assert.equal(payload.downloadUrl, SIGNED);
+    } else {
+      throw new Error("prepare não devolveu downloadUrl");
+    }
+    assert.deepEqual(prepared.heads, [KEY]);
+    assert.equal(prepared.downloads.length, 1);
+    assert.equal(prepared.downloads[0]?.objectKey, KEY);
+    assert.equal(prepared.downloads[0]?.responseContentDisposition, "attachment");
+    assert.equal(prepared.downloads[0]?.fileName, "thouse-mixagem.mp3");
+    assert.equal(prepared.downloads[0]?.responseContentType, "audio/mpeg");
+
+    const mixPrepareHarness = harness();
+    const mixPrepare = await resolveDeliveryDownload({
+      user: owner,
+      service: service({
+        tipo: "mix",
+        deliveryAudioFormat: "wav",
+        deliveryAudioUrl: "r2:deliveries/phase4-marker.wav",
+        deliveryAudioOriginalName: null,
+      }),
+      method: "GET",
+      probe: true,
+      prepare: true,
+      disposition: "inline",
+      deps: mixPrepareHarness.deps,
+    });
+    must(mixPrepare.type === "json" && mixPrepare.status === 200, "prepare do mix não devolveu JSON");
+    assert.equal(mixPrepareHarness.downloads[0]?.fileName, "thouse-mix.wav");
+    assert.equal(mixPrepareHarness.downloads[0]?.responseContentDisposition, "attachment");
+    assert.equal(mixPrepareHarness.downloads[0]?.objectKey, "deliveries/phase4-marker.wav");
+
+    const namedPrepare = harness();
+    const prepareNamed = await resolveDeliveryDownload({
+      user: owner,
+      service: service({ deliveryAudioOriginalName: `"Ao Redor"- Rvits.mp3` }),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "inline",
+      deps: namedPrepare.deps,
+    });
+    assert.equal(namedPrepare.downloads[0]?.fileName, `"Ao Redor"- Rvits.mp3`);
+    assert.equal(namedPrepare.downloads[0]?.objectKey, KEY);
+    must(prepareNamed.type === "json", "nome original não ficou no prepare");
+
+    const prepareDenied = harness();
+    const prepareForbidden = await resolveDeliveryDownload({
+      user: other,
+      service: service(),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "attachment",
+      deps: prepareDenied.deps,
+    });
+    must(prepareForbidden.type === "json" && prepareForbidden.status === 403, "prepare de outro usuário passou");
+    assert.equal(prepareDenied.heads.length, 0);
+    assert.equal(prepareDenied.downloads.length, 0);
+
+    const prepareAnon = await resolveDeliveryDownload({
+      user: null,
+      service: service(),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "attachment",
+      deps: harness().deps,
+    });
+    must(prepareAnon.type === "json" && prepareAnon.status === 401, "prepare sem sessão passou");
+
+    const prepareMissingService = await resolveDeliveryDownload({
+      user: owner,
+      service: null,
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "attachment",
+      deps: harness().deps,
+    });
+    must(prepareMissingService.type === "json" && prepareMissingService.status === 404, "prepare sem service passou");
+
+    const prepareMissingObject = await resolveDeliveryDownload({
+      user: owner,
+      service: service(),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "attachment",
+      deps: harness("missing").deps,
+    });
+    must(prepareMissingObject.type === "json" && prepareMissingObject.status === 404, "prepare de objeto ausente não foi 404");
+
+    const prepareDown = await resolveDeliveryDownload({
+      user: admin,
+      service: service(),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "attachment",
+      deps: harness("unconfigured").deps,
+    });
+    must(prepareDown.type === "json" && prepareDown.status === 503, "prepare indisponível não foi 503");
+    if (prepareDown.type === "json" && "downloadUrl" in prepareDown.body) {
+      throw new Error("503 devolveu url");
+    }
+
+    const prepareBlob = harness();
+    const blobPrepared = await resolveDeliveryDownload({
+      user: owner,
+      service: service({
+        deliveryAudioUrl: "https://example.public.blob.vercel-storage.com/deliveries/faixa.mp3",
+      }),
+      method: "GET",
+      probe: false,
+      prepare: true,
+      disposition: "inline",
+      deps: prepareBlob.deps,
+    });
+    must(blobPrepared.type === "legacy", "prepare de blob gerou URL R2");
+    assert.equal(prepareBlob.heads.length, 0);
+    assert.equal(prepareBlob.downloads.length, 0);
+    const suspended = legacyBlobClientError(classifyBlobThrown(new Error("Failed to fetch blob: 403")), "GET");
+    assert.equal(suspended.status, 503);
+    assert.equal(suspended.json?.error, DELIVERY_UNAVAILABLE);
+    const storeSuspended = legacyBlobClientError(
+      classifyBlobThrown(new Error("The blob store has been suspended")),
+      "GET"
+    );
+    assert.equal(storeSuspended.status, 503);
+    assert.equal(storeSuspended.json?.error, DELIVERY_UNAVAILABLE);
 
     const headed = harness();
     const headOk = await resolveDeliveryDownload({

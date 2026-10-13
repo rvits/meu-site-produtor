@@ -1,7 +1,9 @@
 /**
  * Download privado de entrega R2.
- * A URL assinada só nasce depois da autenticação e da autorização,
- * e só segue no header Location. O arquivo não passa por esta função.
+ * A URL assinada só nasce depois da autenticação, da autorização e do HeadObject.
+ * O player recebe essa URL no Location do 302. O prepare de download a devolve
+ * uma vez no JSON, com Cache-Control private/no-store. Ela não é gravada nem logada.
+ * O arquivo não passa por esta função.
  * Range fica entre o navegador e o R2, depois do redirect.
  */
 
@@ -45,7 +47,7 @@ export type DeliveryDownloadCommand =
   | {
       type: "json";
       status: number;
-      body: { error: string } | { ok: true };
+      body: { error: string } | { ok: true; downloadUrl?: string };
     }
   | { type: "redirect"; status: 302; location: string }
   | { type: "head"; status: number }
@@ -74,7 +76,7 @@ export function deliveryDownloadFileName(
 
 function jsonCommand(
   status: number,
-  body: { error: string } | { ok: true }
+  body: { error: string } | { ok: true; downloadUrl?: string }
 ): Extract<DeliveryDownloadCommand, { type: "json" }> {
   return { type: "json", status, body };
 }
@@ -113,13 +115,15 @@ export async function resolveDeliveryDownload(input: {
   service: DeliveryAccessService | null;
   method: "GET" | "HEAD";
   probe: boolean;
+  prepare?: boolean;
   disposition: DeliveryDownloadDisposition;
   deps?: DownloadDeps;
 }): Promise<DeliveryDownloadCommand> {
   if (!input.user) return jsonCommand(401, { error: UNAUTHENTICATED });
-  const stored = String(input.service?.deliveryAudioUrl || "").trim();
-  if (!input.service || !stored) return jsonCommand(404, { error: DELIVERY_NOT_FOUND });
-  if (input.user.role !== "ADMIN" && input.service.userId !== input.user.id) {
+  const service = input.service;
+  const stored = String(service?.deliveryAudioUrl || "").trim();
+  if (!service || !stored) return jsonCommand(404, { error: DELIVERY_NOT_FOUND });
+  if (input.user.role !== "ADMIN" && service.userId !== input.user.id) {
     return jsonCommand(403, { error: FORBIDDEN });
   }
 
@@ -146,21 +150,37 @@ export async function resolveDeliveryDownload(input: {
     return failure;
   }
   if (input.method === "HEAD") return { type: "head", status: 200 };
+  if (input.prepare) {
+    const signed = await signDeliveryGet(service, input.deps, classified.objectKey, classified.extension, "attachment");
+    if (signed.type !== "signed") return signed.command;
+    return jsonCommand(200, { ok: true, downloadUrl: signed.url });
+  }
   if (input.probe) return jsonCommand(200, { ok: true });
 
-  const createDownloadUrl = input.deps?.createDownloadUrl ?? createDeliveryDownloadUrl;
-  let signed: Awaited<ReturnType<typeof createDeliveryDownloadUrl>>;
-  try {
-    const storedName = String(input.service.deliveryAudioOriginalName || "").trim();
-    signed = await createDownloadUrl({
-      objectKey: classified.objectKey,
-      responseContentType: DELIVERY_CANONICAL_CONTENT_TYPE[classified.extension],
-      responseContentDisposition: input.disposition,
-      fileName: storedName || deliveryDownloadFileName(input.service.tipo, classified.extension),
-    });
-  } catch {
-    return jsonCommand(503, { error: DELIVERY_UNAVAILABLE });
-  }
-  if (!signed.ok) return headFailure(signed);
+  const signed = await signDeliveryGet(service, input.deps, classified.objectKey, classified.extension, input.disposition);
+  if (signed.type !== "signed") return signed.command;
   return { type: "redirect", status: 302, location: signed.url };
+}
+
+async function signDeliveryGet(
+  service: DeliveryAccessService,
+  deps: DownloadDeps | undefined,
+  objectKey: string,
+  extension: DeliveryAudioExtension,
+  disposition: DeliveryDownloadDisposition
+): Promise<{ type: "signed"; url: string } | { type: "failed"; command: DeliveryDownloadCommand }> {
+  const createDownloadUrl = deps?.createDownloadUrl ?? createDeliveryDownloadUrl;
+  const storedName = String(service.deliveryAudioOriginalName || "").trim();
+  try {
+    const signed = await createDownloadUrl({
+      objectKey,
+      responseContentType: DELIVERY_CANONICAL_CONTENT_TYPE[extension],
+      responseContentDisposition: disposition,
+      fileName: storedName || deliveryDownloadFileName(service.tipo, extension),
+    });
+    if (!signed.ok) return { type: "failed", command: headFailure(signed) };
+    return { type: "signed", url: signed.url };
+  } catch {
+    return { type: "failed", command: jsonCommand(503, { error: DELIVERY_UNAVAILABLE }) };
+  }
 }

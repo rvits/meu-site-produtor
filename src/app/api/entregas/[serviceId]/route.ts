@@ -1,8 +1,9 @@
 /**
  * GET /api/entregas/[serviceId]
  * Owner ou ADMIN. Blob e local continuam neste processo.
- * R2: HeadObject e, no GET real, redirect 302 para um presigned GET de 120 s.
- * A URL assinada não entra em JSON, log nem banco.
+ * R2 player: HeadObject e redirect 302 para um presigned GET inline de 120 s.
+ * R2 download: ?download=prepare devolve a URL assinada de attachment no JSON.
+ * Essa URL não é gravada nem logada. Blob e local não recebem URL de R2.
  */
 import { NextResponse } from "next/server";
 import { createReadStream, existsSync } from "fs";
@@ -22,12 +23,16 @@ import {
   releaseUnreadBody,
 } from "@/app/lib/delivery-storage";
 import { contentDispositionAttachment } from "@/app/lib/delivery-filename";
-import type { DeliveryDownloadDisposition } from "@/app/lib/delivery-disposition";
+import {
+  isPrepareDownload,
+  parseDeliveryDisposition,
+  type DeliveryDownloadDisposition,
+} from "@/app/lib/delivery-disposition";
 import { createDeliveryDownloadUrl, headDeliveryObject } from "@/app/lib/storage/r2-delivery";
 import {
+  DELIVERY_DOWNLOAD_CACHE,
   deliveryDownloadFileName,
   deliveryDownloadResponse,
-  parseDeliveryDisposition,
   resolveDeliveryDownload,
 } from "@/app/lib/storage/delivery-download";
 
@@ -230,6 +235,8 @@ async function handle(req: Request, ctx: { params: Promise<{ serviceId: string }
       },
     });
 
+    const requestUrl = new URL(req.url);
+    const prepare = method === "GET" && isPrepareDownload(requestUrl.searchParams.get("download"));
     const command = await resolveDeliveryDownload({
       user: { id: user.id, role: user.role },
       service: service
@@ -242,11 +249,31 @@ async function handle(req: Request, ctx: { params: Promise<{ serviceId: string }
           }
         : null,
       method,
-      probe: req.headers.get("x-delivery-probe") === "1",
-      disposition: parseDeliveryDisposition(new URL(req.url).searchParams.get("disposition")),
+      probe: !prepare && req.headers.get("x-delivery-probe") === "1",
+      prepare,
+      disposition: parseDeliveryDisposition(requestUrl.searchParams.get("disposition")),
       deps: { headObject: headDeliveryObject, createDownloadUrl: createDeliveryDownloadUrl },
     });
     if (command.type !== "legacy") return deliveryDownloadResponse(command);
+    if (prepare) {
+      const checked = await serveLegacy({
+        serviceId,
+        stored: command.stored,
+        format: service?.deliveryAudioFormat ?? null,
+        tipo: service?.tipo ?? null,
+        originalName: service?.deliveryAudioOriginalName ?? null,
+        disposition: "attachment",
+        probe: true,
+        method: "GET",
+      });
+      if (checked.status !== 200) return checked;
+      requestUrl.searchParams.delete("download");
+      requestUrl.searchParams.set("disposition", "attachment");
+      return NextResponse.json(
+        { ok: true, downloadUrl: `${requestUrl.pathname}?${requestUrl.searchParams.toString()}` },
+        { headers: { "Cache-Control": DELIVERY_DOWNLOAD_CACHE } }
+      );
+    }
     return serveLegacy({
       serviceId,
       stored: command.stored,

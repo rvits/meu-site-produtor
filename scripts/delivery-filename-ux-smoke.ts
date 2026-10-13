@@ -10,7 +10,7 @@ import {
 } from "../src/app/lib/delivery-filename";
 import {
   DELIVERY_DOWNLOAD_UNAVAILABLE,
-  probeDownloadDecision,
+  prepareDownloadDecision,
 } from "../src/app/lib/delivery-download-ui";
 import {
   assertDeliveryCommitProof,
@@ -181,31 +181,53 @@ async function main() {
     "fallback mostrou UUID"
   );
 
-  assert.deepEqual(probeDownloadDecision(200, { ok: true }), { action: "download" });
-  const unavailable = probeDownloadDecision(503, { error: "Arquivo não encontrado." });
+  const signed = "https://localtest.r2.cloudflarestorage.com/bucket/deliveries/file.wav?X-Amz-Expires=120";
+  assert.deepEqual(prepareDownloadDecision(200, { ok: true, downloadUrl: signed }), {
+    action: "download",
+    downloadUrl: signed,
+  });
+  assert.equal(prepareDownloadDecision(200, { ok: true }).action, "error");
+  assert.equal(prepareDownloadDecision(200, { ok: true, downloadUrl: "javascript:alert(1)" }).action, "error");
+  const unavailable = prepareDownloadDecision(503, { error: "Arquivo não encontrado." });
   assert.equal(unavailable.action, "error");
   if (unavailable.action === "error") {
     assert.equal(unavailable.message, DELIVERY_DOWNLOAD_UNAVAILABLE);
     must(!unavailable.message.toLowerCase().includes("não encontrado"), "503 virou ausência");
   }
-  assert.equal(probeDownloadDecision(404, { error: "Arquivo não encontrado." }).action, "error");
-  assert.notEqual(probeDownloadDecision(404, {}).action, "download");
-  assert.notEqual(probeDownloadDecision(401, {}).action, "download");
-  assert.notEqual(probeDownloadDecision(500, {}).action, "download");
+  assert.equal(prepareDownloadDecision(404, { error: "Arquivo não encontrado." }).action, "error");
+  assert.notEqual(prepareDownloadDecision(404, {}).action, "download");
+  assert.notEqual(prepareDownloadDecision(401, {}).action, "download");
+  assert.notEqual(prepareDownloadDecision(500, {}).action, "download");
 
   const link = readFileSync("src/app/components/DeliveryDownloadLink.tsx", "utf8");
   must(link.includes("preventDefault"), "clique não impede o default");
-  must(link.includes("x-delivery-probe"), "probe removido");
-  must(link.includes("createElement(\"iframe\")"), "download não usa iframe");
-  must(link.includes("withAttachmentDisposition"), "attachment não é pedido");
+  must(link.includes("withPrepareDownload"), "prepare não é pedido");
+  must(link.includes("createElement(\"a\")"), "download não cria link");
+  must(link.includes("link.click()"), "download não dispara o clique");
+  must(link.includes("link.remove()"), "link temporário não é removido");
+  must(link.includes("busy.current"), "clique concorrente não é bloqueado");
+  must((link.match(/fetch\(/g) || []).length === 1, "clique faz mais de um request");
+  must(!link.includes("createElement(\"iframe\")"), "iframe voltou");
+  must(!link.includes("x-delivery-probe"), "probe antigo voltou");
   must(!link.includes("window.location"), "aba atual é navegada");
   must(!link.includes("window.open"), "popup foi introduzido");
   must(!link.includes(".blob("), "arquivo inteiro entra em JS");
+  must(!link.includes("target="), "aba nova foi pedida");
   must(!link.includes("Toque novamente"), "segundo clique voltou");
+  must(!link.includes("concluído"), "sucesso foi inventado");
+  const csp = readFileSync("next.config.ts", "utf8");
+  const frameSrc = csp.split("\n").find((line) => line.includes("frame-src"));
+  must(Boolean(frameSrc) && !frameSrc!.includes("r2.cloudflarestorage.com"), "frame-src passou a permitir R2");
+  const downloadLib = readFileSync("src/app/lib/storage/delivery-download.ts", "utf8");
+  must(!downloadLib.includes("console."), "biblioteca de download loga");
   const route = readFileSync("src/app/api/entregas/[serviceId]/route.ts", "utf8");
   must(route.includes("contentDispositionAttachment"), "legado não pede attachment");
+  must(route.includes('isPrepareDownload'), "prepare não está na rota");
+  must(!route.includes("searchParams.get(\"filename\")"), "cliente controla filename");
+  must(!route.includes("searchParams.get(\"key\")"), "cliente controla key");
   must(!route.includes(".blob("), "rota materializa o arquivo");
   must(route.includes("createDeliveryDownloadUrl"), "R2 deixou o redirect");
+  must(!/console\.(log|info|debug|error)\([^)]*downloadUrl/.test(route), "rota loga a url");
   const card = readFileSync("src/app/admin/servicos-ui/ServiceCard.tsx", "utf8");
   must(card.includes('preload="none"'), "player perdeu preload none");
   must(card.includes("src={s.deliveryAudioUrl"), "player deixou de usar o proxy");

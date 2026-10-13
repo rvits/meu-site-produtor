@@ -1,10 +1,10 @@
 "use client";
 
 import { useId, useRef, useState, type ReactNode } from "react";
-import { withAttachmentDisposition } from "@/app/lib/delivery-disposition";
+import { withPrepareDownload } from "@/app/lib/delivery-disposition";
 import {
   DELIVERY_DOWNLOAD_UNAVAILABLE,
-  probeDownloadDecision,
+  prepareDownloadDecision,
 } from "@/app/lib/delivery-download-ui";
 
 type DeliveryDownloadLinkProps = {
@@ -13,11 +13,11 @@ type DeliveryDownloadLinkProps = {
   children: ReactNode;
 };
 
-const FRAME_LIFETIME_MS = 180_000;
-
 /**
- * Um clique: probe autenticado e, se ok, navegação do download num iframe oculto.
- * A aba atual não muda. O corpo do arquivo não entra em JS nem na função da Vercel.
+ * Um clique pede a URL assinada e dispara um <a> temporário.
+ * O filename vem do Content-Disposition do R2. O atributo download
+ * não é usado: o navegador o ignora em URL cross-origin.
+ * A aba atual não muda e o arquivo não entra em JS.
  */
 export function DeliveryDownloadLink({ href, className, children }: DeliveryDownloadLinkProps) {
   const statusId = useId();
@@ -32,26 +32,27 @@ export function DeliveryDownloadLink({ href, className, children }: DeliveryDown
     setChecking(true);
     setMessage(null);
     try {
-      const probe = await fetch(href, {
+      const prepared = await fetch(withPrepareDownload(href), {
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",
-        headers: { "x-delivery-probe": "1" },
       });
-      const data = (await probe.json().catch(() => ({}))) as { error?: string; ok?: boolean };
-      const decision = probeDownloadDecision(probe.status, data);
+      const data = (await prepared.json().catch(() => ({}))) as {
+        error?: string;
+        ok?: boolean;
+        downloadUrl?: string;
+      };
+      const decision = prepareDownloadDecision(prepared.status, data);
       if (decision.action === "error") {
         setMessage(decision.message);
         return;
       }
-      const frame = document.createElement("iframe");
-      frame.tabIndex = -1;
-      frame.setAttribute("aria-hidden", "true");
-      frame.style.cssText =
-        "position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
-      frame.src = withAttachmentDisposition(href);
-      document.body.appendChild(frame);
-      window.setTimeout(() => frame.remove(), FRAME_LIFETIME_MS);
+      const link = document.createElement("a");
+      link.href = decision.downloadUrl;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch {
       setMessage(DELIVERY_DOWNLOAD_UNAVAILABLE);
     } finally {
