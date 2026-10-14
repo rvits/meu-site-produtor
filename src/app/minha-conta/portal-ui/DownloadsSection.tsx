@@ -3,7 +3,7 @@
 /**
  * Portal do Cliente — Área de Downloads.
  * Reúne todas as entregas já presentes em /api/meus-dados
- * (agendamento.entregas). Player HTML5 para WAV/MP3, nunca URL bruta.
+ * (agendamento.entregas). Player visual para WAV/MP3. A src continua o proxy, nunca a URL bruta.
  */
 
 import {
@@ -15,6 +15,7 @@ import {
   formatDateTime,
 } from "@/components/design-system";
 import { deliveryPresentedName } from "@/app/lib/delivery-filename";
+import { DeliveryAudioPlayer } from "@/app/components/DeliveryAudioPlayer";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento, EntregaServico } from "./types";
 import { deliveryTypeLabel, isAudioDelivery } from "./helpers";
@@ -94,18 +95,23 @@ export function DownloadsSection({ agendamentos }: { agendamentos: Agendamento[]
                     </p>
                   </div>
                 </div>
-                {audio && (
-                  <audio controls preload="none" className="w-full" src={e.deliveryAudioUrl}>
-                    Seu navegador não reproduz áudio.
-                  </audio>
+                {audio ? (
+                  <DeliveryAudioPlayer
+                    src={e.deliveryAudioUrl}
+                    preload="none"
+                    label={fileName}
+                    showLabel={false}
+                    downloadHref={e.deliveryAudioUrl}
+                  />
+                ) : (
+                  <DeliveryDownloadLink
+                    href={e.deliveryAudioUrl}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
+                  >
+                    <Icon name="download" className="w-3.5 h-3.5" />
+                    Baixar arquivo
+                  </DeliveryDownloadLink>
                 )}
-                <DeliveryDownloadLink
-                  href={e.deliveryAudioUrl}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
-                >
-                  <Icon name="download" className="w-3.5 h-3.5" />
-                  Baixar arquivo
-                </DeliveryDownloadLink>
               </Card>
             );
           })}

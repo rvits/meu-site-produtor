@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { deliveryPresentedName } from "@/app/lib/delivery-filename";
+import { DeliveryAudioPlayer } from "@/app/components/DeliveryAudioPlayer";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import { isOperationalNoFileService } from "@/app/lib/service-catalog";
 import { hasOperationalTimer } from "@/app/lib/service-timing";
@@ -40,6 +41,12 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
     delivered &&
     (s.deliveryAudioFormat === "wav" || s.deliveryAudioFormat === "mp3") &&
     !/\.zip(\?|$)/i.test(s.deliveryAudioUrl || "");
+  const deliveryName = deliveryPresentedName({
+    originalName: s.deliveryAudioOriginalName,
+    tipo: s.tipo,
+    format: s.deliveryAudioFormat,
+    url: s.deliveryAudioUrl,
+  });
 
   return (
     <article className="group flex flex-col rounded-xl border border-zinc-700/80 bg-zinc-900/70 transition-all duration-200 hover:border-zinc-500/80 hover:shadow-lg hover:shadow-black/30">
@@ -123,19 +130,19 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
       {delivered && (
         <div className="border-t border-zinc-800 px-4 py-3">
           <p className="text-[10px] uppercase tracking-wide text-zinc-500">Entrega</p>
-          <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-300">
-            <Icons.music className="w-3 h-3 shrink-0 text-purple-400" />
-            <span className="truncate">{deliveryPresentedName({
-              originalName: s.deliveryAudioOriginalName,
-              tipo: s.tipo,
-              format: s.deliveryAudioFormat,
-              url: s.deliveryAudioUrl,
-            })}</span>
-          </p>
-          {isAudio && (
-            <audio controls preload="none" className="mt-2 h-8 w-full" src={s.deliveryAudioUrl || undefined}>
-              Seu navegador não reproduz áudio.
-            </audio>
+          {isAudio ? (
+            <DeliveryAudioPlayer
+              className="mt-2"
+              src={s.deliveryAudioUrl || undefined}
+              preload="none"
+              label={deliveryName}
+              downloadHref={s.deliveryAudioUrl || undefined}
+            />
+          ) : (
+            <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-zinc-300">
+              <Icons.music className="w-3 h-3 shrink-0 text-purple-400" />
+              <span className="truncate">{deliveryName}</span>
+            </p>
           )}
         </div>
       )}
@@ -231,7 +238,7 @@ export function ServiceCard({ service: s, actions }: { service: AdminService; ac
           </button>
         )}
 
-        {s.status === "concluido" && delivered && (
+        {s.status === "concluido" && delivered && !isAudio && (
           <DeliveryDownloadLink
             href={s.deliveryAudioUrl || "#"}
             className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-purple-500"

@@ -9,6 +9,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { deliveryPresentedName } from "@/app/lib/delivery-filename";
+import { DeliveryAudioPlayer } from "@/app/components/DeliveryAudioPlayer";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import { canDeleteClosedAppointment } from "@/app/lib/appointment-delete-gate";
 import { adminResolutionLabel } from "@/app/lib/manual-compensation";
@@ -242,27 +243,38 @@ export function AppointmentDrawer({
                     !/\.zip(\?|$)/i.test(s.deliveryAudioUrl || "");
                   return (
                     <li key={s.id} className="rounded-lg border border-zinc-800 bg-zinc-800/40 px-3 py-2">
-                      <p className="flex items-center gap-1.5 truncate text-xs text-zinc-300">
-                        <Icons.music className="w-3 h-3 shrink-0 text-purple-400" />
-                        <span className="truncate">{deliveryPresentedName({
-                          originalName: s.deliveryAudioOriginalName,
-                          tipo: s.tipo,
-                          format: s.deliveryAudioFormat,
-                          url: s.deliveryAudioUrl,
-                        })}</span>
-                      </p>
-                      {isAudio && (
-                        <audio controls preload="none" className="mt-2 h-8 w-full" src={s.deliveryAudioUrl || undefined}>
-                          Seu navegador não reproduz áudio.
-                        </audio>
+                      {isAudio ? (
+                        <DeliveryAudioPlayer
+                          src={s.deliveryAudioUrl || undefined}
+                          preload="none"
+                          label={deliveryPresentedName({
+                            originalName: s.deliveryAudioOriginalName,
+                            tipo: s.tipo,
+                            format: s.deliveryAudioFormat,
+                            url: s.deliveryAudioUrl,
+                          })}
+                          downloadHref={s.deliveryAudioUrl || undefined}
+                        />
+                      ) : (
+                        <>
+                          <p className="flex items-center gap-1.5 truncate text-xs text-zinc-300">
+                            <Icons.music className="w-3 h-3 shrink-0 text-purple-400" />
+                            <span className="truncate">{deliveryPresentedName({
+                              originalName: s.deliveryAudioOriginalName,
+                              tipo: s.tipo,
+                              format: s.deliveryAudioFormat,
+                              url: s.deliveryAudioUrl,
+                            })}</span>
+                          </p>
+                          <DeliveryDownloadLink
+                            href={s.deliveryAudioUrl || "#"}
+                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-purple-300 underline-offset-2 hover:underline"
+                          >
+                            <Icons.download className="w-3 h-3" />
+                            Download
+                          </DeliveryDownloadLink>
+                        </>
                       )}
-                      <DeliveryDownloadLink
-                        href={s.deliveryAudioUrl || "#"}
-                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-purple-300 underline-offset-2 hover:underline"
-                      >
-                        <Icons.download className="w-3 h-3" />
-                        Download
-                      </DeliveryDownloadLink>
                     </li>
                   );
                 })}

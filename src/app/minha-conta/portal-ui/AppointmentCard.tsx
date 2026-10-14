@@ -22,6 +22,7 @@ import {
 } from "@/components/design-system";
 import { formatStudioDateTimePtBR } from "@/app/lib/calendar-time";
 import { deliveryPresentedName } from "@/app/lib/delivery-filename";
+import { DeliveryAudioPlayer } from "@/app/components/DeliveryAudioPlayer";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import type { Agendamento } from "./types";
 import { OrderTimeline } from "./OrderTimeline";
@@ -220,23 +221,23 @@ export function AppointmentCard({
                               Entregue em {formatDateTime(e.deliveredAt)}
                             </p>
                           )}
-                          {isAudioDelivery(e.deliveryAudioFormat, e.deliveryAudioUrl) && (
-                            <audio
-                              controls
-                              preload="none"
-                              className="w-full"
+                          {isAudioDelivery(e.deliveryAudioFormat, e.deliveryAudioUrl) ? (
+                            <DeliveryAudioPlayer
                               src={e.deliveryAudioUrl}
+                              preload="none"
+                              label={fileName}
+                              showLabel={false}
+                              downloadHref={e.deliveryAudioUrl}
+                            />
+                          ) : (
+                            <DeliveryDownloadLink
+                              href={e.deliveryAudioUrl}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
                             >
-                              Seu navegador não reproduz áudio.
-                            </audio>
+                              <Icon name="download" className="w-3.5 h-3.5" />
+                              Download
+                            </DeliveryDownloadLink>
                           )}
-                          <DeliveryDownloadLink
-                            href={e.deliveryAudioUrl}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-                          >
-                            <Icon name="download" className="w-3.5 h-3.5" />
-                            Download
-                          </DeliveryDownloadLink>
                         </li>
                       );
                     })}
