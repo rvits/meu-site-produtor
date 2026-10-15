@@ -13,7 +13,6 @@ import {
   Breadcrumb,
   Button,
   Icon,
-  LoadingBlock,
   cx,
 } from "@/components/design-system";
 
@@ -82,15 +81,9 @@ export default function AdminShell({
     }
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div data-admin-shell className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <LoadingBlock label="Verificando permissões…" />
-      </div>
-    );
-  }
-
-  if (!user || user.role !== "ADMIN") return null;
+  // O layout servidor já recusou quem não é ADMIN. Enquanto /api/me
+  // ainda responde, o shell permanece no lugar para não trocar a página inteira.
+  if (!loading && (!user || user.role !== "ADMIN")) return null;
 
   const crumbs = crumbFor(pathname);
 

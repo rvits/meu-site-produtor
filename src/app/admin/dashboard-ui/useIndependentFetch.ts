@@ -7,6 +7,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FetchState } from "./types";
 
+/** Primeiro load usa skeleton. Refresh mantém o último dado até a resposta nova. */
+export function reduceIndependentFetch<T>(
+  prev: FetchState<T>,
+  event: { type: "start" } | { type: "success"; data: T } | { type: "failure"; error: string }
+): FetchState<T> {
+  if (event.type === "start") {
+    if (prev.data !== null) return prev;
+    return { status: "loading", data: null, error: null };
+  }
+  if (event.type === "success") {
+    return { status: "success", data: event.data, error: null };
+  }
+  if (prev.data !== null) return prev;
+  return { status: "error", data: null, error: event.error };
+}
+
 export function useIndependentFetch<T>(
   key: string,
   loader: () => Promise<T>,
@@ -21,15 +37,19 @@ export function useIndependentFetch<T>(
 
   const run = useCallback(async () => {
     const id = ++gen.current;
-    setState({ status: "loading", data: null, error: null });
+    setState((prev) => reduceIndependentFetch(prev, { type: "start" }));
     try {
       const data = await loader();
       if (id !== gen.current) return;
-      setState({ status: "success", data, error: null });
+      setState((prev) =>
+        id === gen.current ? reduceIndependentFetch(prev, { type: "success", data }) : prev
+      );
     } catch (err) {
       if (id !== gen.current) return;
       const msg = err instanceof Error ? err.message : "Falha ao carregar";
-      setState({ status: "error", data: null, error: msg });
+      setState((prev) =>
+        id === gen.current ? reduceIndependentFetch(prev, { type: "failure", error: msg }) : prev
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

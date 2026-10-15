@@ -56,6 +56,35 @@ export type DeliveryPlayerEvent =
 
 export type DeliveryPlayerKeyAction = "toggle" | "back" | "forward" | "mute";
 
+export type DeliveryMetadataIntent =
+  | { type: "mount" }
+  | { type: "play" }
+  | { type: "pointer-enter"; pointerType: string }
+  | { type: "focus"; focusVisible: boolean }
+  | { type: "pointer-down"; onPlayControl: boolean };
+
+/** Metadata só depois de intenção neste player. Render e Play não disparam load(). */
+export function shouldRequestDeliveryMetadata(input: {
+  hasSrc: boolean;
+  alreadyRequested: boolean;
+  intent: DeliveryMetadataIntent;
+}): boolean {
+  if (!input.hasSrc || input.alreadyRequested) return false;
+  switch (input.intent.type) {
+    case "mount":
+    case "play":
+      return false;
+    case "pointer-enter":
+      return input.intent.pointerType === "mouse";
+    case "focus":
+      return input.intent.focusVisible;
+    case "pointer-down":
+      return !input.intent.onPlayControl;
+    default:
+      return false;
+  }
+}
+
 export function knownDuration(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
   return value;

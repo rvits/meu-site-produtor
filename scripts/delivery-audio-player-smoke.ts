@@ -23,6 +23,7 @@ import {
   seekRatioToTime,
   shouldPauseForOtherPlayer,
   shouldPersistVolumeEvent,
+  shouldRequestDeliveryMetadata,
   stepPlaybackTime,
   type DeliveryPlayerState,
 } from "../src/app/lib/delivery-audio-player";
@@ -296,6 +297,73 @@ function main() {
   must(downloadLink.includes("withPrepareDownload"), "download deixou o prepare");
   must(!downloadLink.includes(".blob("), "download passou a materializar o arquivo");
   must(!downloadLink.includes("DeliveryAudioPlayer"), "download passou a depender do player");
+
+  assert.equal(shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "mount" } }), false);
+  assert.equal(shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "play" } }), false);
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "pointer-enter", pointerType: "mouse" } }),
+    true
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "pointer-enter", pointerType: "touch" } }),
+    false
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "focus", focusVisible: true } }),
+    true
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "focus", focusVisible: false } }),
+    false
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "pointer-down", onPlayControl: false } }),
+    true
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: false, intent: { type: "pointer-down", onPlayControl: true } }),
+    false
+  );
+  assert.equal(
+    shouldRequestDeliveryMetadata({ hasSrc: true, alreadyRequested: true, intent: { type: "pointer-enter", pointerType: "mouse" } }),
+    false
+  );
+  assert.equal(shouldRequestDeliveryMetadata({ hasSrc: false, alreadyRequested: false, intent: { type: "focus", focusVisible: true } }), false);
+
+  const afterSrc = reduceDeliveryPlayer(
+    { ...INITIAL_DELIVERY_PLAYER, duration: 12, current: 4, volume: 0.4, muted: true, remembered: 0.8 },
+    { type: "src" }
+  );
+  assert.equal(afterSrc.duration, null);
+  assert.equal(afterSrc.current, 0);
+  assert.equal(afterSrc.volume, 0.4);
+  assert.equal(afterSrc.muted, true);
+  assert.equal(afterSrc.remembered, 0.8);
+  assert.equal(afterSrc.error, false);
+
+  const many = renderToStaticMarkup(
+    createElement(
+      "div",
+      null,
+      Array.from({ length: 20 }, (_, index) =>
+        createElement(DeliveryAudioPlayer, {
+          key: String(index),
+          src: `/api/entregas/player-${index}`,
+          preload: "none",
+          label: `Entrega-${index}.wav`,
+        })
+      )
+    )
+  );
+  assert.equal((many.match(/preload="none"/g) || []).length, 20);
+  must(!many.includes('preload="metadata"'), "render de vários players pediu metadata");
+
+  must(playerSource.includes("shouldRequestDeliveryMetadata"), "metadata deixou de ser preguiçosa");
+  must(playerSource.includes("data-delivery-play"), "play não fica fora do prefetch");
+  must(playerSource.includes('closest("button, a, input, [data-delivery-play]")'), "download, volume ou mute pedem metadata");
+  must(playerSource.includes("audio.load()"), "intenção não pede metadata");
+  must(!playerSource.includes("IntersectionObserver"), "lista visível carregaria todos os players");
+  must(!playerSource.includes('preload="metadata"'), "preload metadata virou padrão do markup");
 
   const route = readFileSync("src/app/api/entregas/[serviceId]/route.ts", "utf8");
   must(!route.includes("DeliveryAudioPlayer"), "endpoint passou a conhecer o player");

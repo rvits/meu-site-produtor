@@ -7,7 +7,7 @@
  * O último volume vem só do volumechange desse elemento e é reaplicado quando a src troca.
  */
 
-import { useEffect, useId, useLayoutEffect, useReducer, useRef, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { DeliveryDownloadLink } from "@/app/components/DeliveryDownloadLink";
 import {
   DELIVERY_AUDIO_PLAY_EVENT,
@@ -27,7 +27,9 @@ import {
   seekRatioToTime,
   shouldPauseForOtherPlayer,
   shouldPersistVolumeEvent,
+  shouldRequestDeliveryMetadata,
   stepPlaybackTime,
+  type DeliveryMetadataIntent,
   type DeliveryAudioPlayDetail,
 } from "@/app/lib/delivery-audio-player";
 
@@ -107,12 +109,16 @@ export function DeliveryAudioPlayer({
   const [state, dispatch] = useReducer(reduceDeliveryPlayer, INITIAL_DELIVERY_PLAYER);
   const volumeRef = useRef({ volume: INITIAL_DELIVERY_PLAYER.volume, muted: INITIAL_DELIVERY_PLAYER.muted });
   const appliedSrcRef = useRef<string | undefined>(undefined);
+  const metadataRequestedRef = useRef(false);
+  const [armedSrc, setArmedSrc] = useState<string | null>(null);
   const mediaSrc = src || undefined;
+  const metadataArmed = Boolean(mediaSrc) && armedSrc === mediaSrc;
   const canDownload = Boolean(downloadHref);
   const progress = playbackProgress(state.current, state.duration);
   const transportLabel = deliveryPlayerTransportLabel(state);
 
   useLayoutEffect(() => {
+    metadataRequestedRef.current = false;
     dispatch({ type: "src" });
     const audio = audioRef.current;
     if (!audio) {
@@ -123,10 +129,28 @@ export function DeliveryAudioPlayer({
     appliedSrcRef.current = mediaSrc;
     audio.volume = saved.volume;
     audio.muted = saved.muted;
-    if (audio.readyState >= 1) {
-      dispatch({ type: "loadedmetadata", duration: audio.duration });
-    }
   }, [mediaSrc]);
+
+  function requestMetadata(intent: DeliveryMetadataIntent) {
+    if (
+      !shouldRequestDeliveryMetadata({
+        hasSrc: Boolean(mediaSrc),
+        alreadyRequested: metadataRequestedRef.current,
+        intent,
+      })
+    ) {
+      return;
+    }
+    metadataRequestedRef.current = true;
+    setArmedSrc(mediaSrc ?? null);
+  }
+
+  useEffect(() => {
+    if (!metadataArmed || !mediaSrc) return;
+    const audio = audioRef.current;
+    if (!audio || !audio.paused || audio.readyState > 0) return;
+    audio.load();
+  }, [metadataArmed, mediaSrc]);
 
   useEffect(() => {
     function onOther(event: Event) {
@@ -234,11 +258,23 @@ export function DeliveryAudioPlayer({
       aria-label={label ? `Entrega: ${label}` : "Player de entrega"}
       title={label || undefined}
       onKeyDown={onKeyDown}
+      onPointerEnter={(event) => requestMetadata({ type: "pointer-enter", pointerType: event.pointerType })}
+      onFocus={(event) => {
+        const target = event.target;
+        const focusVisible = target instanceof Element && target.matches(":focus-visible");
+        requestMetadata({ type: "focus", focusVisible });
+      }}
+      onPointerDown={(event) => {
+        const target = event.target;
+        const onControl = target instanceof Element && Boolean(target.closest("button, a, input, [data-delivery-play]"));
+        requestMetadata({ type: "pointer-down", onPlayControl: onControl });
+      }}
       className={`@container w-full min-w-0 rounded-xl border border-red-800/70 bg-zinc-950 px-2.5 py-2 text-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${className || ""}`}
     >
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
+          data-delivery-play=""
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:opacity-50"
           aria-label={transportLabel}
           aria-busy={state.waiting}
@@ -344,7 +380,7 @@ export function DeliveryAudioPlayer({
       <audio
         ref={audioRef}
         controls={false}
-        preload={preload}
+        preload={metadataArmed ? "metadata" : preload}
         src={mediaSrc}
         className="sr-only"
         aria-hidden="true"
