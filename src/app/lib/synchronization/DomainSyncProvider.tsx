@@ -14,6 +14,10 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "@/app/context/AuthContext";
+import {
+  nextSyncConnectedFlag,
+  shouldRunFallbackRecovery,
+} from "@/app/lib/synchronization/sse-connection";
 import type { SyncEnvelope, SyncSurface } from "@/app/lib/synchronization/types";
 
 type RefreshHandler = () => void | Promise<void>;
@@ -46,6 +50,7 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const coalesceRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const cursorRef = useRef<string | null>(null);
+  const connectedRef = useRef(false);
 
   const markSeen = useCallback((id: string): boolean => {
     if (seenIdsRef.current.has(id)) return false;
@@ -137,8 +142,15 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
     let stopped = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
+    const markConnected = (event: "open" | "error" | "cleanup") => {
+      const next = nextSyncConnectedFlag(event);
+      connectedRef.current = next;
+      setConnected(next);
+    };
+
     const connect = () => {
       if (stopped) return;
+      es?.close();
       const q = new URLSearchParams();
       if (cursorRef.current) q.set("cursor", cursorRef.current);
       es = new EventSource(`/api/sync/events?${q}`, { withCredentials: true });
@@ -152,11 +164,12 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
         }
       });
 
-      es.onopen = () => setConnected(true);
+      es.onopen = () => markConnected("open");
       es.onerror = () => {
-        setConnected(false);
+        markConnected("error");
         es?.close();
         if (!stopped) {
+          if (reconnectTimer) clearTimeout(reconnectTimer);
           reconnectTimer = setTimeout(() => {
             void recoveryFetch().then(connect);
           }, 3000);
@@ -187,7 +200,12 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
 
     // Fallback recovery interval (inventory: fallback)
     const fallback = setInterval(() => {
-      if (document.visibilityState === "visible" && !connected) {
+      if (
+        shouldRunFallbackRecovery({
+          visible: document.visibilityState === "visible",
+          connectedNow: connectedRef.current,
+        })
+      ) {
         void recoveryFetch();
       }
     }, 15000);
@@ -199,10 +217,8 @@ export function DomainSyncProvider({ children }: { children: React.ReactNode }) 
       document.removeEventListener("visibilitychange", onVisibility);
       es?.close();
       bc?.close();
-      setConnected(false);
+      markConnected("cleanup");
     };
-    // connected fica de fora de propósito: o fallback de 15s lê o valor inicial.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleEnvelope, recoveryFetch, runRefresh, loading, authenticatedUserId]);
 
   const subscribeSurface = useCallback(

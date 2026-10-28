@@ -11,6 +11,7 @@ import {
   toPublicAgendaEnvelope,
 } from "@/app/lib/synchronization/engine";
 import { subscribeSync } from "@/app/lib/synchronization/hub";
+import { resolveRequestedSyncCursor, resolveSseOpen } from "@/app/lib/synchronization/sse-open";
 import type { SyncEnvelope, SyncSurface } from "@/app/lib/synchronization/types";
 
 export const runtime = "nodejs";
@@ -123,19 +124,38 @@ export async function GET(req: NextRequest) {
         send(`data: ${JSON.stringify(filtered)}\n\n`);
       };
 
+      const pullSinceCursor = async (fromCursor: string | null, take: number) => {
+        const { events, nextCursor } = await listSyncEventsSince({
+          cursor: fromCursor,
+          userId,
+          isAdmin,
+          surfaces,
+          take,
+        });
+        for (const e of events) pushEnvelope(e);
+        if (nextCursor) cursor = nextCursor;
+      };
+
       (async () => {
-        // Replay desde cursor
+        const startedEmpty = { current: false };
         try {
-          const { events, nextCursor } = await listSyncEventsSince({
-            cursor,
-            userId,
-            isAdmin,
-            surfaces,
-            take: 100,
+          const requested = resolveRequestedSyncCursor({
+            queryCursor: url.searchParams.get("cursor"),
+            lastEventId: req.headers.get("Last-Event-ID"),
           });
-          for (const e of events) pushEnvelope(e);
-          if (nextCursor) cursor = nextCursor;
-          else if (!cursor) cursor = await getLatestSyncCursor();
+          const latest = requested ? null : await getLatestSyncCursor();
+          const open = resolveSseOpen({
+            queryCursor: url.searchParams.get("cursor"),
+            lastEventId: req.headers.get("Last-Event-ID"),
+            latestCursor: latest,
+          });
+          cursor = open.cursor;
+          startedEmpty.current = open.mode === "empty_wait";
+          // Sem cursor: baseline = latest, sem emitir histórico.
+          // Com cursor: recupera apenas eventos posteriores.
+          if (open.emitHistorical && open.cursor) {
+            await pullSinceCursor(open.cursor, 100);
+          }
         } catch (err) {
           console.error("[sync/events] replay error", err);
         }
@@ -148,6 +168,13 @@ export async function GET(req: NextRequest) {
           },
         });
 
+        // Catch-up imediato: cobre a janela entre baseline/replay e o subscribe.
+        try {
+          if (cursor) await pullSinceCursor(cursor, 50);
+        } catch (err) {
+          console.error("[sync/events] catch-up error", err);
+        }
+
         heartbeat = setInterval(() => {
           send(`: heartbeat ${Date.now()}\n\n`);
         }, HEARTBEAT_MS);
@@ -156,15 +183,15 @@ export async function GET(req: NextRequest) {
         tailTimer = setInterval(async () => {
           if (closed) return;
           try {
-            const { events, nextCursor } = await listSyncEventsSince({
-              cursor,
-              userId,
-              isAdmin,
-              surfaces,
-              take: 50,
-            });
-            for (const e of events) pushEnvelope(e);
-            if (nextCursor) cursor = nextCursor;
+            if (!cursor) {
+              if (!startedEmpty.current) return;
+              const appeared = await getLatestSyncCursor();
+              if (!appeared) return;
+              // Tabela estava vazia no open: qualquer linha agora é evento novo.
+              await pullSinceCursor(null, 50);
+              return;
+            }
+            await pullSinceCursor(cursor, 50);
           } catch (err) {
             console.error("[sync/events] tail error", err);
           }
