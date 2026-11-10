@@ -34,6 +34,7 @@ import {
   type TextHighlight,
   type TitleLevel,
 } from "../portfolio-data";
+import { portfolioPlaybackUrl } from "../portfolio-media-ref";
 import {
   MediaDropSurface,
   MediaFileNote,
@@ -122,7 +123,7 @@ function BlockContent({
 }) {
   const align = alignClass(block.align);
   const editing = mode === "edit";
-  const src = file?.url ?? block.media?.url ?? null;
+  const src = file?.url ?? portfolioPlaybackUrl(block.media) ?? null;
 
   if (block.kind === "title") {
     return <PortfolioTitle block={block} />;

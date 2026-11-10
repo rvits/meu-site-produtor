@@ -13,10 +13,18 @@ export type PortfolioMediaRef = {
 export const PORTFOLIO_STORAGE_UNAVAILABLE =
   "Armazenamento permanente de mídia não está configurado neste ambiente.";
 
+export const PORTFOLIO_R2_REFERENCE_PREFIX = "r2:portfolio/";
+
 const PREFIX: Record<PortfolioMediaKind, string> = {
   image: "portfolio/images/",
   audio: "portfolio/audio/",
   video: "portfolio/videos/",
+};
+
+const FOLDER: Record<PortfolioMediaKind, "images" | "audio" | "videos"> = {
+  image: "images",
+  audio: "audio",
+  video: "videos",
 };
 
 const RULES: Array<{ kind: PortfolioMediaKind; mime: string; ext: string }> = [
@@ -30,6 +38,35 @@ const RULES: Array<{ kind: PortfolioMediaKind; mime: string; ext: string }> = [
   { kind: "audio", mime: "audio/x-wav", ext: ".wav" },
   { kind: "audio", mime: "audio/wave", ext: ".wav" },
 ];
+
+const UUID_FILE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|mp3|wav|mp4|mov)$/;
+
+export type ClassifiedPortfolioReference =
+  | {
+      kind: "blob";
+      url: string;
+      pathname: string;
+      mediaKind: PortfolioMediaKind;
+    }
+  | {
+      kind: "r2";
+      url: string;
+      pathname: string;
+      objectKey: string;
+      mediaKind: PortfolioMediaKind;
+    }
+  | {
+      kind: "invalid";
+      reason:
+        | "empty"
+        | "malicious_protocol"
+        | "wrong_namespace"
+        | "unsafe_path"
+        | "wrong_extension"
+        | "not_portfolio"
+        | "path_mismatch";
+    };
 
 export function portfolioMediaKind(kind: BlockKind): PortfolioMediaKind | null {
   if (kind === "image" || kind === "audio" || kind === "video") return kind;
@@ -88,6 +125,118 @@ export function inspectPortfolioPathname(pathname: string): {
   };
 }
 
+export function acceptedPortfolioR2ObjectKey(key: string): {
+  mediaKind: PortfolioMediaKind;
+  folder: "images" | "audio" | "videos";
+  file: string;
+} | null {
+  if (!key.startsWith("portfolio/")) return null;
+  if (key.length > 512) return null;
+  if (key.includes("\\") || key.includes("\0") || key.includes("%") || key.includes("?") || key.includes("#")) {
+    return null;
+  }
+  try {
+    if (decodeURIComponent(key) !== key) return null;
+  } catch {
+    return null;
+  }
+  const parts = key.split("/");
+  if (parts.length !== 3) return null;
+  if (parts.some((part) => part.length === 0 || part === "." || part === "..")) return null;
+  if (parts[0] !== "portfolio") return null;
+  const folder = parts[1];
+  const mediaKind: PortfolioMediaKind | null =
+    folder === "images" ? "image" : folder === "audio" ? "audio" : folder === "videos" ? "video" : null;
+  if (!mediaKind || folder !== FOLDER[mediaKind]) return null;
+  const file = parts[2];
+  if (!UUID_FILE.test(file)) return null;
+  const ext = extensionOf(file);
+  if (!RULES.some((rule) => rule.kind === mediaKind && rule.ext === ext)) return null;
+  return { mediaKind, folder, file };
+}
+
+export function buildPortfolioMediaObjectKey(folder: string, file: string): string | null {
+  if (folder !== "images" && folder !== "audio" && folder !== "videos") return null;
+  return acceptedPortfolioR2ObjectKey(`portfolio/${folder}/${file}`) ? `portfolio/${folder}/${file}` : null;
+}
+
+export function portfolioCanonicalContentType(objectKey: string): string | null {
+  const accepted = acceptedPortfolioR2ObjectKey(objectKey);
+  if (!accepted) return null;
+  const ext = extensionOf(accepted.file);
+  const rule = RULES.find((item) => item.kind === accepted.mediaKind && item.ext === ext);
+  return rule ? rule.mime : null;
+}
+
+export function classifyPortfolioStorageReference(
+  url: string,
+  pathname?: string
+): ClassifiedPortfolioReference {
+  const reference = String(url ?? "").trim();
+  if (!reference) return { kind: "invalid", reason: "empty" };
+  const lower = reference.toLowerCase();
+  if (
+    lower.startsWith("javascript:") ||
+    lower.startsWith("data:") ||
+    lower.startsWith("vbscript:") ||
+    lower.startsWith("blob:")
+  ) {
+    return { kind: "invalid", reason: "malicious_protocol" };
+  }
+  if (lower.startsWith("r2:")) {
+    if (!reference.startsWith(PORTFOLIO_R2_REFERENCE_PREFIX)) {
+      return { kind: "invalid", reason: "wrong_namespace" };
+    }
+    const objectKey = reference.slice("r2:".length);
+    const accepted = acceptedPortfolioR2ObjectKey(objectKey);
+    if (!accepted) {
+      return {
+        kind: "invalid",
+        reason: objectKey.startsWith("portfolio/") ? "unsafe_path" : "wrong_namespace",
+      };
+    }
+    if (pathname != null && pathname !== objectKey) return { kind: "invalid", reason: "path_mismatch" };
+    return {
+      kind: "r2",
+      url: reference,
+      pathname: objectKey,
+      objectKey,
+      mediaKind: accepted.mediaKind,
+    };
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(reference);
+  } catch {
+    return { kind: "invalid", reason: "not_portfolio" };
+  }
+  if (parsed.protocol !== "https:" || !isVercelBlobHost(parsed.hostname)) {
+    return { kind: "invalid", reason: "not_portfolio" };
+  }
+  let path: string;
+  try {
+    path = decodeURIComponent(parsed.pathname).replace(/^\//, "");
+  } catch {
+    return { kind: "invalid", reason: "unsafe_path" };
+  }
+  const inspected = inspectPortfolioPathname(path);
+  if (!inspected) return { kind: "invalid", reason: "unsafe_path" };
+  if (pathname != null && pathname !== path) return { kind: "invalid", reason: "path_mismatch" };
+  return { kind: "blob", url: reference, pathname: path, mediaKind: inspected.kind };
+}
+
+export function portfolioPlaybackUrl(media: PortfolioMediaRef | null | undefined): string | null {
+  if (!media) return null;
+  const classified = classifyPortfolioStorageReference(media.url, media.pathname);
+  if (classified.kind === "blob") return classified.url;
+  if (classified.kind === "r2") {
+    const accepted = acceptedPortfolioR2ObjectKey(classified.objectKey);
+    if (!accepted) return null;
+    return `/api/portfolio/media/${accepted.folder}/${accepted.file}`;
+  }
+  return null;
+}
+
 export function checkPortfolioFile(file: { name: string; type: string; size: number }, kind: PortfolioMediaKind): string | null {
   const ext = extensionOf(file.name);
   const mime = normalizeMime(file.type);
@@ -136,27 +285,24 @@ export function parsePortfolioMedia(
     return { ok: false, error: "Nome de arquivo inválido." };
   }
   if (!Number.isInteger(raw.size) || (raw.size as number) <= 0) return { ok: false, error: "Tamanho de arquivo inválido." };
-  const inspected = inspectPortfolioPathname(raw.pathname);
+  const classified = classifyPortfolioStorageReference(raw.url, raw.pathname);
+  if (classified.kind === "invalid") {
+    if (classified.reason === "not_portfolio" || classified.reason === "wrong_namespace") {
+      return { ok: false, error: "A mídia precisa estar no armazenamento do Portfólio." };
+    }
+    return { ok: false, error: "Referência de mídia inválida." };
+  }
+  if (classified.mediaKind !== mediaKind) return { ok: false, error: "Caminho de mídia inválido." };
+  const inspected = inspectPortfolioPathname(classified.pathname);
   if (!inspected || inspected.kind !== mediaKind) return { ok: false, error: "Caminho de mídia inválido." };
   if (!inspected.contentTypes.includes(normalizeMime(raw.mimeType))) {
     return { ok: false, error: "Tipo de arquivo inválido." };
   }
-  let parsed: URL;
-  try {
-    parsed = new URL(raw.url);
-  } catch {
-    return { ok: false, error: "Referência de mídia inválida." };
-  }
-  if (parsed.protocol !== "https:" || !isVercelBlobHost(parsed.hostname)) {
-    return { ok: false, error: "A mídia precisa estar no armazenamento do Portfólio." };
-  }
-  const path = decodeURIComponent(parsed.pathname).replace(/^\//, "");
-  if (path !== raw.pathname) return { ok: false, error: "Referência de mídia inválida." };
   return {
     ok: true,
     media: {
-      url: raw.url,
-      pathname: raw.pathname,
+      url: classified.kind === "r2" ? classified.url : raw.url,
+      pathname: classified.pathname,
       mimeType: raw.mimeType,
       originalName: raw.originalName,
       size: raw.size as number,

@@ -3,7 +3,7 @@
  */
 
 import { S3Client } from "@aws-sdk/client-s3";
-import type { R2DeliverySettings } from "./r2-config";
+import type { R2SharedSettings } from "./r2-config";
 
 if (typeof window !== "undefined") {
   throw new Error("r2-client só pode ser usado no servidor.");
@@ -16,7 +16,7 @@ const silentLogger = {
   error() {},
 };
 
-export function createR2Client(settings: R2DeliverySettings): S3Client {
+export function createR2Client(settings: R2SharedSettings): S3Client {
   return new S3Client({
     region: "auto",
     endpoint: settings.endpoint,
