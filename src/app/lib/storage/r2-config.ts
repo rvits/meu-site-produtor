@@ -33,11 +33,11 @@ function clean(value: string | undefined): string {
   return String(value ?? "").trim();
 }
 
-function bucketNameOk(name: string): boolean {
+export function isExplicitR2BucketName(name: string): boolean {
   return /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name);
 }
 
-function readR2SharedSettings(): { ok: true; settings: R2SharedSettings } | { ok: false; code: "unconfigured" } {
+export function readR2SharedSettings(): { ok: true; settings: R2SharedSettings } | { ok: false; code: "unconfigured" } {
   const accountId = clean(process.env.R2_ACCOUNT_ID);
   const accessKeyId = clean(process.env.R2_ACCESS_KEY_ID);
   const secretAccessKey = clean(process.env.R2_SECRET_ACCESS_KEY);
@@ -66,7 +66,7 @@ export function readR2DeliverySettings(): R2ConfigResult {
   const shared = readR2SharedSettings();
   if (!shared.ok) return shared;
   const deliveriesBucket = clean(process.env.R2_DELIVERIES_BUCKET);
-  if (!deliveriesBucket || !bucketNameOk(deliveriesBucket)) return { ok: false, code: "unconfigured" };
+  if (!deliveriesBucket || !isExplicitR2BucketName(deliveriesBucket)) return { ok: false, code: "unconfigured" };
   return {
     ok: true,
     settings: {
@@ -80,7 +80,7 @@ export function readR2PortfolioSettings(): R2PortfolioConfigResult {
   const shared = readR2SharedSettings();
   if (!shared.ok) return shared;
   const portfolioBucket = clean(process.env.R2_PORTFOLIO_BUCKET);
-  if (!portfolioBucket || !bucketNameOk(portfolioBucket)) return { ok: false, code: "unconfigured" };
+  if (!portfolioBucket || !isExplicitR2BucketName(portfolioBucket)) return { ok: false, code: "unconfigured" };
   return {
     ok: true,
     settings: {
