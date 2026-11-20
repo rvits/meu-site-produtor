@@ -37,6 +37,24 @@ export function isExplicitR2BucketName(name: string): boolean {
   return /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name);
 }
 
+export const R2_PORTFOLIO_PRODUCTION_BUCKET = "thouse-portfolio";
+export const R2_PORTFOLIO_PREVIEW_BUCKET = "thouse-portfolio-preview";
+
+/**
+ * Gate de WRITE. Usa só VERCEL_ENV, que a Vercel define de forma estável.
+ * Sem fallback para o bucket de Production.
+ */
+export function portfolioWriteBucketAllowed(
+  bucket: string,
+  vercelEnv: string | undefined = process.env.VERCEL_ENV
+): boolean {
+  if (!isExplicitR2BucketName(bucket)) return false;
+  const envName = clean(vercelEnv);
+  if (envName === "production") return bucket === R2_PORTFOLIO_PRODUCTION_BUCKET;
+  if (envName === "preview") return bucket === R2_PORTFOLIO_PREVIEW_BUCKET;
+  return bucket !== R2_PORTFOLIO_PRODUCTION_BUCKET;
+}
+
 export function readR2SharedSettings(): { ok: true; settings: R2SharedSettings } | { ok: false; code: "unconfigured" } {
   const accountId = clean(process.env.R2_ACCOUNT_ID);
   const accessKeyId = clean(process.env.R2_ACCESS_KEY_ID);

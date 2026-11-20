@@ -1,5 +1,5 @@
 /**
- * Smoke — allowlist e ausência de teto interno de tamanho no Portfólio.
+ * Smoke — allowlist e teto de upload do Portfólio.
  * Sem Blob real, sem Prisma.
  */
 import assert from "node:assert/strict";
@@ -7,6 +7,8 @@ import {
   checkPortfolioFile,
   inspectPortfolioPathname,
   parsePortfolioMedia,
+  PORTFOLIO_FILE_TOO_LARGE,
+  PORTFOLIO_MAX_BYTES,
   proposePortfolioPathname,
   portfolioAccept,
   portfolioFormatHint,
@@ -48,22 +50,27 @@ mustReject("video", "clip.mp4", "video/*");
 assert.equal(
   checkPortfolioFile({ name: "huge.png", type: "image/png", size: 9 * 1024 * 1024 }, "image"),
   null,
-  "imagem > 8 MB não rejeitada pelo teto antigo"
+  "imagem de 9 MB deve passar"
 );
 assert.equal(
   checkPortfolioFile({ name: "huge.mp3", type: "audio/mpeg", size: 41 * 1024 * 1024 }, "audio"),
   null,
-  "áudio > 40 MB não rejeitado pelo teto antigo"
+  "áudio de 41 MB deve passar"
 );
 assert.equal(
-  checkPortfolioFile({ name: "huge.mp4", type: "video/mp4", size: 81 * 1024 * 1024 }, "video"),
+  checkPortfolioFile({ name: "huge.mp4", type: "video/mp4", size: PORTFOLIO_MAX_BYTES }, "video"),
   null,
-  "vídeo > 80 MB não rejeitado pelo teto antigo"
+  "vídeo no teto deve passar"
 );
 assert.equal(
-  checkPortfolioFile({ name: "huge.mov", type: "video/quicktime", size: 81 * 1024 * 1024 }, "video"),
-  null,
-  "MOV grande não rejeitado por teto interno"
+  checkPortfolioFile({ name: "huge.mp4", type: "video/mp4", size: PORTFOLIO_MAX_BYTES + 1 }, "video"),
+  PORTFOLIO_FILE_TOO_LARGE,
+  "vídeo acima do teto rejeitado"
+);
+assert.equal(
+  checkPortfolioFile({ name: "huge.mov", type: "video/quicktime", size: PORTFOLIO_MAX_BYTES + 1 }, "video"),
+  PORTFOLIO_FILE_TOO_LARGE,
+  "MOV acima do teto rejeitado"
 );
 
 assert.equal(checkPortfolioFile({ name: "a.png", type: "image/png", size: 0 }, "image"), "Arquivo vazio.");

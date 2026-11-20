@@ -13,7 +13,13 @@ export type PortfolioMediaRef = {
 export const PORTFOLIO_STORAGE_UNAVAILABLE =
   "Armazenamento permanente de mídia não está configurado neste ambiente.";
 
+export const PORTFOLIO_FILE_TOO_LARGE = "O arquivo excede o limite permitido.";
+
+/** Teto do upload novo. Independente do limite de entregas. */
+export const PORTFOLIO_MAX_BYTES = 80 * 1024 * 1024;
+
 export const PORTFOLIO_R2_REFERENCE_PREFIX = "r2:portfolio/";
+export const PORTFOLIO_UPLOAD_METADATA_KIND = "portfolio";
 
 const PREFIX: Record<PortfolioMediaKind, string> = {
   image: "portfolio/images/",
@@ -243,7 +249,39 @@ export function checkPortfolioFile(file: { name: string; type: string; size: num
   const rule = RULES.find((item) => item.kind === kind && item.ext === ext && item.mime === mime);
   if (!rule) return `Use ${portfolioFormatHint(kind)}.`;
   if (!Number.isFinite(file.size) || file.size <= 0) return "Arquivo vazio.";
+  if (file.size > PORTFOLIO_MAX_BYTES) return PORTFOLIO_FILE_TOO_LARGE;
   return null;
+}
+
+export function isPortfolioOriginalName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 180 &&
+    !/[<>\\]/.test(value) &&
+    !/^(blob:|data:|file:|javascript:)/i.test(value) &&
+    !/^[A-Za-z]:/.test(value)
+  );
+}
+
+export function canonicalPortfolioUploadMime(kind: PortfolioMediaKind, fileName: string): string | null {
+  const ext = extensionOf(fileName);
+  const rule = RULES.find((item) => item.kind === kind && item.ext === ext);
+  return rule ? rule.mime : null;
+}
+
+export function proposePortfolioR2ObjectKey(
+  kind: PortfolioMediaKind,
+  fileName: string,
+  unique: string
+): string | null {
+  const ext = extensionOf(fileName);
+  if (!RULES.some((rule) => rule.kind === kind && rule.ext === ext)) return null;
+  const id = String(unique || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return null;
+  return acceptedPortfolioR2ObjectKey(`portfolio/${FOLDER[kind]}/${id}${ext}`)
+    ? `portfolio/${FOLDER[kind]}/${id}${ext}`
+    : null;
 }
 
 export function proposePortfolioPathname(kind: PortfolioMediaKind, fileName: string, unique: string): string | null {
@@ -274,14 +312,7 @@ export function parsePortfolioMedia(
   if (typeof raw.pathname !== "string" || typeof raw.url !== "string" || typeof raw.mimeType !== "string") {
     return { ok: false, error: "Referência de mídia inválida." };
   }
-  if (
-    typeof raw.originalName !== "string"
-    || raw.originalName.length === 0
-    || raw.originalName.length > 180
-    || /[<>\\]/.test(raw.originalName)
-    || /^(blob:|data:|file:|javascript:)/i.test(raw.originalName)
-    || /^[A-Za-z]:/.test(raw.originalName)
-  ) {
+  if (!isPortfolioOriginalName(raw.originalName)) {
     return { ok: false, error: "Nome de arquivo inválido." };
   }
   if (!Number.isInteger(raw.size) || (raw.size as number) <= 0) return { ok: false, error: "Tamanho de arquivo inválido." };
@@ -311,14 +342,16 @@ export function parsePortfolioMedia(
 }
 
 export function decidePortfolioUpload(input: {
-  type: string;
+  action: string;
   role: "admin" | "user" | "visitor";
-  hasBlobToken: boolean;
+  configured: boolean;
 }): { ok: true } | { ok: false; status: number; error: string } {
-  if (input.type !== "blob.generate-client-token") return { ok: true };
+  if (input.action !== "prepare" && input.action !== "confirm") {
+    return { ok: false, status: 400, error: "Pedido de upload inválido." };
+  }
   if (input.role === "visitor") return { ok: false, status: 401, error: "Não autenticado" };
   if (input.role === "user") return { ok: false, status: 403, error: "Acesso negado" };
-  if (!input.hasBlobToken) return { ok: false, status: 503, error: PORTFOLIO_STORAGE_UNAVAILABLE };
+  if (!input.configured) return { ok: false, status: 503, error: PORTFOLIO_STORAGE_UNAVAILABLE };
   return { ok: true };
 }
 

@@ -212,15 +212,18 @@ async function main() {
     "audio"
   );
 
-  // N. current Portfolio upload path remains Blob
+  // N. new Portfolio uploads go to R2; Blob client is gone from this path
   const uploadClient = fs.readFileSync(path.join(process.cwd(), "src/app/portfolio/portfolio-upload.ts"), "utf8");
   const uploadRoute = fs.readFileSync(path.join(process.cwd(), "src/app/api/admin/portfolio/upload/route.ts"), "utf8");
-  must(uploadClient.includes('@vercel/blob/client'), "upload client saiu do Blob");
-  must(uploadClient.includes('handleUploadUrl: "/api/admin/portfolio/upload"'), "handleUploadUrl mudou");
-  must(!uploadClient.includes("createPortfolioReadUrl"), "upload client passou a assinar R2");
-  must(uploadRoute.includes("@vercel/blob/client"), "rota de upload saiu do Blob");
-  must(uploadRoute.includes("PORTFOLIO_BLOB_READ_WRITE_TOKEN"), "token de Portfólio Blob ausente");
-  must(!uploadRoute.includes("R2_PORTFOLIO_BUCKET"), "upload admin passou a usar bucket R2");
+  must(!uploadClient.includes("@vercel/blob/client"), "upload client ainda usa Blob");
+  must(!uploadClient.includes("handleUploadUrl"), "handleUploadUrl Blob permaneceu");
+  must(uploadClient.includes('action: "prepare"'), "client não faz prepare");
+  must(uploadClient.includes('action: "confirm"'), "client não faz confirm");
+  must(!uploadRoute.includes("@vercel/blob/client"), "rota de upload ainda usa Blob");
+  must(!uploadRoute.includes("PORTFOLIO_BLOB_READ_WRITE_TOKEN"), "upload novo ainda depende do token Blob");
+  must(uploadRoute.includes("preparePortfolioUpload"), "rota sem prepare R2");
+  must(uploadRoute.includes("confirmPortfolioUpload"), "rota sem confirm R2");
+  must(uploadRoute.includes("requireAdmin"), "upload admin sem requireAdmin");
 
   // O. delivery storage classification unchanged
   const deliveryBlob = classifyDeliveryStorageReference(
@@ -273,7 +276,7 @@ async function main() {
   }
 
   const r2PortfolioSrc = fs.readFileSync(path.join(process.cwd(), "src/app/lib/storage/r2-portfolio.ts"), "utf8");
-  must(!r2PortfolioSrc.includes("PutObjectCommand"), "r2-portfolio expôs PUT");
+  must(r2PortfolioSrc.includes("PutObjectCommand"), "r2-portfolio sem PUT presignado");
   must(!r2PortfolioSrc.includes("DeleteObjectCommand"), "r2-portfolio expôs DELETE");
   must(!r2PortfolioSrc.includes("CopyObjectCommand"), "r2-portfolio expôs COPY");
 

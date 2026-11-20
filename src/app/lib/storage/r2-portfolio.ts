@@ -1,18 +1,19 @@
 /**
- * Leitura privada do bucket de Portfólio no R2.
- * Sem PUT, sem DELETE, sem Copy. A URL assinada não é persistida.
+ * Leitura privada e PUT presignado do bucket de Portfólio no R2.
+ * Sem DELETE, sem Copy. A URL assinada não é persistida.
  */
 
-import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   acceptedPortfolioR2ObjectKey,
+  PORTFOLIO_UPLOAD_METADATA_KIND,
   portfolioCanonicalContentType,
 } from "@/app/portfolio/portfolio-media-ref";
 import { contentDispositionInline } from "../delivery-filename";
 import { classifyR2SdkError, R2_SIGNED_URL_TTL_SECONDS, type R2Failure, type R2FailureCode } from "./r2-delivery";
 import { createR2Client } from "./r2-client";
-import { readR2PortfolioSettings } from "./r2-config";
+import { portfolioWriteBucketAllowed, readR2PortfolioSettings } from "./r2-config";
 
 if (typeof window !== "undefined") {
   throw new Error("r2-portfolio só pode ser usado no servidor.");
@@ -35,11 +36,33 @@ function rejectKey(objectKey: string): R2Failure | null {
   return null;
 }
 
+/** PUT direto do browser. 80 MiB não cabe em 120 s numa conexão lenta. */
+export const PORTFOLIO_UPLOAD_URL_TTL_SECONDS = 15 * 60;
+
 export type R2PortfolioHeadSuccess = {
   ok: true;
   size: number | null;
   contentType: string | null;
+  metadataKind: string | null;
 };
+
+export type PortfolioUploadTarget = {
+  url: string;
+  method: "PUT";
+  headers: {
+    "Content-Type": string;
+    "x-amz-meta-kind": typeof PORTFOLIO_UPLOAD_METADATA_KIND;
+  };
+  expiresIn: number;
+};
+
+function readMetadataKind(metadata: Record<string, string> | undefined): string | null {
+  if (!metadata) return null;
+  for (const [key, value] of Object.entries(metadata)) {
+    if (key.toLowerCase() === "kind") return value;
+  }
+  return null;
+}
 
 export async function headPortfolioObject(objectKey: string): Promise<R2PortfolioHeadSuccess | R2Failure> {
   const invalid = rejectKey(objectKey);
@@ -58,6 +81,48 @@ export async function headPortfolioObject(objectKey: string): Promise<R2Portfoli
       ok: true,
       size: typeof result.ContentLength === "number" ? result.ContentLength : null,
       contentType: result.ContentType || null,
+      metadataKind: readMetadataKind(result.Metadata),
+    };
+  } catch (error) {
+    return r2PortfolioFailure(classifyR2SdkError(error));
+  }
+}
+
+export async function createPortfolioUploadTarget(input: {
+  objectKey: string;
+  contentType: string;
+}): Promise<({ ok: true } & PortfolioUploadTarget) | R2Failure> {
+  const invalid = rejectKey(input.objectKey);
+  if (invalid) return invalid;
+  const canonical = portfolioCanonicalContentType(input.objectKey);
+  if (!canonical || canonical !== input.contentType) return r2PortfolioFailure("invalid_reference");
+  const config = readR2PortfolioSettings();
+  if (!config.ok) return r2PortfolioFailure("unconfigured");
+  if (!portfolioWriteBucketAllowed(config.settings.portfolioBucket)) {
+    return r2PortfolioFailure("unconfigured");
+  }
+  try {
+    const client = createR2Client(config.settings);
+    const command = new PutObjectCommand({
+      Bucket: config.settings.portfolioBucket,
+      Key: input.objectKey,
+      ContentType: canonical,
+      Metadata: { kind: PORTFOLIO_UPLOAD_METADATA_KIND },
+    });
+    const url = await getSignedUrl(client, command, {
+      expiresIn: PORTFOLIO_UPLOAD_URL_TTL_SECONDS,
+      signableHeaders: new Set(["content-type"]),
+      unhoistableHeaders: new Set(["x-amz-meta-kind"]),
+    });
+    return {
+      ok: true,
+      url,
+      method: "PUT",
+      headers: {
+        "Content-Type": canonical,
+        "x-amz-meta-kind": PORTFOLIO_UPLOAD_METADATA_KIND,
+      },
+      expiresIn: PORTFOLIO_UPLOAD_URL_TTL_SECONDS,
     };
   } catch (error) {
     return r2PortfolioFailure(classifyR2SdkError(error));

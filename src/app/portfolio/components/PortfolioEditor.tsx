@@ -32,7 +32,7 @@ import {
 } from "../portfolio-data";
 import { canPlayHint, type LocalMediaFile, type MediaKind } from "./PortfolioMedia";
 import { PortfolioSection, type PortfolioCanvasMode } from "./PortfolioCanvas";
-import { checkPortfolioFile, localMediaBlocksPublish, portfolioAccept, PORTFOLIO_STORAGE_UNAVAILABLE } from "../portfolio-media-ref";
+import { checkPortfolioFile, localMediaBlocksPublish, portfolioAccept, PORTFOLIO_FILE_TOO_LARGE, PORTFOLIO_STORAGE_UNAVAILABLE } from "../portfolio-media-ref";
 import { uploadPortfolioFile } from "../portfolio-upload";
 
 const UNPERSISTED_MEDIA_MESSAGE =
@@ -254,7 +254,7 @@ export function PortfolioExperience({ initialPublished }: { initialPublished: Po
     if (message.includes(PORTFOLIO_STORAGE_UNAVAILABLE)) {
       return PORTFOLIO_STORAGE_UNAVAILABLE;
     }
-    if (message.startsWith("Use ") || message === "Arquivo vazio.") return message;
+    if (message.startsWith("Use ") || message === "Arquivo vazio." || message === PORTFOLIO_FILE_TOO_LARGE) return message;
     return "Não foi possível enviar o arquivo.";
   }
 

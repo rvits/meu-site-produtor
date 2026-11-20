@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { requireAdmin } from "@/app/lib/auth";
-import { decidePortfolioUpload, inspectPortfolioPathname, PORTFOLIO_STORAGE_UNAVAILABLE } from "@/app/portfolio/portfolio-media-ref";
+import {
+  confirmPortfolioUpload,
+  preparePortfolioUpload,
+  type PortfolioUploadCode,
+} from "@/app/lib/storage/portfolio-r2-upload";
+import { decidePortfolioUpload } from "@/app/portfolio/portfolio-media-ref";
+import { readR2PortfolioSettings } from "@/app/lib/storage/r2-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,47 +18,64 @@ function denied(error: unknown) {
   return null;
 }
 
+function statusFor(code: PortfolioUploadCode): number {
+  if (code === "unconfigured") return 503;
+  if (code === "too_large" || code === "invalid_format") return 400;
+  return 400;
+}
+
+function configured(): boolean {
+  return readR2PortfolioSettings().ok;
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => null) as HandleUploadBody | null;
-    if (!body || typeof body !== "object" || !("type" in body)) {
+    await requireAdmin();
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || typeof body.action !== "string") {
       return NextResponse.json({ error: "Pedido de upload inválido." }, { status: 400 });
     }
-    const token = process.env.PORTFOLIO_BLOB_READ_WRITE_TOKEN;
-    if (body.type === "blob.generate-client-token") {
-      await requireAdmin();
-      const decision = decidePortfolioUpload({
-        type: body.type,
-        role: "admin",
-        hasBlobToken: Boolean(token),
-      });
-      if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: decision.status });
-    }
-    if (!token) {
-      return NextResponse.json({ error: PORTFOLIO_STORAGE_UNAVAILABLE }, { status: 503 });
-    }
-    const result = await handleUpload({
-      token,
-      request,
-      body,
-      onBeforeGenerateToken: async (pathname) => {
-        const inspected = inspectPortfolioPathname(pathname);
-        if (!inspected) throw new Error("Caminho de mídia inválido.");
-        return {
-          allowedContentTypes: inspected.contentTypes,
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ kind: inspected.kind }),
-        };
-      },
-      onUploadCompleted: async () => {
-        // A referência só entra no rascunho quando o admin salva o documento.
-      },
+    const decision = decidePortfolioUpload({
+      action: body.action,
+      role: "admin",
+      configured: configured(),
     });
-    return NextResponse.json(result);
+    if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: decision.status });
+
+    if (body.action === "prepare") {
+      const prepared = await preparePortfolioUpload({
+        kind: body.kind,
+        fileName: body.fileName,
+        size: body.size,
+        contentType: body.contentType,
+        originalName: body.originalName ?? body.fileName,
+      });
+      if (!prepared.ok) {
+        return NextResponse.json({ error: prepared.error, code: prepared.code }, { status: statusFor(prepared.code) });
+      }
+      return NextResponse.json({
+        reference: prepared.reference,
+        mimeType: prepared.mimeType,
+        originalName: prepared.originalName,
+        size: prepared.size,
+        upload: prepared.upload,
+      });
+    }
+
+    const confirmed = await confirmPortfolioUpload({
+      reference: body.reference,
+      originalName: body.originalName,
+      size: body.size,
+      contentType: body.contentType,
+      kind: body.kind,
+    });
+    if (!confirmed.ok) {
+      return NextResponse.json({ error: confirmed.error, code: confirmed.code }, { status: statusFor(confirmed.code) });
+    }
+    return NextResponse.json(confirmed.media);
   } catch (error) {
     const response = denied(error);
     if (response) return response;
-    const message = error instanceof Error ? error.message : "Não foi possível autorizar o envio.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: "Não foi possível autorizar o envio." }, { status: 400 });
   }
 }
