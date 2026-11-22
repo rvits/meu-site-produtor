@@ -43,10 +43,12 @@ function readStored(value: unknown): PortfolioDocument | null {
   return parsed.ok ? parsed.document : null;
 }
 
+const STALE_DRAFT_MESSAGE = "O rascunho foi atualizado em outro lugar. Recarregue antes de salvar.";
+
 export function assertDraftVersion(current: number | null, expected: number) {
   const actual = current ?? 0;
   if (!Number.isInteger(expected) || actual !== expected) {
-    throw new PortfolioConflict("O rascunho foi atualizado em outro lugar. Recarregue antes de salvar.");
+    throw new PortfolioConflict(STALE_DRAFT_MESSAGE);
   }
 }
 
@@ -121,14 +123,21 @@ export async function savePortfolioDraft(document: PortfolioDocument, expectedVe
         },
       });
     }
-    return tx.portfolioState.update({
-      where: { id: PORTFOLIO_ROW_ID },
+    const written = await tx.portfolioState.updateMany({
+      where: {
+        id: PORTFOLIO_ROW_ID,
+        draftVersion: expectedVersion,
+      },
       data: {
         draftDocument: json,
         draftVersion: { increment: 1 },
         draftUpdatedAt: new Date(),
       },
     });
+    if (written.count !== 1) throw new PortfolioConflict(STALE_DRAFT_MESSAGE);
+    const reread = await tx.portfolioState.findUnique({ where: { id: PORTFOLIO_ROW_ID } });
+    if (!reread) throw new Error("PortfolioState ausente após a escrita condicional.");
+    return reread;
   });
   return snapshotFromRow(row);
 }
@@ -145,14 +154,22 @@ export async function publishPortfolioDraft(expectedVersion: number): Promise<Ad
     if (published && samePortfolio(draft, published)) {
       throw new PortfolioConflict("Não há alterações salvas para publicar.");
     }
-    return tx.portfolioState.update({
-      where: { id: PORTFOLIO_ROW_ID },
+    const written = await tx.portfolioState.updateMany({
+      where: {
+        id: PORTFOLIO_ROW_ID,
+        draftVersion: expectedVersion,
+        publishedVersion: current.publishedVersion,
+      },
       data: {
         publishedDocument: draft as unknown as Prisma.InputJsonValue,
         publishedVersion: current.draftVersion,
         publishedAt: new Date(),
       },
     });
+    if (written.count !== 1) throw new PortfolioConflict(STALE_DRAFT_MESSAGE);
+    const reread = await tx.portfolioState.findUnique({ where: { id: PORTFOLIO_ROW_ID } });
+    if (!reread) throw new Error("PortfolioState ausente após a escrita condicional.");
+    return reread;
   });
   return snapshotFromRow(row);
 }
